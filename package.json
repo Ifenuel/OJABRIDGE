@@ -1,0 +1,31 @@
+{
+  "name": "ojabridge",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
+    "bcryptjs": "^3.0.3",
+    "cookie": "^2.0.1",
+    "jose": "^6.2.10",
+    "jsonwebtoken": "^9.0.3",
+    "next": "^14.2.0",
+    "pg": "^8.23.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.0",
+    "dotenv": "^17.4.2",
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.2.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0"
+  }
+}

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /vendor-dashboard/
+Disallow: /admin-dashboard/
+Disallow: /api/
+
+Sitemap: https://ojabridge.com/sitemap.xml

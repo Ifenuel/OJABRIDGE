@@ -1,0 +1,94 @@
+import { NextResponse } from 'next/server';
+import { hashPassword, validatePasswordStrength, validateEmail, sanitizeInput } from '@/lib/auth';
+import { dbInsert, dbQuery, isDatabaseConnected } from '@/lib/db';
+
+/**
+ * POST /api/auth/register
+ * Register a new user (Customer, Vendor, or Retailer)
+ */
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const { name, email, password, role, phone, storeName } = body;
+
+    // --- Input Validation ---
+    const errors = [];
+    const cleanName = sanitizeInput(name);
+    const cleanEmail = sanitizeInput(email);
+
+    if (!cleanName || cleanName.length < 2) errors.push('Name must be at least 2 characters');
+    if (!cleanEmail || !validateEmail(cleanEmail)) errors.push('Valid email address is required');
+    if (!password) errors.push('Password is required');
+    if (!['customer', 'vendor', 'retailer'].includes(role)) errors.push('Role must be customer, vendor, or retailer');
+
+    if (password) {
+      const passwordErrors = validatePasswordStrength(password);
+      errors.push(...passwordErrors);
+    }
+
+    if (errors.length > 0) {
+      return NextResponse.json({ success: false, errors }, { status: 400 });
+    }
+
+    // --- Database Registration ---
+    if (isDatabaseConnected()) {
+      // Check if email already exists
+      const existing = await dbQuery('users', { filter: { email: cleanEmail.toLowerCase() } });
+      if (existing.data && existing.data.length > 0) {
+        return NextResponse.json({ success: false, errors: ['An account with this email already exists'] }, { status: 409 });
+      }
+
+      // Hash password
+      const passwordHash = await hashPassword(password);
+
+      // Create user
+      const { data: user, error: userError } = await dbInsert('users', {
+        email: cleanEmail.toLowerCase(),
+        password_hash: passwordHash,
+        name: cleanName,
+        role,
+        phone: phone || null,
+        status: 'active',
+        email_verified: false,
+      });
+
+      if (userError) {
+        console.error('User creation error:', userError);
+        return NextResponse.json({ success: false, errors: ['Failed to create account. Please try again.'] }, { status: 500 });
+      }
+
+      // If vendor, create vendor profile
+      if (role === 'vendor' && user) {
+        const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const { error: vendorError } = await dbInsert('vendors', {
+          user_id: user.id,
+          store_name: storeName || `${cleanName}'s Store`,
+          store_slug: `${slug}-${user.id.slice(0, 6)}`,
+        });
+
+        if (vendorError) {
+          console.error('Vendor profile creation error:', vendorError);
+        }
+      }
+
+      // TODO: Send verification email here
+      // await sendEmail(cleanEmail, 'emailVerification', { name: cleanName, token: verificationToken });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Account created successfully. Please check your email to verify your account.',
+        user: { id: user.id, name: cleanName, email: cleanEmail, role },
+      }, { status: 201 });
+    }
+
+    // --- Database not connected ---
+    return NextResponse.json({
+      success: false,
+      errors: ['Database not connected. Please use dev test accounts or configure DATABASE_URL in .env.'],
+    }, { status: 503 });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    return NextResponse.json({ success: false, errors: ['Internal server error'] }, { status: 500 });
+  }
+}
