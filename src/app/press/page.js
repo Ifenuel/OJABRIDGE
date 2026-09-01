@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { PLATFORM } from '@/lib/platform';
 
 export default function PressPage() {
   const [posts, setPosts] = useState([]);
@@ -32,7 +33,7 @@ export default function PressPage() {
               <p className="text-gray-400 text-sm">Media resources and press information will be published here.</p>
               <div className="mt-8 bg-white rounded-xl p-8 border border-gray-100 text-left">
                 <h3 className="font-bold text-ob-navy mb-2">Media Contact</h3>
-                <p className="text-gray-500 text-sm">For press inquiries, please contact us at <a href="mailto:press@ojabridge.com" className="text-ob-purple hover:underline">press@ojabridge.com</a></p>
+                <p className="text-gray-500 text-sm">For press inquiries, please contact us at <a href={`mailto:${PLATFORM.emails.press}`} className="text-ob-purple hover:underline">{PLATFORM.emails.press}</a></p>
               </div>
             </div>
           ) : (

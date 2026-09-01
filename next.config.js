@@ -72,7 +72,9 @@ const nextConfig = {
   swcMinify: true,
 
   // Server external packages (not bundled by webpack)
-  serverExternalPackages: ['ioredis'],
+  experimental: {
+    serverComponentsExternalPackages: ['ioredis'],
+  },
 
   // Environment variables that should be available
   env: {

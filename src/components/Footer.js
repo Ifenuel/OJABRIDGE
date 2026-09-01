@@ -32,10 +32,10 @@ export default function Footer() {
   ];
 
   const socialLinks = [
-    { name: 'Facebook', icon: 'M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z', comingSoon: true },
-    { name: 'Twitter', icon: 'M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z', comingSoon: true },
-    { name: 'Instagram', icon: 'M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37zm1.5-4.87h.01M6.5 3h11A3.5 3.5 0 0121 6.5v11a3.5 3.5 0 01-3.5 3.5h-11A3.5 3.5 0 013 17.5v-11A3.5 3.5 0 016.5 3z', comingSoon: true },
-    { name: 'LinkedIn', icon: 'M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2zM4 2a2 2 0 110 4 2 2 0 010-4z', comingSoon: true },
+    { name: 'Facebook', icon: 'M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z', url: process.env.NEXT_PUBLIC_FACEBOOK_URL || null },
+    { name: 'Twitter', icon: 'M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z', url: process.env.NEXT_PUBLIC_TWITTER_URL || null },
+    { name: 'Instagram', icon: 'M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37zm1.5-4.87h.01M6.5 3h11A3.5 3.5 0 0121 6.5v11a3.5 3.5 0 01-3.5 3.5h-11A3.5 3.5 0 013 17.5v-11A3.5 3.5 0 016.5 3z', url: process.env.NEXT_PUBLIC_INSTAGRAM_URL || null },
+    { name: 'LinkedIn', icon: 'M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2zM4 2a2 2 0 110 4 2 2 0 010-4z', url: process.env.NEXT_PUBLIC_LINKEDIN_URL || null },
   ];
 
   return (
@@ -77,18 +77,32 @@ export default function Footer() {
             <div className="flex items-center space-x-4">
               {socialLinks.map((social) => (
                 <div key={social.name} className="relative group">
-                  <button
-                    className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-ob-purple/60 transition-colors cursor-default"
-                    aria-label={social.name}
-                    title={`${social.name} — Coming Soon`}
-                  >
-                    <svg className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d={social.icon} />
-                    </svg>
-                  </button>
-                  <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-ob-navy text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    Coming Soon
-                  </span>
+                  {social.url ? (
+                    <a href={social.url} target="_blank" rel="noopener noreferrer"
+                      className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-ob-purple/60 transition-colors"
+                      aria-label={social.name}
+                      title={social.name}
+                    >
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d={social.icon} />
+                      </svg>
+                    </a>
+                  ) : (
+                    <>
+                      <button
+                        className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-ob-purple/60 transition-colors cursor-default"
+                        aria-label={social.name}
+                        title={`${social.name} — Coming Soon`}
+                      >
+                        <svg className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d={social.icon} />
+                        </svg>
+                      </button>
+                      <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-ob-navy text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        Coming Soon
+                      </span>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

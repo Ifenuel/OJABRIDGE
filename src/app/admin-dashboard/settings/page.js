@@ -26,7 +26,8 @@ export default function AdminSettingsPage() {
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
-  const [newAdminForm, setNewAdminForm] = useState({ email: '', name: '', permissions: [] });
+  const [creating, setCreating] = useState(false);
+  const [newAdminForm, setNewAdminForm] = useState({ name: '', email: '', phone: '', password: '', permissions: [] });
 
   useEffect(() => { loadData(); }, []);
 
@@ -44,9 +45,12 @@ export default function AdminSettingsPage() {
   };
 
   const getPermissionsForAdmin = (adminId) => {
-    const role = roles.find(r => r.admin_user_id === adminId);
+    const role = roles.find(r => r.admin_id === adminId);
     if (!role) return [];
-    try { return JSON.parse(role.permissions || '[]'); } catch { return []; }
+    // permissions is TEXT[] from the DB — may come as array or JSON string
+    const perms = role.permissions;
+    if (Array.isArray(perms)) return perms;
+    try { return JSON.parse(perms || '[]'); } catch { return []; }
   };
 
   const savePermissions = async (adminId, perms) => {
@@ -133,9 +137,64 @@ export default function AdminSettingsPage() {
 
         {/* Create Sub-Admin Form */}
         {showCreateAdmin && (
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-            <p className="text-sm font-medium text-ob-navy mb-3">Create a new admin account (they must register first, then you assign permissions here)</p>
-            <p className="text-xs text-gray-500">After the user registers on the platform with role &quot;admin&quot;, they will appear below and you can configure their permissions.</p>
+          <div className="px-6 py-6 bg-gray-50 border-b border-gray-100">
+            <p className="text-sm font-bold text-ob-navy mb-4">Create New Sub-Admin Account</p>
+            <div className="grid sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Full Name *</label>
+                <input type="text" value={newAdminForm.name} onChange={e => setNewAdminForm({...newAdminForm, name: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="e.g. John Doe" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Email *</label>
+                <input type="email" value={newAdminForm.email} onChange={e => setNewAdminForm({...newAdminForm, email: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="john@ojabridge.com" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Phone (optional)</label>
+                <input type="tel" value={newAdminForm.phone} onChange={e => setNewAdminForm({...newAdminForm, phone: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="+234..." />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Password *</label>
+                <input type="password" value={newAdminForm.password} onChange={e => setNewAdminForm({...newAdminForm, password: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="Min 8 characters" minLength={8} />
+              </div>
+            </div>
+            <div className="mb-4">
+              <p className="text-xs font-medium text-gray-600 mb-2">Assign Permissions</p>
+              <div className="flex flex-wrap gap-2">
+                {AVAILABLE_PERMISSIONS.map(perm => (
+                  <button key={perm.key} type="button" onClick={() => {
+                    const has = newAdminForm.permissions.includes(perm.key);
+                    setNewAdminForm({...newAdminForm, permissions: has ? newAdminForm.permissions.filter(p => p !== perm.key) : [...newAdminForm.permissions, perm.key]});
+                  }} className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${newAdminForm.permissions.includes(perm.key) ? 'bg-ob-purple text-white border-ob-purple' : 'bg-white text-gray-600 border-gray-200 hover:border-ob-purple'}`}>{perm.icon} {perm.label}</button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={async () => {
+                if (!newAdminForm.name || !newAdminForm.email || !newAdminForm.password) { setMessage({type:'error', text:'Name, email and password are required'}); return; }
+                setCreating(true);
+                try {
+                  const res = await fetch('/api/admin/create-admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newAdminForm),
+                  });
+                  const data = await res.json();
+                  if (data.success) {
+                    setMessage({ type: 'success', text: data.message || 'Sub-admin created successfully' });
+                    setShowCreateAdmin(false);
+                    setNewAdminForm({ name: '', email: '', phone: '', password: '', permissions: [] });
+                    loadData();
+                  } else {
+                    setMessage({ type: 'error', text: data.errors?.join(', ') || data.error || 'Failed to create' });
+                  }
+                } catch (e) { setMessage({ type: 'error', text: 'Network error' }); }
+                setCreating(false);
+                setTimeout(() => setMessage({type:'',text:''}), 5000);
+              }} disabled={creating} className="bg-ob-purple text-white px-5 py-2 text-sm rounded-lg font-medium hover:bg-ob-purple-dark disabled:opacity-50 transition-colors">
+                {creating ? 'Creating...' : 'Create Sub-Admin Account'}
+              </button>
+              <button type="button" onClick={() => setShowCreateAdmin(false)} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Cancel</button>
+            </div>
           </div>
         )}
 
@@ -158,7 +217,7 @@ export default function AdminSettingsPage() {
                 <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-400 text-sm">No admin accounts found.</td></tr>
               ) : admins.map(admin => {
                 const perms = getPermissionsForAdmin(admin.id);
-                const role = roles.find(r => r.admin_user_id === admin.id);
+                const role = roles.find(r => r.admin_id === admin.id);
                 const isSuperAdmin = role?.is_super_admin || admin.id === user?.id;
                 return (
                   <tr key={admin.id} className="border-b border-gray-50 hover:bg-gray-50">
@@ -191,6 +250,18 @@ export default function AdminSettingsPage() {
                       {admin.id !== user?.id && (
                         <div className="flex space-x-2">
                           <button onClick={() => { setSelectedAdmin(admin); setShowRoleModal(true); }} className="text-ob-purple text-xs font-medium hover:underline">Configure Access</button>
+                          {!isSuperAdmin && (
+                            <button onClick={async () => {
+                              if (!confirm(`Remove admin role from ${admin.name}?`)) return;
+                              try {
+                                const res = await fetch(`/api/admin/roles?userId=${admin.id}`, { method: 'DELETE' });
+                                const data = await res.json();
+                                if (data.success) { setMessage({type:'success', text:'Admin role removed'}); loadData(); }
+                                else setMessage({type:'error', text: data.error});
+                              } catch(e) { setMessage({type:'error', text:'Failed'}); }
+                              setTimeout(() => setMessage({type:'',text:''}), 3000);
+                            }} className="text-red-500 text-xs font-medium hover:underline">Remove</button>
+                          )}
                         </div>
                       )}
                     </td>

@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import ScrollReveal from '@/components/ScrollReveal';
-import AnimatedCounter from '@/components/AnimatedCounter';
+import StatsSection from '@/components/StatsSection';
 
 export default function Home() {
   return (
@@ -833,46 +833,9 @@ export default function Home() {
       </section>
 
       {/* ========================================
-          SECTION 16 — STATS BAR
+          SECTION 16 — LIVE STATS (real data from database)
           ======================================== */}
-      <section className="bg-ob-purple py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
-            <ScrollReveal animation="fade-up" delay={0}>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold mb-2">
-                  <AnimatedCounter target={0} suffix="+" />
-                </div>
-                <p className="text-white/70 text-sm">Verified Vendors</p>
-              </div>
-            </ScrollReveal>
-            <ScrollReveal animation="fade-up" delay={100}>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold mb-2">
-                  <AnimatedCounter target={0} suffix="+" />
-                </div>
-                <p className="text-white/70 text-sm">Products Listed</p>
-              </div>
-            </ScrollReveal>
-            <ScrollReveal animation="fade-up" delay={200}>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold mb-2">
-                  <AnimatedCounter target={0} suffix="+" />
-                </div>
-                <p className="text-white/70 text-sm">Orders Completed</p>
-              </div>
-            </ScrollReveal>
-            <ScrollReveal animation="fade-up" delay={300}>
-              <div>
-                <div className="text-3xl md:text-4xl font-bold mb-2">
-                  <AnimatedCounter target={0} suffix="%" />
-                </div>
-                <p className="text-white/70 text-sm">Customer Satisfaction</p>
-              </div>
-            </ScrollReveal>
-          </div>
-        </div>
-      </section>
+      <StatsSection />
 
       {/* ========================================
           SECTION 17 — FINAL CTA

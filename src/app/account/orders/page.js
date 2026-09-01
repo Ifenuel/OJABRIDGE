@@ -11,6 +11,9 @@ export default function AccountOrdersPage() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [expandedOrder, setExpandedOrder] = useState(null);
   const [orderItems, setOrderItems] = useState({});
+  const [showDispute, setShowDispute] = useState(null);
+  const [disputeForm, setDisputeForm] = useState({ reason: '', description: '' });
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
 
   useEffect(() => { loadOrders(); }, []);
 
@@ -118,7 +121,44 @@ export default function AccountOrdersPage() {
                   {(order.status === 'pending' || order.status === 'confirmed') && (
                     <button onClick={() => cancelOrder(order.id)} className="text-red-500 text-xs font-medium hover:underline">Cancel Order</button>
                   )}
+                  {['delivered', 'completed', 'shipped'].includes(order.status) && (
+                    <button onClick={() => setShowDispute(showDispute === order.id ? null : order.id)} className="text-amber-600 text-xs font-medium hover:underline">Open Dispute</button>
+                  )}
                 </div>
+                {showDispute === order.id && (
+                  <div className="border-t border-amber-100 p-6 bg-amber-50">
+                    <p className="text-sm font-bold text-ob-navy mb-3">Open a Dispute for {order.order_number}</p>
+                    <input type="text" value={disputeForm.reason} onChange={e => setDisputeForm({...disputeForm, reason: e.target.value})} placeholder="Reason (e.g. Wrong item received)" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm mb-3 focus:border-ob-purple outline-none" />
+                    <textarea rows={3} value={disputeForm.description} onChange={e => setDisputeForm({...disputeForm, description: e.target.value})} placeholder="Describe the issue in detail..." className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm mb-3 focus:border-ob-purple outline-none resize-none" />
+                    <div className="flex gap-2">
+                      <button onClick={async () => {
+                        if (!disputeForm.reason || !disputeForm.description) return;
+                        setDisputeSubmitting(true);
+                        try {
+                          const res = await fetch('/api/disputes', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ orderId: order.id, reason: disputeForm.reason, description: disputeForm.description }),
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            setMessage({ type: 'success', text: 'Dispute opened. Our team will review it shortly.' });
+                            setShowDispute(null);
+                            setDisputeForm({ reason: '', description: '' });
+                            loadOrders();
+                          } else {
+                            setMessage({ type: 'error', text: data.error || data.errors?.join(', ') || 'Failed' });
+                          }
+                        } catch (e) { setMessage({ type: 'error', text: 'Network error' }); }
+                        setDisputeSubmitting(false);
+                        setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+                      }} disabled={disputeSubmitting || !disputeForm.reason || !disputeForm.description} className="bg-amber-600 text-white px-4 py-2 text-xs rounded-lg font-medium disabled:opacity-50">
+                        {disputeSubmitting ? 'Submitting...' : 'Submit Dispute'}
+                      </button>
+                      <button onClick={() => { setShowDispute(null); setDisputeForm({ reason: '', description: '' }); }} className="text-gray-500 text-xs px-4 py-2">Cancel</button>
+                    </div>
+                  </div>
+                )}
                 {expandedOrder === order.id && (
                   <div className="border-t border-gray-100 p-6 bg-gray-50">
                     <div className="grid sm:grid-cols-2 gap-4">

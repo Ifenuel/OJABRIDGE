@@ -19,6 +19,7 @@ export async function POST(request) {
     if (!cleanName || cleanName.length < 2) errors.push('Name must be at least 2 characters');
     if (!cleanEmail || !validateEmail(cleanEmail)) errors.push('Valid email address is required');
     if (!password) errors.push('Password is required');
+    if (!phone || phone.trim().length < 7) errors.push('Phone number is required');
     if (!['customer', 'vendor', 'retailer'].includes(role)) errors.push('Role must be customer, vendor, or retailer');
 
     if (password) {
@@ -59,8 +60,8 @@ export async function POST(request) {
         return NextResponse.json({ success: false, errors: ['Failed to create account. Please try again.'] }, { status: 500 });
       }
 
-      // If vendor, create vendor profile with business details
-      if (role === 'vendor' && user) {
+      // If vendor or retailer, create vendor profile (needed for KYC)
+      if ((role === 'vendor' || role === 'retailer') && user) {
         const slug = (storeName || cleanName).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         const { error: vendorError } = await dbInsert('vendors', {
           user_id: user.id,

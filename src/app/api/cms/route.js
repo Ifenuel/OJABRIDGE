@@ -15,10 +15,11 @@ export async function GET(request) {
     const type = searchParams.get('type') || 'blog';
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
 
+    // Note: Schema has press_posts (career-like cols) and career_posts (press-like cols)
     const tableMap = {
       blog: 'blog_posts',
-      career: 'career_posts',
-      press: 'press_posts',
+      career: 'press_posts',       // press_posts table has department, location, employment_type
+      press: 'career_posts',       // career_posts table has summary, featured_image, content
       announcement: 'announcements',
     };
 
@@ -56,12 +57,12 @@ export async function POST(request) {
     if (!isDatabaseConnected()) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
 
     const body = await request.json();
-    const { type, title, slug, content, excerpt, category, department, location, employment_type, status, summary, audience, priority, featured_image } = body;
+    const { type, title, slug, content, excerpt, category, department, location, employment_type, status, summary, audience, priority, featured_image, video_url, youtube_url } = body;
 
     const tableMap = {
       blog: 'blog_posts',
-      career: 'career_posts',
-      press: 'press_posts',
+      career: 'press_posts',       // press_posts has department, location, employment_type
+      press: 'career_posts',       // career_posts has summary, featured_image, content
       announcement: 'announcements',
     };
     const table = tableMap[type];
@@ -77,6 +78,8 @@ export async function POST(request) {
         content: content || null,
         excerpt: excerpt || summary || null,
         featured_image: featured_image || null,
+        video_url: video_url || null,
+        youtube_url: youtube_url || null,
         author: user.name || 'Admin',
         category: category || null,
         status: status || 'draft',
@@ -90,6 +93,9 @@ export async function POST(request) {
         location: location || null,
         employment_type: employment_type || null,
         description: content || null,
+        featured_image: featured_image || null,
+        video_url: video_url || null,
+        youtube_url: youtube_url || null,
         status: status || 'draft',
         published_at: status === 'published' ? new Date().toISOString() : null,
         created_by: user.id,
@@ -129,8 +135,8 @@ export async function PATCH(request) {
 
     const tableMap = {
       blog: 'blog_posts',
-      career: 'career_posts',
-      press: 'press_posts',
+      career: 'press_posts',       // press_posts has department, location, employment_type
+      press: 'career_posts',       // career_posts has summary, featured_image, content
       announcement: 'announcements',
     };
     const table = tableMap[type];
@@ -167,8 +173,8 @@ export async function DELETE(request) {
 
     const tableMap = {
       blog: 'blog_posts',
-      career: 'career_posts',
-      press: 'press_posts',
+      career: 'press_posts',       // press_posts has department, location, employment_type
+      press: 'career_posts',       // career_posts has summary, featured_image, content
       announcement: 'announcements',
     };
     const table = tableMap[type];

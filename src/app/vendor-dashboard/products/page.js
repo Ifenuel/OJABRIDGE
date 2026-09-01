@@ -190,14 +190,19 @@ export default function VendorProductsPage() {
               <textarea required rows={4} value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:border-ob-purple focus:ring-2 focus:ring-ob-purple/20 outline-none text-sm resize-none" placeholder="Detailed product description including features, specifications, and what makes this product special..." />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Product Images <span className="text-gray-400">(comma separated URLs)</span></label>
-              <input type="text" value={form.imageUrls} onChange={e => setForm({...form, imageUrls: e.target.value})} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:border-ob-purple focus:ring-2 focus:ring-ob-purple/20 outline-none text-sm" placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg" />
-              <p className="text-xs text-gray-400 mt-1">Paste image URLs separated by commas. First image is the main product photo.</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Product Images</label>
+              <div className="flex gap-2">
+                <input type="url" id="imageUrlInput" className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg focus:border-ob-purple focus:ring-2 focus:ring-ob-purple/20 outline-none text-sm" placeholder="https://example.com/image.jpg" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const val = e.target.value.trim(); if (val && val.startsWith('http')) { const current = form.imageUrls ? form.imageUrls.split(',').map(u=>u.trim()).filter(Boolean) : []; if (!current.includes(val)) { setForm({...form, imageUrls: [...current, val].join(', ')}); } e.target.value = ''; } } }} />
+                <button type="button" onClick={() => { const inp = document.getElementById('imageUrlInput'); const val = inp?.value?.trim(); if (val && val.startsWith('http')) { const current = form.imageUrls ? form.imageUrls.split(',').map(u=>u.trim()).filter(Boolean) : []; if (!current.includes(val)) { setForm({...form, imageUrls: [...current, val].join(', ')}); } inp.value = ''; } }} className="px-4 py-2.5 bg-ob-purple text-white text-sm rounded-lg hover:bg-ob-purple-dark transition-colors whitespace-nowrap">+ Add</button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Paste an image URL and click Add (or press Enter). First image is the main product photo.</p>
               {form.imageUrls && (
-                <div className="flex gap-2 mt-2 flex-wrap">
+                <div className="flex gap-2 mt-3 flex-wrap">
                   {form.imageUrls.split(',').map((url, i) => url.trim() && (
-                    <div key={i} className="w-16 h-16 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
+                    <div key={i} className="relative group w-20 h-20 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
                       <img src={url.trim()} alt="" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+                      <button type="button" onClick={() => { const imgs = form.imageUrls.split(',').map(u=>u.trim()).filter(Boolean); imgs.splice(i, 1); setForm({...form, imageUrls: imgs.join(', ')}); }} className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                      {i === 0 && <span className="absolute bottom-0.5 left-0.5 bg-ob-purple text-white text-[8px] px-1 rounded">Main</span>}
                     </div>
                   ))}
                 </div>

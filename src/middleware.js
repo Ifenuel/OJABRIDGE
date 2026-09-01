@@ -241,10 +241,10 @@ export async function middleware(request) {
     }
   }
 
-  // Vendor API routes
+  // Vendor + Retailer API routes
   if (pathname.startsWith('/api/inventory') || pathname.startsWith('/api/kyc')) {
     if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
-    if (user.role !== 'vendor' && user.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    if (!['vendor', 'retailer', 'admin'].includes(user.role)) return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
   }
 
   // Customer Account Dashboard

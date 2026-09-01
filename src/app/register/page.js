@@ -148,7 +148,7 @@ export default function RegisterPage() {
       case 1: return role === 'customer' || role === 'vendor' || role === 'retailer';
       case 2: return country !== '' && currency !== '';
       case 3: return emailVerified || email.length > 0;
-      case 4: return firstName && lastName && email && password.length >= 8 && password === confirmPassword && agreed;
+      case 4: return firstName && lastName && email && phone && password.length >= 8 && password === confirmPassword && agreed;
       case 5: return role === 'vendor' ? businessName && businessType && rcNumber && businessAddress : true;
       case 6: return true;
       default: return false;
@@ -338,9 +338,9 @@ export default function RegisterPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number (optional)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
                   <div className="flex gap-2">
-                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+234..."
+                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+234..." required
                       className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" disabled={phoneVerified} />
                     {phoneVerified ? (
                       <span className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">✓ Verified</span>

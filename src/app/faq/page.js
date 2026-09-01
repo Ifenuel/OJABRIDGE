@@ -117,6 +117,7 @@ export default function FAQPage() {
           <a href="mailto:support@ojabridge.com" className="btn-primary inline-block">
             Contact Support
           </a>
+          <p className="text-gray-400 text-xs mt-3">Or email us directly at <a href="mailto:support@ojabridge.com" className="text-ob-purple hover:underline">support@ojabridge.com</a></p>
         </div>
       </section>
     </>

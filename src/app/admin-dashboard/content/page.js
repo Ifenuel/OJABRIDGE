@@ -15,7 +15,7 @@ export default function AdminContentPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', content: '', excerpt: '', category: '', status: 'draft' });
+  const [form, setForm] = useState({ title: '', content: '', excerpt: '', category: '', status: 'draft', featured_image: '', video_url: '', youtube_url: '' });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
@@ -44,7 +44,7 @@ export default function AdminContentPage() {
       if (data.success) {
         setMessage({ type: 'success', text: 'Created successfully' });
         setShowForm(false);
-        setForm({ title: '', content: '', excerpt: '', category: '', status: 'draft' });
+        setForm({ title: '', content: '', excerpt: '', category: '', status: 'draft', featured_image: '', video_url: '', youtube_url: '' });
         loadItems();
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed' });
@@ -121,6 +121,25 @@ export default function AdminContentPage() {
           <form onSubmit={handleCreate} className="space-y-4">
             <input type="text" required value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="Title" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
             <textarea rows={4} value={form.content} onChange={e => setForm({...form, content: e.target.value})} placeholder="Content..." className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none resize-none" />
+            <input type="text" value={form.excerpt} onChange={e => setForm({...form, excerpt: e.target.value})} placeholder="Excerpt / Summary (optional)" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Featured Image URL</label>
+                <input type="url" value={form.featured_image} onChange={e => setForm({...form, featured_image: e.target.value})} placeholder="https://example.com/image.jpg" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
+                {form.featured_image && <img src={form.featured_image} alt="Preview" className="mt-2 h-20 rounded-lg object-cover" onError={e => e.target.style.display='none'} />}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Video URL (optional)</label>
+                <input type="url" value={form.video_url} onChange={e => setForm({...form, video_url: e.target.value})} placeholder="https://example.com/video.mp4" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">YouTube Video Link (optional)</label>
+                <input type="url" value={form.youtube_url} onChange={e => setForm({...form, youtube_url: e.target.value})} placeholder="https://youtube.com/watch?v=..." className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
+              </div>
+            </div>
+            {(activeTab === 'blog' || activeTab === 'press') && (
+              <input type="text" value={form.category} onChange={e => setForm({...form, category: e.target.value})} placeholder="Category (optional)" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
+            )}
             <div className="flex gap-4">
               <select value={form.status} onChange={e => setForm({...form, status: e.target.value})} className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm">
                 <option value="draft">Draft</option>
@@ -137,18 +156,32 @@ export default function AdminContentPage() {
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
+            <thead>              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
               <th className="px-6 py-4 font-medium">Title</th>
+              <th className="px-6 py-4 font-medium">Media</th>
               <th className="px-6 py-4 font-medium">Status</th>
               <th className="px-6 py-4 font-medium">Created</th>
               <th className="px-6 py-4 font-medium">Actions</th>
             </tr></thead>
             <tbody>
-              {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={4} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : items.length === 0 ? (
-                <tr><td colSpan={4} className="px-6 py-16 text-center text-gray-400 text-sm">No {activeTab} posts yet. Click "Create New" to add one.</td></tr>
+              {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={5} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : items.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-16 text-center text-gray-400 text-sm">No {activeTab} posts yet. Click "Create New" to add one.</td></tr>
               ) : items.map(item => (
                 <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-ob-navy">{item.title}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      {item.featured_image ? <img src={item.featured_image} alt="" className="w-10 h-10 rounded-lg object-cover" /> : <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">📝</div>}
+                      <span className="text-sm font-medium text-ob-navy">{item.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-1">
+                      {item.featured_image && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">🖼 Image</span>}
+                      {item.youtube_url && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">▶ YouTube</span>}
+                      {item.video_url && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">🎬 Video</span>}
+                      {!item.featured_image && !item.youtube_url && !item.video_url && <span className="text-xs text-gray-400">None</span>}
+                    </div>
+                  </td>
                   <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${item.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{item.status}</span></td>
                   <td className="px-6 py-4 text-sm text-gray-500">{new Date(item.created_at).toLocaleDateString()}</td>
                   <td className="px-6 py-4">
