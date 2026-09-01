@@ -115,8 +115,9 @@ export default function Home() {
 
       {/* ========================================
           SECTION 03 — HOW IT WORKS — STAIRCASE (6 Steps)
+          Proper descending ladder/staircase design
           ======================================== */}
-      <section className="section-padding bg-white" id="how-it-works">
+      <section className="section-padding bg-ob-light" id="how-it-works">
         <div className="container-custom">
           <ScrollReveal>
             <div className="text-center mb-16">
@@ -130,52 +131,70 @@ export default function Home() {
             </div>
           </ScrollReveal>
 
-          {/* Staircase Layout */}
-          <div className="relative max-w-4xl mx-auto">
-            {/* Vertical connecting line (desktop only) */}
-            <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-ob-purple/20 via-ob-purple/10 to-ob-lime/20 -translate-x-1/2" />
-
+          {/* Staircase Layout — each step indents further right like descending stairs */}
+          <div className="max-w-3xl mx-auto relative">
             {[
-              { step: 1, title: 'Place Your Order', desc: 'Choose your products and place your order securely', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z', color: 'bg-ob-purple/10 text-ob-purple border-ob-purple/20', numberColor: 'bg-ob-purple text-white' },
-              { step: 2, title: 'Order Confirmed', desc: 'We confirm your payment and notify the vendor', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', color: 'bg-blue-50 text-blue-600 border-blue-200', numberColor: 'bg-blue-600 text-white' },
-              { step: 3, title: 'Vendor Prepares', desc: 'The vendor prepares and packages your order', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', color: 'bg-amber-50 text-amber-600 border-amber-200', numberColor: 'bg-amber-500 text-white' },
-              { step: 4, title: 'Order Shipped', desc: 'Your order is on its way with real-time tracking', icon: 'M8 17a2 2 0 100-4 2 2 0 000 4zm8 0a2 2 0 100-4 2 2 0 000 4zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3z', color: 'bg-indigo-50 text-indigo-600 border-indigo-200', numberColor: 'bg-indigo-600 text-white' },
-              { step: 5, title: 'Order Delivered', desc: 'Your order arrives safely at your doorstep', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4', color: 'bg-teal-50 text-teal-600 border-teal-200', numberColor: 'bg-teal-600 text-white' },
-              { step: 6, title: 'Vendor Gets Paid', desc: 'After delivery confirmation, vendor payment is processed', icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z', color: 'bg-ob-lime/10 text-ob-lime-dark border-ob-lime/30', numberColor: 'bg-ob-lime text-ob-navy' },
+              { step: 1, title: 'Place Your Order', desc: 'Choose your products and place your order securely', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z', color: 'bg-ob-purple', textColor: 'text-white' },
+              { step: 2, title: 'Order Confirmed', desc: 'We confirm your payment and notify the vendor', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', color: 'bg-blue-600', textColor: 'text-white' },
+              { step: 3, title: 'Vendor Prepares', desc: 'The vendor prepares and packages your order', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', color: 'bg-amber-500', textColor: 'text-white' },
+              { step: 4, title: 'Order Shipped', desc: 'Your order is on its way with real-time tracking', icon: 'M8 17a2 2 0 100-4 2 2 0 000 4zm8 0a2 2 0 100-4 2 2 0 000 4zM3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3z', color: 'bg-indigo-600', textColor: 'text-white' },
+              { step: 5, title: 'Order Delivered', desc: 'Your order arrives safely at your doorstep', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4', color: 'bg-teal-600', textColor: 'text-white' },
+              { step: 6, title: 'Vendor Gets Paid', desc: 'After delivery confirmation, vendor payment is processed', icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z', color: 'bg-ob-lime', textColor: 'text-ob-navy' },
             ].map((item, idx) => (
-              <ScrollReveal key={idx} animation="fade-up" delay={idx * 120}>
-                <div className={`relative flex items-center gap-6 lg:gap-12 mb-12 last:mb-0 ${idx % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'}`}>
-                  {/* Step number circle — center on desktop, left on mobile */}
-                  <div className="hidden lg:flex absolute left-1/2 -translate-x-1/2 z-10">
-                    <div className={`w-12 h-12 rounded-full ${item.numberColor} flex items-center justify-center font-bold text-sm shadow-md`}>
+              <ScrollReveal key={idx} animation="fade-up" delay={idx * 150}>
+                <div
+                  className="relative flex items-stretch mb-4 last:mb-0"
+                  style={{ paddingLeft: `${idx * 48}px` }}
+                >
+                  {/* Vertical connecting line */}
+                  {idx < 5 && (
+                    <div
+                      className="absolute top-14 bg-gradient-to-b from-ob-purple/30 to-ob-purple/10"
+                      style={{
+                        left: `${idx * 48 + 23}px`,
+                        width: '2px',
+                        height: 'calc(100% - 8px)',
+                      }}
+                    />
+                  )}
+
+                  {/* Step number circle */}
+                  <div className="flex-shrink-0 relative z-10 mr-4 mt-5">
+                    <div className={`w-12 h-12 rounded-full ${item.color} ${item.textColor} flex items-center justify-center font-bold text-sm shadow-lg`}>
                       {item.step}
                     </div>
                   </div>
 
-                  {/* Content card */}
-                  <div className={`flex-1 lg:w-[calc(50%-3rem)] ${idx % 2 === 0 ? 'lg:pr-16' : 'lg:pl-16'}`}>
-                    <div className={`flex items-start gap-4 p-5 rounded-xl border ${item.color} hover:shadow-md transition-shadow`}>
-                      <div className="lg:hidden w-10 h-10 rounded-full bg-ob-purple text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-                        {item.step}
-                      </div>
-                      <div className="w-12 h-12 rounded-xl bg-white/80 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  {/* Step content card */}
+                  <div className="flex-1 bg-white rounded-xl p-5 border border-gray-100 hover:shadow-lg transition-shadow group">
+                    <div className="flex items-start gap-4">
+                      <div className="w-11 h-11 rounded-lg bg-ob-purple/10 flex items-center justify-center text-ob-purple flex-shrink-0 group-hover:bg-ob-purple group-hover:text-white transition-colors">
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
                         </svg>
                       </div>
                       <div>
                         <h3 className="font-bold text-ob-navy text-base mb-1">{item.title}</h3>
-                        <p className="text-gray-600 text-sm leading-relaxed">{item.desc}</p>
+                        <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
                       </div>
                     </div>
                   </div>
-
-                  {/* Empty spacer for alternating layout */}
-                  <div className="hidden lg:block flex-1 lg:w-[calc(50%-3rem)]" />
                 </div>
               </ScrollReveal>
             ))}
           </div>
+
+          {/* Green flag at the end */}
+          <ScrollReveal animation="scale-in" delay={900}>
+            <div className="text-center mt-10">
+              <div className="inline-flex items-center gap-2 bg-ob-lime/10 text-ob-lime-dark px-5 py-2.5 rounded-full border border-ob-lime/30">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm font-semibold">Order complete — Vendor gets paid</span>
+              </div>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 

@@ -31,17 +31,18 @@ export default function Footer() {
     { name: 'Security', href: '/security' },
   ];
 
+  // X (formerly Twitter) + Facebook + Instagram + LinkedIn
   const socialLinks = [
     { name: 'Facebook', icon: 'M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z', url: process.env.NEXT_PUBLIC_FACEBOOK_URL || null },
-    { name: 'Twitter', icon: 'M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z', url: process.env.NEXT_PUBLIC_TWITTER_URL || null },
+    { name: 'X', icon: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z', url: process.env.NEXT_PUBLIC_TWITTER_URL || null },
     { name: 'Instagram', icon: 'M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37zm1.5-4.87h.01M6.5 3h11A3.5 3.5 0 0121 6.5v11a3.5 3.5 0 01-3.5 3.5h-11A3.5 3.5 0 013 17.5v-11A3.5 3.5 0 016.5 3z', url: process.env.NEXT_PUBLIC_INSTAGRAM_URL || null },
     { name: 'LinkedIn', icon: 'M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2zM4 2a2 2 0 110 4 2 2 0 010-4z', url: process.env.NEXT_PUBLIC_LINKEDIN_URL || null },
   ];
 
   return (
-    <footer className="bg-ob-navy text-white">
+    <footer className="bg-white border-t border-gray-200">
       {/* Trust Bar */}
-      <div className="border-b border-white/10">
+      <div className="border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {[
@@ -54,8 +55,8 @@ export default function Footer() {
               <div key={idx} className="flex items-center space-x-3">
                 <span className="text-2xl">{item.icon}</span>
                 <div>
-                  <p className="font-semibold text-sm">{item.title}</p>
-                  <p className="text-gray-400 text-xs">{item.desc}</p>
+                  <p className="font-semibold text-sm text-ob-navy">{item.title}</p>
+                  <p className="text-gray-500 text-xs">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -71,30 +72,30 @@ export default function Footer() {
             <Link href="/" className="flex items-center mb-4">
               <Logo size="default" />
             </Link>
-            <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-sm">
+            <p className="text-gray-600 text-sm leading-relaxed mb-6 max-w-sm">
               The trusted bridge connecting suppliers, retailers and customers through secure, transparent and reliable digital commerce.
             </p>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               {socialLinks.map((social) => (
                 <div key={social.name} className="relative group">
                   {social.url ? (
                     <a href={social.url} target="_blank" rel="noopener noreferrer"
-                      className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-ob-purple/60 transition-colors"
+                      className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-ob-purple/10 transition-colors"
                       aria-label={social.name}
                       title={social.name}
                     >
-                      <svg className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-gray-600 group-hover:text-ob-purple transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d={social.icon} />
                       </svg>
                     </a>
                   ) : (
                     <>
                       <button
-                        className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-ob-purple/60 transition-colors cursor-default"
+                        className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-ob-purple/10 transition-colors cursor-default"
                         aria-label={social.name}
                         title={`${social.name} — Coming Soon`}
                       >
-                        <svg className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-gray-400 group-hover:text-ob-purple transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d={social.icon} />
                         </svg>
                       </button>
@@ -110,11 +111,11 @@ export default function Footer() {
 
           {/* Company Links */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider">Company</h4>
+            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider text-ob-navy">Company</h4>
             <ul className="space-y-2.5">
               {companyLinks.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-gray-400 hover:text-ob-lime text-sm transition-colors">
+                  <Link href={link.href} className="text-gray-500 hover:text-ob-purple text-sm transition-colors">
                     {link.name}
                   </Link>
                 </li>
@@ -124,11 +125,11 @@ export default function Footer() {
 
           {/* Support Links */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider">Support</h4>
+            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider text-ob-navy">Support</h4>
             <ul className="space-y-2.5">
               {supportLinks.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-gray-400 hover:text-ob-lime text-sm transition-colors">
+                  <Link href={link.href} className="text-gray-500 hover:text-ob-purple text-sm transition-colors">
                     {link.name}
                   </Link>
                 </li>
@@ -138,11 +139,11 @@ export default function Footer() {
 
           {/* Supplier Links */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider">For Suppliers</h4>
+            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider text-ob-navy">For Suppliers</h4>
             <ul className="space-y-2.5">
               {supplierLinks.map((link) => (
                 <li key={link.name}>
-                  <Link href={link.href} className="text-gray-400 hover:text-ob-lime text-sm transition-colors">
+                  <Link href={link.href} className="text-gray-500 hover:text-ob-purple text-sm transition-colors">
                     {link.name}
                   </Link>
                 </li>
@@ -153,11 +154,11 @@ export default function Footer() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-white/10">
+      <div className="border-t border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-            <p className="text-gray-400 text-sm">
-              © {new Date().getFullYear()} OjaBridge. All rights reserved.
+            <p className="text-gray-500 text-sm">
+              © {new Date().getFullYear()} OjaBridge. All rights reserved. Made with ❤️ in Nigeria 🇳🇬
             </p>
             <div className="flex items-center space-x-6">
               <span className="text-gray-400 text-xs">Accepted Payment Methods:</span>
@@ -165,7 +166,7 @@ export default function Footer() {
                 {['VISA', 'MC', 'Paystack', 'Verve'].map((method) => (
                   <span
                     key={method}
-                    className="bg-white/10 px-3 py-1 rounded text-xs font-medium text-gray-300"
+                    className="bg-gray-100 px-3 py-1 rounded text-xs font-medium text-gray-600"
                   >
                     {method}
                   </span>
