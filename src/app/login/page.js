@@ -34,6 +34,8 @@ export default function LoginPage() {
       if (result.success && result.user) {
         const dashboards = { admin: '/admin-dashboard', vendor: '/vendor-dashboard', retailer: '/retailer-dashboard', customer: '/account' };
         router.push(dashboards[result.user.role] || '/account');
+      } else if (result.requiresVerification) {
+        router.push(`/verify-email?email=${encodeURIComponent(result.email || email)}`);
       } else {
         setError(result.error || 'Login failed. Please check your credentials.');
       }

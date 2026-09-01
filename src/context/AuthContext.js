@@ -59,7 +59,7 @@ export function AuthProvider({ children }) {
       }
 
       setLoading(false);
-      return { success: false, error: data.error || 'Login failed' };
+      return { success: false, error: data.error || 'Login failed', requiresVerification: data.requiresVerification, email: data.email };
     } catch (err) {
       setLoading(false);
       return { success: false, error: 'Network error. Please try again.' };

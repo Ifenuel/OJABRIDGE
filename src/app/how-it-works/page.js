@@ -5,126 +5,132 @@ import { useEffect, useState } from 'react';
 
 const steps = [
   {
-    num: '1',
+    num: 1,
     title: 'Place Your Order',
-    desc: 'Choose your favorite products and place your order securely on OjaBridge.',
-    bgColor: 'bg-indigo-50',
-    iconColor: 'text-indigo-500',
+    desc: 'Choose your favourite products from verified vendors and place your order securely on OjaBridge.',
     icon: (
-      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
       </svg>
     ),
-    badge: (
-      <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-      </div>
-    ),
+    color: 'bg-purple-500',
+    lightColor: 'bg-purple-50',
+    textColor: 'text-purple-600',
   },
   {
-    num: '2',
+    num: 2,
     title: 'Secure Payment',
-    desc: 'Pay safely with Paystack. Your payment is 100% secure and verified.',
-    bgColor: 'bg-emerald-50',
-    iconColor: 'text-emerald-600',
+    desc: 'Pay safely through Paystack. Your payment is held securely until you confirm delivery.',
     icon: (
-      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
       </svg>
     ),
+    color: 'bg-emerald-500',
+    lightColor: 'bg-emerald-50',
+    textColor: 'text-emerald-600',
   },
   {
-    num: '3',
-    title: 'Vendor Prepares Your Order',
-    desc: 'The verified vendor prepares and ships your order.',
-    bgColor: 'bg-purple-50',
-    iconColor: 'text-purple-600',
+    num: 3,
+    title: 'Vendor Prepares Order',
+    desc: 'The verified vendor receives your order notification and begins preparing your items.',
     icon: (
-      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-      </svg>
-    ),
-  },
-  {
-    num: '4',
-    title: 'Fast & Reliable Delivery',
-    desc: 'Track your order in real-time until it reaches you.',
-    bgColor: 'bg-amber-50',
-    iconColor: 'text-amber-500',
-    icon: (
-      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-      </svg>
-    ),
-  },
-  {
-    num: '5',
-    title: 'Confirm & Enjoy',
-    desc: "Confirm that you've received your order and you're satisfied.",
-    bgColor: 'bg-blue-50',
-    iconColor: 'text-blue-500',
-    icon: (
-      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
       </svg>
     ),
-    badge: (
-      <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-      </div>
-    ),
+    color: 'bg-amber-500',
+    lightColor: 'bg-amber-50',
+    textColor: 'text-amber-600',
   },
   {
-    num: '6',
-    title: 'Vendor Gets Paid',
-    desc: 'Once confirmed, the vendor is paid from their earnings. OjaBridge takes a 10% service fee.',
-    bgColor: 'bg-green-50',
-    iconColor: 'text-green-600',
+    num: 4,
+    title: 'Order Shipped & Tracked',
+    desc: 'Your order is shipped and you can track its progress in real-time from your dashboard.',
     icon: (
-      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+      </svg>
+    ),
+    color: 'bg-blue-500',
+    lightColor: 'bg-blue-50',
+    textColor: 'text-blue-600',
+  },
+  {
+    num: 5,
+    title: 'Confirm Delivery',
+    desc: 'You receive your order and confirm that everything is satisfactory. Your satisfaction matters.',
+    icon: (
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    color: 'bg-teal-500',
+    lightColor: 'bg-teal-50',
+    textColor: 'text-teal-600',
+  },
+  {
+    num: 6,
+    title: 'Vendor Gets Paid',
+    desc: 'Once you confirm delivery, the vendor receives their payment minus a small platform fee.',
+    icon: (
+      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
     ),
+    color: 'bg-lime-500',
+    lightColor: 'bg-lime-50',
+    textColor: 'text-lime-600',
+  },
+];
+
+const ecosystemRoles = [
+  {
+    title: 'Customers & Retailers',
+    desc: 'Browse thousands of products from verified vendors. Shop with confidence knowing every vendor is KYC-verified and every payment is protected.',
+    items: ['Browse & search products', 'Secure Paystack payments', 'Real-time order tracking', 'Buyer protection guarantee'],
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+      </svg>
+    ),
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+  },
+  {
+    title: 'OjaBridge Platform',
+    desc: 'We handle payments, verification, disputes and settlements so you can focus on what matters — great products and happy customers.',
+    items: ['KYC/KYB vendor verification', 'Secure payment processing', 'Order & delivery management', 'Dispute resolution'],
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+  },
+  {
+    title: 'Vendors',
+    desc: 'Set up your store, list products and reach thousands of customers. Get verified, build trust and grow your business on OjaBridge.',
+    items: ['Free store setup', 'Product management dashboard', 'Order & inventory tracking', 'Transparent settlement'],
+    icon: (
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+      </svg>
+    ),
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-50',
+    borderColor: 'border-amber-200',
   },
 ];
 
 const trustFeatures = [
-  {
-    icon: (
-      <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-        <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-      </div>
-    ),
-    title: 'Secure Payments',
-    desc: 'Your payments are protected by Paystack.',
-  },
-  {
-    icon: (
-      <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-      </div>
-    ),
-    title: 'Verified Vendors',
-    desc: 'All vendors are verified for your safety.',
-  },
-  {
-    icon: (
-      <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-      </div>
-    ),
-    title: '24/7 Support',
-    desc: "We're here to help you whenever you need us.",
-  },
-  {
-    icon: (
-      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-      </div>
-    ),
-    title: 'Buyer Protection',
-    desc: "Not satisfied? We've got you covered.",
-  },
+  { title: 'Verified Vendors', desc: 'Every vendor undergoes KYC/KYB verification', icon: '✓' },
+  { title: 'Secure Payments', desc: '256-bit SSL encryption via Paystack', icon: '🔒' },
+  { title: 'Buyer Protection', desc: 'Full refund if you\'re not satisfied', icon: '🛡️' },
+  { title: '24/7 Support', desc: 'We\'re here to help whenever you need us', icon: '💬' },
 ];
 
 export default function HowItWorksPage() {
@@ -133,75 +139,69 @@ export default function HowItWorksPage() {
 
   return (
     <div className={`min-h-screen transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-      {/* Hero Section — Light background matching the visual */}
-      <section className="bg-gray-50 py-16 md:py-20 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <p className="text-ob-purple text-sm font-bold tracking-widest uppercase mb-4">How It Works</p>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-gray-900 mb-5 leading-tight">
-            Shop with confidence.<br />We&apos;ve got you covered.
+      {/* Hero */}
+      <section className="bg-gradient-to-br from-ob-navy via-ob-navy to-purple-900 py-16 md:py-24 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-ob-lime text-sm font-bold tracking-widest uppercase mb-4">How It Works</p>
+          <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-5 leading-tight">
+            Simple steps,<br />seamless experience
           </h1>
-          <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-            From secure payment to safe delivery, OjaBridge protects you every step of the way.
+          <p className="text-gray-300 text-lg max-w-2xl mx-auto">
+            From browsing to delivery to payment — here&apos;s how OjaBridge protects you every step of the way.
           </p>
         </div>
       </section>
 
-      {/* 6-Step Horizontal Flow */}
-      <section className="py-12 md:py-16 px-4 bg-white">
-        <div className="max-w-6xl mx-auto">
-          {/* Desktop: horizontal row with arrows */}
-          <div className="hidden md:flex items-start justify-between gap-2">
-            {steps.map((step, i) => (
-              <div key={i} className="flex items-start flex-1">
-                <div className="flex flex-col items-center text-center px-2 flex-1">
-                  {/* Icon Circle */}
-                  <div className={`relative w-20 h-20 ${step.bgColor} rounded-full flex items-center justify-center mb-4`}>
-                    <span className={step.iconColor}>{step.icon}</span>
-                    {step.badge}
+      {/* Staircase / Ladder Flow */}
+      <section className="py-16 md:py-24 px-4 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="relative">
+            {/* Vertical connecting line */}
+            <div className="absolute left-6 md:left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-purple-500 via-blue-500 to-lime-500 hidden md:block" />
+
+            <div className="space-y-8 md:space-y-0">
+              {steps.map((step, i) => (
+                <div key={i} className={`relative flex flex-col md:flex-row items-start gap-4 md:gap-8 ${i > 0 ? 'md:mt-0' : ''}`}>
+                  {/* Number circle + line connector */}
+                  <div className="flex-shrink-0 flex flex-col items-center z-10">
+                    <div className={`w-12 h-12 md:w-16 md:h-16 ${step.color} rounded-full flex items-center justify-center text-white shadow-lg`}>
+                      <span className="text-xl md:text-2xl font-bold">{step.num}</span>
+                    </div>
                   </div>
-                  {/* Step Number */}
-                  <span className="inline-flex items-center justify-center w-7 h-7 bg-ob-purple text-white rounded-full text-xs font-bold mb-3">
-                    {step.num}
-                  </span>
-                  {/* Title */}
-                  <h3 className="font-bold text-gray-900 text-sm mb-2 leading-snug">{step.title}</h3>
-                  {/* Description */}
-                  <p className="text-gray-400 text-xs leading-relaxed max-w-[180px]">{step.desc}</p>
+
+                  {/* Content card */}
+                  <div className={`flex-1 ${step.lightColor} border ${step.color.replace('bg-', 'border-').replace('-500', '-200')} rounded-2xl p-6 md:p-8 md:ml-0 hover:shadow-md transition-all duration-300`}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`${step.color} text-white p-2 rounded-xl`}>
+                        {step.icon}
+                      </div>
+                      <h3 className="text-lg md:text-xl font-bold text-gray-900">{step.title}</h3>
+                    </div>
+                    <p className="text-gray-600 text-sm md:text-base leading-relaxed">{step.desc}</p>
+                  </div>
                 </div>
-                {/* Arrow between steps */}
-                {i < steps.length - 1 && (
-                  <div className="flex items-center pt-8 px-1 flex-shrink-0">
-                    <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                )}
+              ))}
+            </div>
+
+            {/* Completion badge */}
+            <div className="flex items-center gap-4 mt-8 md:ml-0">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg z-10">
+                <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               </div>
-            ))}
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-6 flex-1">
+                <p className="font-bold text-green-800">Order Complete! 🎉</p>
+                <p className="text-green-600 text-sm mt-1">Your order is confirmed and the vendor gets paid. Thank you for shopping on OjaBridge.</p>
+              </div>
+            </div>
           </div>
 
-          {/* Mobile: 2-column grid */}
-          <div className="md:hidden grid grid-cols-2 gap-6">
-            {steps.map((step, i) => (
-              <div key={i} className="flex flex-col items-center text-center">
-                <div className={`relative w-16 h-16 ${step.bgColor} rounded-full flex items-center justify-center mb-3`}>
-                  <span className={step.iconColor}>{step.icon}</span>
-                  {step.badge}
-                </div>
-                <span className="inline-flex items-center justify-center w-6 h-6 bg-ob-purple text-white rounded-full text-xs font-bold mb-2">
-                  {step.num}
-                </span>
-                <h3 className="font-bold text-gray-900 text-sm mb-1">{step.title}</h3>
-                <p className="text-gray-400 text-xs leading-relaxed">{step.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Secured by Paystack badge */}
+          {/* Secured by Paystack */}
           <div className="flex justify-center mt-12">
             <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-6 py-3">
-              <span className="text-sm text-gray-500">Secured by</span>
-              <span className="font-extrabold text-ob-navy text-xl tracking-tight" style={{ fontFamily: 'system-ui, sans-serif' }}>
+              <span className="text-sm text-gray-500">Payments secured by</span>
+              <span className="font-extrabold text-ob-navy text-lg tracking-tight">
                 <span className="text-green-600">pay</span>stack
               </span>
             </div>
@@ -209,34 +209,94 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      {/* Trust Features Banner */}
-      <section className="bg-gray-50 py-10 px-4 border-t border-gray-100">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {trustFeatures.map((f, i) => (
-              <div key={i} className="flex items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
-                {f.icon}
-                <div>
-                  <h4 className="font-bold text-gray-900 text-sm">{f.title}</h4>
-                  <p className="text-gray-400 text-xs mt-0.5">{f.desc}</p>
-                </div>
+      {/* Ecosystem Summary */}
+      <section className="py-16 md:py-24 px-4 bg-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-ob-purple text-sm font-bold tracking-widest uppercase mb-3">The OjaBridge Ecosystem</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">How everyone benefits</h2>
+            <p className="text-gray-500 max-w-2xl mx-auto">
+              OjaBridge connects verified vendors with customers and retailers through a secure, transparent marketplace.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {ecosystemRoles.map((role, i) => (
+              <div key={i} className={`${role.bgColor} border ${role.borderColor} rounded-2xl p-6 md:p-8 hover:shadow-md transition-all`}>
+                <div className={`${role.color} mb-4`}>{role.icon}</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{role.title}</h3>
+                <p className="text-gray-600 text-sm leading-relaxed mb-4">{role.desc}</p>
+                <ul className="space-y-2">
+                  {role.items.map((item, j) => (
+                    <li key={j} className="flex items-center gap-2 text-sm text-gray-700">
+                      <svg className={`w-4 h-4 ${role.color} flex-shrink-0`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
-          <p className="text-center text-gray-400 text-sm mt-8">
-            <span className="text-ob-purple font-semibold">OjaBridge</span> connects you to trusted vendors and ensures a safe, smooth shopping experience.
-          </p>
+
+          {/* Connection arrows (visual) */}
+          <div className="hidden md:flex justify-center items-center gap-4 mt-8">
+            <div className="text-center text-sm text-gray-400">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-purple-500 rounded-full" />
+                <span>Customers browse & buy</span>
+              </div>
+            </div>
+            <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+            <div className="text-center text-sm text-gray-400">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-emerald-500 rounded-full" />
+                <span>OjaBridge processes payment</span>
+              </div>
+            </div>
+            <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+            <div className="text-center text-sm text-gray-400">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-amber-500 rounded-full" />
+                <span>Vendors fulfill & get paid</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust Features */}
+      <section className="py-12 px-4 bg-white border-t border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {trustFeatures.map((f, i) => (
+              <div key={i} className="text-center p-4">
+                <div className="text-2xl mb-2">{f.icon}</div>
+                <h4 className="font-bold text-gray-900 text-sm mb-1">{f.title}</h4>
+                <p className="text-gray-500 text-xs">{f.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-16 px-4 bg-white">
+      <section className="py-16 px-4 bg-gradient-to-br from-ob-navy to-purple-900">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Ready to get started?</h2>
-          <p className="text-gray-500 mb-8">Join thousands of customers and vendors on OjaBridge.</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Ready to get started?</h2>
+          <p className="text-gray-300 mb-8">Join thousands of customers and vendors on OjaBridge.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/shop" className="btn-primary text-center">Start Shopping</Link>
-            <Link href="/register" className="btn-secondary text-center">Become a Vendor</Link>
+            <Link href="/shop" className="bg-ob-lime hover:bg-ob-lime-dark text-ob-navy font-semibold px-8 py-3 rounded-xl transition-all text-center">
+              Start Shopping
+            </Link>
+            <Link href="/register" className="bg-white/10 hover:bg-white/20 text-white border border-white/30 font-semibold px-8 py-3 rounded-xl transition-all text-center">
+              Become a Vendor
+            </Link>
           </div>
         </div>
       </section>

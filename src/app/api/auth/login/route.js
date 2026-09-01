@@ -49,7 +49,12 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: 'Please verify your email before signing in.' }, { status: 403 });
       }
       if (!user.email_verified && user.status === 'active') {
-        return NextResponse.json({ success: false, error: 'Please verify your email before signing in. Check your inbox for the verification code.', requiresVerification: true }, { status: 403 });
+        return NextResponse.json({
+          success: false,
+          error: 'Please verify your email before signing in. Check your inbox for the verification code.',
+          requiresVerification: true,
+          email: user.email,
+        }, { status: 403 });
       }
 
       // Check if locked

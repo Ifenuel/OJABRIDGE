@@ -179,9 +179,8 @@ export default function RegisterPage() {
       });
 
       if (result.success) {
-        if (result.user.role === 'vendor') router.push('/vendor-dashboard');
-        else if (result.user.role === 'retailer') router.push('/retailer-dashboard');
-        else router.push('/account'); // Customer → Customer Dashboard
+        // Redirect to email verification page
+        router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
       } else {
         setError(result.error || 'Registration failed');
         setStep(4);
@@ -404,7 +403,7 @@ export default function RegisterPage() {
                 </div>
                 <div className="flex items-start space-x-2">
                   <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-1 rounded border-gray-300 text-ob-purple focus:ring-ob-purple" />
-                  <span className="text-xs text-gray-500">I agree to the{' '}<Link href="/terms" className="text-ob-purple hover:underline">Terms of Service</Link>{' '}and{' '}<Link href="/privacy" className="text-ob-purple hover:underline">Privacy Policy</Link></span>
+                  <span className="text-xs text-gray-500">I agree to the{' '}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-ob-purple hover:underline">Terms of Service</a>{' '}and{' '}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-ob-purple hover:underline">Privacy Policy</a></span>
                 </div>
               </div>
             </div>

@@ -57,7 +57,7 @@ export async function POST(request) {
     if (!isDatabaseConnected()) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
 
     const body = await request.json();
-    const { type, title, slug, content, excerpt, category, department, location, employment_type, status, summary, audience, priority, featured_image, video_url, youtube_url } = body;
+    const { type, title, slug, content, excerpt, category, department, location, employment_type, status, summary, audience, priority, featured_image, video_url, youtube_url, images } = body;
 
     const tableMap = {
       blog: 'blog_posts',
@@ -78,6 +78,7 @@ export async function POST(request) {
         content: content || null,
         excerpt: excerpt || summary || null,
         featured_image: featured_image || null,
+        images: images || [],
         video_url: video_url || null,
         youtube_url: youtube_url || null,
         author: user.name || 'Admin',
@@ -131,7 +132,7 @@ export async function PATCH(request) {
     if (!isDatabaseConnected()) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
 
     const body = await request.json();
-    const { type, id, status, title, content } = body;
+    const { type, id, status, title, content, featured_image, video_url, youtube_url, images, excerpt, category } = body;
 
     const tableMap = {
       blog: 'blog_posts',
@@ -149,6 +150,12 @@ export async function PATCH(request) {
     }
     if (title) updates.title = sanitizeInput(title);
     if (content) updates.content = content;
+    if (featured_image !== undefined) updates.featured_image = featured_image;
+    if (images !== undefined) updates.images = images;
+    if (video_url !== undefined) updates.video_url = video_url;
+    if (youtube_url !== undefined) updates.youtube_url = youtube_url;
+    if (excerpt !== undefined) updates.excerpt = excerpt;
+    if (category !== undefined) updates.category = category;
 
     const { data: updated, error } = await dbUpdate(table, { id }, updates);
     if (error) return NextResponse.json({ success: false, error }, { status: 500 });

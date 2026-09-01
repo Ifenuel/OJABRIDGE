@@ -1,66 +1,65 @@
 import { NextResponse } from 'next/server';
-import { getUserFromRequest, requireAuth } from '@/lib/auth';
+import { getUserFromRequest, requireRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
 /**
- * POST /api/upload — Upload a file to Cloudinary
- * Body: FormData with 'file' field and optional 'type' (product, kyc, avatar, banner)
+ * POST /api/upload
+ * Accepts multipart form data with an image file
+ * Returns a base64 data URL for storing in the CMS
+ * 
+ * For production: replace with Cloudinary or S3 upload
  */
 export async function POST(request) {
   try {
     const user = await getUserFromRequest(request);
-    const auth = requireAuth(user);
-    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    const auth = requireRole(user, 'admin');
+    if (!auth.authorized) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    }
 
     const formData = await request.formData();
     const file = formData.get('file');
-    const type = formData.get('type') || 'general'; // product, kyc, avatar, banner
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
     }
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ success: false, error: 'Invalid file type. Allowed: JPG, PNG, WebP, PDF' }, { status: 400 });
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json({
+        success: false,
+        error: `Invalid file type. Allowed: ${ALLOWED_TYPES.join(', ')}`,
+      }, { status: 400 });
     }
 
     // Validate file size
-    const maxSize = type === 'kyc' ? 10 * 1024 * 1024 : 5 * 1024 * 1024; // 10MB for KYC, 5MB for images
-    if (file.size > maxSize) {
-      return NextResponse.json({ success: false, error: `File too large. Max: ${maxSize / (1024 * 1024)}MB` }, { status: 400 });
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({
+        success: false,
+        error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+      }, { status: 400 });
     }
 
-    // Dynamic import of upload utility (server-side only)
-    const { uploadImage, uploadProductImage, uploadKycDocument, uploadAvatar, uploadStoreBanner } = await import('@/lib/upload');
+    // Convert to base64
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64 = buffer.toString('base64');
+    const dataUrl = `data:${file.type};base64,${base64}`;
 
-    let result;
-    switch (type) {
-      case 'product':
-        result = await uploadProductImage(file, user.id);
-        break;
-      case 'kyc':
-        result = await uploadKycDocument(file, user.id);
-        break;
-      case 'avatar':
-        result = await uploadAvatar(file, user.id);
-        break;
-      case 'banner':
-        result = await uploadStoreBanner(file, user.id);
-        break;
-      default:
-        result = await uploadImage(file, 'ojabridge/general');
-    }
+    return NextResponse.json({
+      success: true,
+      url: dataUrl,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+    });
 
-    if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, ...result });
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('[UPLOAD] Error:', error);
     return NextResponse.json({ success: false, error: 'Upload failed' }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { exportCsv, formatDate } from '@/lib/csvExport';
 
 export default function AdminAuditPage() {
   const [orders, setOrders] = useState([]);
@@ -88,23 +89,30 @@ export default function AdminAuditPage() {
   const severityColor = (s) => ({ info: 'bg-blue-100 text-blue-700', warning: 'bg-amber-100 text-amber-700', critical: 'bg-red-100 text-red-700' }[s] || 'bg-gray-100 text-gray-600');
 
   const exportCSV = () => {
-    const headers = ['Timestamp', 'Action', 'Entity', 'Entity ID', 'Details', 'Severity'];
-    const rows = filtered.map(a => [
-      new Date(a.timestamp).toISOString(),
-      a.action,
-      a.entity,
-      a.entityId,
-      `"${(a.details || '').replace(/"/g, '""')}"`,
-      a.severity,
-    ]);
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    exportCsv({
+      title: 'Audit Logs',
+      filename: 'ojabridge_audit_logs',
+      summary: [
+        { label: 'Total Events', value: filtered.length },
+        { label: 'Filter', value: actionFilter === 'all' ? 'All Actions' : actionFilter },
+      ],
+      columns: [
+        { key: 'timestamp', label: 'Timestamp', format: (v) => new Date(v).toLocaleString() },
+        { key: 'action', label: 'Action' },
+        { key: 'entity', label: 'Entity' },
+        { key: 'entityId', label: 'Entity ID' },
+        { key: 'details', label: 'Details' },
+        { key: 'severity', label: 'Severity' },
+      ],
+      rows: filtered.map(a => ({
+        timestamp: a.timestamp,
+        action: a.action,
+        entity: a.entity,
+        entityId: a.entityId,
+        details: a.details,
+        severity: a.severity,
+      })),
+    });
   };
 
   return (
