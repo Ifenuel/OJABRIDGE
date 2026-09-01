@@ -60,7 +60,7 @@ export default function CheckoutPage() {
       // 1. Create order via API
       const orderPayload = {
         items: cartItems.map(item => ({
-          productId: item.id,
+          productId: item.productId,
           quantity: item.quantity,
         })),
         shipping: {

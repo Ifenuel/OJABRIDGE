@@ -328,7 +328,7 @@ CREATE TABLE IF NOT EXISTS reviews (
 -- ============================================
 CREATE TABLE IF NOT EXISTS disputes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  order_id UUID NOT NULL REFERENCES orders(id),
+  order_id UUID REFERENCES orders(id),
   raised_by UUID NOT NULL REFERENCES users(id),
   vendor_id UUID REFERENCES vendors(id),
   reason VARCHAR(100) NOT NULL,
@@ -464,6 +464,18 @@ CREATE TABLE IF NOT EXISTS announcements (
   start_date TIMESTAMPTZ,
   end_date TIMESTAMPTZ,
   created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
+-- ADMIN ROLES & PERMISSIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS admin_roles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  admin_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  permissions TEXT[] DEFAULT '{}',
+  granted_by UUID REFERENCES users(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

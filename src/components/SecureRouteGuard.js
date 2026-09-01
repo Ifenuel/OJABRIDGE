@@ -40,7 +40,7 @@ export default function SecureRouteGuard({ children, allowedRoles = [], redirect
       setAuthorized(false);
 
       // Log the attempt
-      fetch('/api/security/log', {
+      fetch('/api/security', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

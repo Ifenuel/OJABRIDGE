@@ -20,7 +20,26 @@ export async function GET(request) {
 
     const vendorProfile = await dbQuery('vendors', { filter: { user_id: user.id } });
     if (!vendorProfile.data?.[0]) {
-      return NextResponse.json({ success: false, error: 'Vendor profile not found' }, { status: 404 });
+      // For retailers without a vendor profile, return not_started
+      return NextResponse.json({
+        success: true,
+        kyc: {
+          status: 'not_started',
+          submittedAt: null,
+          verifiedAt: null,
+          bankVerificationStatus: 'not_started',
+          businessName: null,
+          rcNumber: null,
+          bankName: null,
+          bankAccountNumber: null,
+          bvn: null,
+          nin: null,
+          idType: null,
+          idNumber: null,
+          dateOfBirth: null,
+          idVerificationStatus: 'not_started',
+        },
+      });
     }
 
     const v = vendorProfile.data[0];
@@ -55,8 +74,8 @@ export async function POST(request) {
     const auth = requireAuth(user);
     if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
 
-    if (user.role !== 'vendor') {
-      return NextResponse.json({ success: false, error: 'Only vendors can submit KYC' }, { status: 403 });
+    if (user.role !== 'vendor' && user.role !== 'retailer') {
+      return NextResponse.json({ success: false, error: 'Only vendors and retailers can submit KYC' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -71,13 +90,26 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
     }
 
-    const vendorProfile = await dbQuery('vendors', { filter: { user_id: user.id } });
+    let vendorProfile = await dbQuery('vendors', { filter: { user_id: user.id } });
+    let vendorId;
+
     if (!vendorProfile.data?.[0]) {
-      return NextResponse.json({ success: false, error: 'Vendor profile not found' }, { status: 404 });
+      // Create a vendor/retailer profile if one doesn't exist
+      const slug = (user.name || 'user').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const { data: newProfile, error: createError } = await dbInsert('vendors', {
+        user_id: user.id,
+        store_name: user.name || 'Store',
+        store_slug: `${slug}-${Date.now().toString(36)}`,
+        business_name: businessName || user.name,
+      });
+      if (createError) return NextResponse.json({ success: false, error: createError }, { status: 500 });
+      vendorId = newProfile.id;
+    } else {
+      vendorId = vendorProfile.data[0].id;
     }
 
     const updates = {
-      kyc_status: 'submitted',
+      kyc_status: 'SUBMITTED',
       kyc_submitted_at: new Date().toISOString(),
     };
 
@@ -92,7 +124,7 @@ export async function POST(request) {
     if (idNumber) updates.id_number = idNumber;
     if (idDocumentUrl) updates.id_document_url = idDocumentUrl;
     if (bvn || nin || idNumber) {
-      updates.id_verification_status = 'submitted';
+      updates.id_verification_status = 'SUBMITTED';
     }
 
     // Business info
@@ -108,10 +140,10 @@ export async function POST(request) {
     if (bankAccountName) updates.bank_account_name = bankAccountName;
 
     if (bankAccountNumber && bankCode) {
-      updates.bank_verification_status = 'submitted';
+      updates.bank_verification_status = 'IN_PROGRESS';
     }
 
-    const { data, error } = await dbUpdate('vendors', { id: vendorProfile.data[0].id }, updates);
+    const { data, error } = await dbUpdate('vendors', { id: vendorId }, updates);
     if (error) return NextResponse.json({ success: false, error }, { status: 500 });
 
     // Audit log

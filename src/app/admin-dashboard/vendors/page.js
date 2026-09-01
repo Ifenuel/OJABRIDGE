@@ -20,6 +20,18 @@ export default function AdminVendorsPage() {
     setLoading(false);
   };
 
+  const updateVendor = async (vendorId, updates) => {
+    try {
+      const res = await fetch('/api/vendors', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendorId, ...updates }),
+      });
+      const data = await res.json();
+      if (data.success) loadVendors();
+    } catch (err) { console.error(err); }
+  };
+
   const filteredVendors = vendors.filter(v => {
     if (filter === 'all') return true;
     if (filter === 'verified') return v.kyc_status === 'VERIFIED';
@@ -102,7 +114,7 @@ export default function AdminVendorsPage() {
                 [...Array(5)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={8} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>)
               ) : filteredVendors.length === 0 ? (
                 <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400 text-sm">
-                  {vendors.length === 0 ? 'No vendors registered yet. Vendor accounts will appear here as they register.' : 'No vendors match your filter.'}
+                  {vendors.length === 0 ? 'No vendors registered yet.' : 'No vendors match your filter.'}
                 </td></tr>
               ) : (
                 filteredVendors.map(v => (
@@ -122,9 +134,9 @@ export default function AdminVendorsPage() {
                     <td className="px-6 py-4 text-sm text-gray-600">{v.total_orders || 0}</td>
                     <td className="px-6 py-4">
                       <div className="flex space-x-2">
-                        <button className="text-ob-purple text-xs font-medium hover:underline">Review</button>
-                        {v.kyc_status !== 'VERIFIED' && <button className="text-green-600 text-xs font-medium hover:underline">Approve</button>}
-                        <button className="text-red-500 text-xs font-medium hover:underline">Suspend</button>
+                        {v.kyc_status !== 'VERIFIED' && <button onClick={() => updateVendor(v.id, { kyc_status: 'VERIFIED' })} className="text-green-600 text-xs font-medium hover:underline">Approve</button>}
+                        {v.kyc_status !== 'SUSPENDED' && <button onClick={() => updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false })} className="text-red-500 text-xs font-medium hover:underline">Suspend</button>}
+                        {v.kyc_status === 'SUSPENDED' && <button onClick={() => updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true })} className="text-blue-600 text-xs font-medium hover:underline">Reinstate</button>}
                       </div>
                     </td>
                   </tr>

@@ -22,7 +22,7 @@ export default function ForSuppliersPage() {
                 Put your products in front of more customers. Create your verified storefront, manage your inventory, receive orders and grow your business through a trusted marketplace.
               </p>
               <div className="flex flex-wrap gap-4">
-                <a href="#register" className="btn-primary text-lg px-8 py-4">
+                <a href="/register" className="btn-primary text-lg px-8 py-4">
                   Apply to Become a Vendor
                 </a>
                 <a href="#how-it-works" className="btn-secondary text-lg px-8 py-4 border-white text-white hover:bg-white hover:text-ob-navy">

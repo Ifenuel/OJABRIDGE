@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { dbQuery, dbRaw, isDatabaseConnected } from '@/lib/db';
+import { dbQuery, dbInsert, dbUpdate, dbRaw, isDatabaseConnected } from '@/lib/db';
+import { getUserFromRequest, requireRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +82,54 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('Vendors API error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/vendors — Admin vendor management
+ * Body: { vendorId, kyc_status, is_active, bank_verification_status }
+ */
+export async function PATCH(request) {
+  try {
+    const user = await getUserFromRequest(request);
+    const auth = requireRole(user, 'admin');
+    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+
+    if (!isDatabaseConnected()) {
+      return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
+    }
+
+    const body = await request.json();
+    const { vendorId, kyc_status, is_active, bank_verification_status } = body;
+
+    if (!vendorId) return NextResponse.json({ success: false, error: 'Vendor ID required' }, { status: 400 });
+
+    const updates = {};
+    if (kyc_status) updates.kyc_status = kyc_status;
+    if (is_active !== undefined) updates.is_active = is_active;
+    if (bank_verification_status) updates.bank_verification_status = bank_verification_status;
+
+    if (kyc_status === 'VERIFIED') {
+      updates.kyc_verified_at = new Date().toISOString();
+    }
+
+    const { data: updated, error } = await dbUpdate('vendors', { id: vendorId }, updates);
+    if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+
+    // Audit log
+    await dbInsert('audit_logs', {
+      user_id: user.id,
+      action: 'vendor.status_changed',
+      entity_type: 'vendor',
+      entity_id: vendorId,
+      new_data: { kyc_status, is_active, bank_verification_status },
+      created_at: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ success: true, vendor: updated });
+  } catch (error) {
+    console.error('Vendor update error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -132,3 +132,31 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function PATCH(request) {
+  try {
+    const user = await getUserFromRequest(request);
+    const authCheck = requireAuth(user);
+    if (!authCheck.authorized) return NextResponse.json({ success: false, error: authCheck.error }, { status: authCheck.status });
+    if (!isDatabaseConnected()) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
+
+    const body = await request.json();
+    const { reviewId, vendor_reply } = body;
+    if (!reviewId || !vendor_reply) return NextResponse.json({ success: false, error: 'reviewId and vendor_reply required' }, { status: 400 });
+
+    const vendorProfile = await dbQuery('vendors', { filter: { user_id: user.id } });
+    const vendorId = vendorProfile.data?.[0]?.id;
+    if (!vendorId) return NextResponse.json({ success: false, error: 'Vendor profile not found' }, { status: 404 });
+
+    const reviews = await dbQuery('reviews', { filter: { id: reviewId } });
+    const review = reviews.data?.[0];
+    if (!review) return NextResponse.json({ success: false, error: 'Review not found' }, { status: 404 });
+    if (review.vendor_id !== vendorId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+
+    const { data: updated, error } = await dbUpdate('reviews', { id: reviewId }, { vendor_reply, vendor_replied_at: new Date().toISOString() });
+    if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+    return NextResponse.json({ success: true, review: updated });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}

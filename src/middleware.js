@@ -19,6 +19,10 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 // ============================================
 // RATE LIMITING STORE (In-memory, use Redis in production)
 // ============================================
+// ============================================
+// RATE LIMITING (In-memory in Edge middleware)
+// Redis-backed rate limiting is in src/lib/redis.js (used by API routes)
+// ============================================
 const rateLimitStore = new Map();
 
 function getRateLimitKey(ip, path) {
@@ -43,19 +47,6 @@ function checkRateLimit(key, maxRequests, windowMs) {
   requests.push(now);
   return true;
 }
-
-// Cleanup old entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, requests] of rateLimitStore.entries()) {
-    const valid = requests.filter(time => now - time < 300000);
-    if (valid.length === 0) {
-      rateLimitStore.delete(key);
-    } else {
-      rateLimitStore.set(key, valid);
-    }
-  }
-}, 300000);
 
 // ============================================
 // BLOCKED PATHS (Attack vectors)
@@ -214,10 +205,16 @@ export async function middleware(request) {
     }
   }
 
-  // Admin API routes
-  if (pathname.startsWith('/api/admin') || pathname.startsWith('/api/settlements')) {
+  // Admin-only API routes
+  if (pathname.startsWith('/api/admin')) {
     if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     if (user.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+  }
+
+  // Settlements: admin + vendor access
+  if (pathname.startsWith('/api/settlements')) {
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    if (user.role !== 'admin' && user.role !== 'vendor') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
   }
 
   // Vendor Dashboard
@@ -268,8 +265,16 @@ export async function middleware(request) {
     }
   }
 
-  // Auth-required APIs
-  if (['/api/reviews', '/api/disputes', '/api/notifications'].some(p => pathname.startsWith(p))) {
+  // Auth-required APIs (write operations)
+  if (['/api/disputes', '/api/notifications', '/api/reports', '/api/addresses', '/api/vendors/settings', '/api/admin'].some(p => pathname.startsWith(p))) {
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
+  // Reviews: public GET, auth required for POST/PATCH
+  if (pathname.startsWith('/api/reviews') && request.method !== 'GET') {
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+  }
+  // CMS: public GET for published, auth required for POST/PATCH/DELETE
+  if (pathname.startsWith('/api/cms') && request.method !== 'GET') {
     if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
   }
 

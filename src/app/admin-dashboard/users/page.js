@@ -9,6 +9,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => { loadUsers(); }, []);
 
@@ -20,6 +21,26 @@ export default function AdminUsersPage() {
       setUsers(data.users || []);
     } catch (err) { console.error('Failed to load users:', err); }
     setLoading(false);
+  };
+
+  const updateUserStatus = async (userId, status) => {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: `User ${status} successfully` });
+        loadUsers();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to update user' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error' });
+    }
+    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
   };
 
   const filteredUsers = users.filter(u => {
@@ -41,6 +62,12 @@ export default function AdminUsersPage() {
         <h1 className="text-2xl font-bold text-ob-navy">Users</h1>
         <p className="text-gray-500 text-sm mt-1">Manage all platform users — customers, vendors, retailers and administrators.</p>
       </div>
+
+      {message.text && (
+        <div className={`p-4 rounded-xl mb-6 text-sm ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+          {message.text}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -85,29 +112,41 @@ export default function AdminUsersPage() {
                 <th className="px-6 py-4 font-medium">Role</th>
                 <th className="px-6 py-4 font-medium">Status</th>
                 <th className="px-6 py-4 font-medium">Joined</th>
+                <th className="px-6 py-4 font-medium">Last Login</th>
                 <th className="px-6 py-4 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                [...Array(5)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={5} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>)
+                [...Array(5)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>)
               ) : filteredUsers.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-16 text-center text-gray-400 text-sm">
-                  No users found yet. User accounts will appear here as they register.
-                </td></tr>
+                <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-400 text-sm">No users found.</td></tr>
               ) : (
                 filteredUsers.map(u => (
                   <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-ob-purple rounded-full flex items-center justify-center text-white text-xs font-bold">{u.name?.charAt(0)}</div>
+                        <div className="w-8 h-8 bg-ob-purple rounded-full flex items-center justify-center text-white text-xs font-bold">{u.name?.charAt(0) || '?'}</div>
                         <div><p className="text-sm font-medium text-ob-navy">{u.name}</p><p className="text-xs text-gray-400">{u.email}</p></div>
                       </div>
                     </td>
                     <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${roleColors[u.role]}`}>{u.role}</span></td>
-                    <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[u.status]}`}>{u.status}</span></td>
+                    <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[u.status] || 'bg-gray-100 text-gray-600'}`}>{u.status}</span></td>
                     <td className="px-6 py-4 text-sm text-gray-500">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
-                    <td className="px-6 py-4"><div className="flex space-x-2"><button className="text-ob-purple text-xs font-medium hover:underline">View</button><button className="text-red-500 text-xs font-medium hover:underline">Suspend</button></div></td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : '—'}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex space-x-2">
+                        {u.status === 'active' && u.role !== 'admin' && (
+                          <>
+                            <button onClick={() => updateUserStatus(u.id, 'suspended')} className="text-amber-600 text-xs font-medium hover:underline">Suspend</button>
+                            <button onClick={() => updateUserStatus(u.id, 'banned')} className="text-red-500 text-xs font-medium hover:underline">Ban</button>
+                          </>
+                        )}
+                        {(u.status === 'suspended' || u.status === 'banned') && (
+                          <button onClick={() => updateUserStatus(u.id, 'active')} className="text-green-600 text-xs font-medium hover:underline">Reactivate</button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}

@@ -102,3 +102,9 @@ test-*.txt
 .test-tmp*
 .ngrok/
 
+# ============================================
+# INTERNAL DOCUMENTATION (SENSITIVE)
+# ============================================
+OJABRIDGE-ARCHITECTURE-GUIDE.md
+*.arch.md
+

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
-import { StatCard, DashboardBarChart, DashboardPieChart, DashboardLineChart, ExportButton } from '@/components/Charts';
+import { StatCard, DashboardBarChart, DashboardPieChart, DashboardLineChart } from '@/components/Charts';
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
@@ -13,33 +13,41 @@ export default function AdminDashboardPage() {
   const [vendors, setVendors] = useState([]);
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
+  const [disputes, setDisputes] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadAll() {
       try {
-        const [usersRes, vendorsRes, ordersRes, productsRes] = await Promise.allSettled([
+        const [usersRes, vendorsRes, ordersRes, productsRes, disputesRes] = await Promise.allSettled([
           fetch('/api/users?limit=200').then(r => r.json()),
           fetch('/api/vendors?limit=200').then(r => r.json()),
           fetch('/api/orders?limit=200').then(r => r.json()),
-          fetch('/api/products?limit=200').then(r => r.json()),
+          fetch('/api/products?admin=true&limit=200').then(r => r.json()),
+          fetch('/api/disputes?limit=100').then(r => r.json()),
         ]);
 
         if (usersRes.status === 'fulfilled' && usersRes.value.success) setUsers(usersRes.value.users || []);
         if (vendorsRes.status === 'fulfilled' && vendorsRes.value.success) setVendors(vendorsRes.value.vendors || []);
         if (ordersRes.status === 'fulfilled' && ordersRes.value.success) setOrders(ordersRes.value.orders || []);
         if (productsRes.status === 'fulfilled' && productsRes.value.success) setProducts(productsRes.value.products || []);
+        if (disputesRes.status === 'fulfilled' && disputesRes.value.success) setDisputes(disputesRes.value.disputes || []);
       } catch (err) { console.error('Dashboard load error:', err); }
       setLoading(false);
     }
     loadAll();
   }, []);
 
-  // Computed stats
+  // Computed stats from real data
   const totalRevenue = orders.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + Number(o.total || 0), 0);
   const commission = Math.round(totalRevenue * 0.10);
   const pendingKyc = vendors.filter(v => ['NOT_STARTED', 'IN_PROGRESS', 'SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status)).length;
   const pendingProducts = products.filter(p => p.moderation_status === 'pending').length;
+  const openDisputes = disputes.filter(d => ['open', 'under_review', 'vendor_response_required', 'escalated'].includes(d.status)).length;
+  const paymentIssues = orders.filter(o => o.payment_status === 'failed' || o.payment_status === 'refunded').length;
+  const activeOrders = orders.filter(o => ['confirmed', 'processing', 'shipped', 'in_transit'].includes(o.status)).length;
+  const completedOrders = orders.filter(o => ['delivered', 'completed'].includes(o.status)).length;
 
   const stats = {
     totalUsers: users.length,
@@ -51,7 +59,10 @@ export default function AdminDashboardPage() {
     netToVendors: totalRevenue - commission,
     pendingKyc,
     pendingProducts,
-    openDisputes: 0,
+    openDisputes,
+    paymentIssues,
+    activeOrders,
+    completedOrders,
   };
 
   // Chart data from real orders
@@ -66,9 +77,8 @@ export default function AdminDashboardPage() {
   });
 
   const orderStatusData = [
-    { name: 'Completed', value: orders.filter(o => o.status === 'completed').length },
-    { name: 'Processing', value: orders.filter(o => o.status === 'processing').length },
-    { name: 'Shipped', value: orders.filter(o => o.status === 'shipped').length },
+    { name: 'Completed', value: completedOrders },
+    { name: 'Active', value: activeOrders },
     { name: 'Pending', value: orders.filter(o => o.status === 'pending').length },
     { name: 'Cancelled', value: orders.filter(o => o.status === 'cancelled').length },
   ];
@@ -100,17 +110,25 @@ export default function AdminDashboardPage() {
       {/* Stats Row 1 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard title="Total Revenue" value={`₦${totalRevenue.toLocaleString()}`} color="text-green-600" />
+        <StatCard title="Platform Commission" value={`₦${commission.toLocaleString()}`} color="text-amber-600" />
+        <StatCard title="Net to Vendors" value={`₦${stats.netToVendors.toLocaleString()}`} color="text-blue-600" />
         <StatCard title="Total Orders" value={stats.totalOrders} color="text-ob-purple" />
-        <StatCard title="Total Vendors" value={stats.totalVendors} color="text-blue-600" />
-        <StatCard title="Total Users" value={stats.totalUsers} color="text-ob-navy" />
       </div>
 
       {/* Stats Row 2 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Platform Commission" value={`₦${commission.toLocaleString()}`} color="text-amber-600" />
-        <StatCard title="Net to Vendors" value={`₦${(totalRevenue - commission).toLocaleString()}`} color="text-green-600" />
-        <StatCard title="Pending KYC" value={pendingKyc} color="pendingKyc > 0 ? 'text-amber-600' : 'text-green-600'" />
-        <StatCard title="Pending Products" value={pendingProducts} color="pendingProducts > 0 ? 'text-amber-600' : 'text-green-600'" />
+        <StatCard title="Total Users" value={stats.totalUsers} color="text-ob-navy" />
+        <StatCard title="Total Vendors" value={stats.totalVendors} color="text-blue-600" />
+        <StatCard title="Active Orders" value={stats.activeOrders} color="text-indigo-600" />
+        <StatCard title="Completed Orders" value={stats.completedOrders} color="text-green-600" />
+      </div>
+
+      {/* Stats Row 3 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <StatCard title="Pending KYC" value={pendingKyc} color={pendingKyc > 0 ? 'text-amber-600' : 'text-green-600'} />
+        <StatCard title="Pending Products" value={pendingProducts} color={pendingProducts > 0 ? 'text-amber-600' : 'text-green-600'} />
+        <StatCard title="Open Disputes" value={openDisputes} color={openDisputes > 0 ? 'text-red-600' : 'text-green-600'} />
+        <StatCard title="Payment Issues" value={paymentIssues} color={paymentIssues > 0 ? 'text-red-600' : 'text-green-600'} />
       </div>
 
       {/* Charts */}
@@ -131,8 +149,8 @@ export default function AdminDashboardPage() {
           <DashboardPieChart data={userDistData} />
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <h3 className="font-bold text-ob-navy mb-4">Platform Growth</h3>
-          <DashboardLineChart data={revenueByMonth.map((d, i) => ({ name: d.name, value: i * 2 + Math.floor(Math.random() * 3) }))} />
+          <h3 className="font-bold text-ob-navy mb-4">Monthly Orders</h3>
+          <DashboardLineChart data={revenueByMonth.map((d, i) => ({ name: d.name, value: orders.filter(o => { const od = new Date(o.created_at); return od.getMonth() === i && od.getFullYear() === now.getFullYear(); }).length }))} />
         </div>
       </div>
 
@@ -143,8 +161,8 @@ export default function AdminDashboardPage() {
           {[
             { label: 'Pending KYC', value: pendingKyc, href: '/admin-dashboard/vendors', color: 'text-amber-600' },
             { label: 'Pending Products', value: pendingProducts, href: '/admin-dashboard/products', color: 'text-blue-600' },
-            { label: 'Open Disputes', value: 0, href: '/admin-dashboard/disputes', color: 'text-red-600' },
-            { label: 'Payment Issues', value: 0, href: '/admin-dashboard/payments', color: 'text-red-600' },
+            { label: 'Open Disputes', value: openDisputes, href: '/admin-dashboard/disputes', color: 'text-red-600' },
+            { label: 'Payment Issues', value: paymentIssues, href: '/admin-dashboard/payments', color: 'text-red-600' },
           ].map((item, i) => (
             <Link key={i} href={item.href} className="p-4 rounded-lg border border-gray-100 hover:border-ob-purple/30 transition-colors">
               <p className="text-xs text-gray-500">{item.label}</p>
@@ -198,7 +216,7 @@ export default function AdminDashboardPage() {
                     <p className="text-sm font-medium text-ob-navy">{o.order_number}</p>
                     <p className="text-xs text-gray-400">{o.currency} {Number(o.total).toLocaleString()}</p>
                   </div>
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${o.status === 'completed' ? 'bg-green-100 text-green-700' : o.status === 'pending' ? 'bg-amber-100 text-amber-700' : o.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{o.status}</span>
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${o.status === 'completed' || o.status === 'delivered' ? 'bg-green-100 text-green-700' : o.status === 'pending' ? 'bg-amber-100 text-amber-700' : o.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{o.status}</span>
                 </div>
               ))}
             </div>

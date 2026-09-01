@@ -9,7 +9,7 @@ import { dbInsert, dbQuery, isDatabaseConnected } from '@/lib/db';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, password, role, phone, storeName } = body;
+    const { name, email, password, role, phone, storeName, country, currency, businessType, rcNumber, businessAddress, businessCity, businessPhone, businessEmail, productCategories } = body;
 
     // --- Input Validation ---
     const errors = [];
@@ -50,6 +50,8 @@ export async function POST(request) {
         phone: phone || null,
         status: 'active',
         email_verified: false,
+        country: country || 'NG',
+        currency: currency || 'NGN',
       });
 
       if (userError) {
@@ -57,13 +59,22 @@ export async function POST(request) {
         return NextResponse.json({ success: false, errors: ['Failed to create account. Please try again.'] }, { status: 500 });
       }
 
-      // If vendor, create vendor profile
+      // If vendor, create vendor profile with business details
       if (role === 'vendor' && user) {
-        const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const slug = (storeName || cleanName).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         const { error: vendorError } = await dbInsert('vendors', {
           user_id: user.id,
           store_name: storeName || `${cleanName}'s Store`,
           store_slug: `${slug}-${user.id.slice(0, 6)}`,
+          business_name: businessType ? (storeName || `${cleanName} Enterprises`) : null,
+          business_type: businessType || null,
+          rc_number: rcNumber || null,
+          business_address: businessAddress || null,
+          business_city: businessCity || null,
+          business_country: country || 'NG',
+          business_phone: businessPhone || null,
+          business_email: businessEmail || null,
+          product_categories: productCategories || [],
         });
 
         if (vendorError) {
@@ -71,8 +82,17 @@ export async function POST(request) {
         }
       }
 
-      // TODO: Send verification email here
-      // await sendEmail(cleanEmail, 'emailVerification', { name: cleanName, token: verificationToken });
+      // Send welcome email with verification link
+      try {
+        const { sendWelcomeEmail } = await import('@/lib/email');
+        await sendWelcomeEmail({
+          email: cleanEmail.toLowerCase(),
+          name: cleanName,
+          role,
+        });
+      } catch (emailErr) {
+        console.error('[EMAIL] Welcome email failed:', emailErr.message);
+      }
 
       return NextResponse.json({
         success: true,

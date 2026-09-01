@@ -117,11 +117,67 @@ export async function POST(request) {
     // Update order status
     await dbUpdate('orders', { id: orderId }, { status: 'disputed' });
 
-    // TODO: Send email notification to vendor about new dispute
-    // TODO: Send in-app notification to vendor
-    // TODO: If priority is urgent, notify admin
-
     return NextResponse.json({ success: true, dispute }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/disputes — Admin resolve a dispute
+ * Body: { disputeId, status, resolution }
+ */
+export async function PATCH(request) {
+  try {
+    const user = await getUserFromRequest(request);
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
+    }
+
+    if (!isDatabaseConnected()) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
+
+    const body = await request.json();
+    const { disputeId, status, resolution } = body;
+
+    if (!disputeId) return NextResponse.json({ success: false, error: 'Dispute ID required' }, { status: 400 });
+
+    const validStatuses = ['open', 'under_review', 'vendor_response_required', 'escalated', 'resolved_favor_buyer', 'resolved_favor_vendor', 'closed'];
+    if (status && !validStatuses.includes(status)) {
+      return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 400 });
+    }
+
+    const updates = {};
+    if (status) {
+      updates.status = status;
+      updates.resolved_at = ['resolved_favor_buyer', 'resolved_favor_vendor', 'closed'].includes(status) ? new Date().toISOString() : null;
+      updates.resolved_by = user.id;
+    }
+    if (resolution) updates.resolution = resolution;
+
+    const { data: updated, error } = await dbUpdate('disputes', { id: disputeId }, updates);
+    if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+
+    // If resolved, update order status back
+    if (status && ['resolved_favor_buyer', 'resolved_favor_vendor', 'closed'].includes(status)) {
+      const dispute = await dbQuery('disputes', { filter: { id: disputeId } });
+      if (dispute.data?.[0]?.order_id) {
+        await dbUpdate('orders', { id: dispute.data[0].order_id }, {
+          status: status === 'resolved_favor_buyer' ? 'refunded' : 'completed',
+        });
+      }
+    }
+
+    // Audit log
+    await dbInsert('audit_logs', {
+      user_id: user.id,
+      action: 'dispute.resolved',
+      entity_type: 'dispute',
+      entity_id: disputeId,
+      new_data: updates,
+      created_at: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ success: true, dispute: updated });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }

@@ -82,16 +82,57 @@ export default function RegisterPage() {
 
   const selectedCountry = COUNTRIES.find(c => c.code === country);
 
-  const handleSendOtp = (type) => {
-    setOtpSent(true);
-    setOtpTimer(60);
+  const [otpError, setOtpError] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+
+  const handleSendOtp = async (type) => {
+    if (type !== 'email') return;
+    setOtpSending(true);
+    setOtpError('');
+    try {
+      const res = await fetch('/api/auth/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOtpSent(true);
+        setOtpTimer(60);
+        // In dev mode, auto-fill the OTP for testing
+        if (data.devOtp) setEmailOtp(data.devOtp);
+      } else {
+        setOtpError(data.error || 'Failed to send code');
+      }
+    } catch (err) {
+      setOtpError('Network error. Please try again.');
+    }
+    setOtpSending(false);
   };
 
-  const handleVerifyOtp = (type, code) => {
-    // Auto-verify for now — will use real OTP provider in production
-    if (type === 'email') setEmailVerified(true);
-    if (type === 'phone') setPhoneVerified(true);
-    return true;
+  const handleVerifyOtp = async (type, code) => {
+    if (type !== 'email') return;
+    if (!code || code.length !== 6) { setOtpError('Please enter the 6-digit code'); return; }
+    setOtpVerifying(true);
+    setOtpError('');
+    try {
+      const res = await fetch('/api/auth/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), otp: code, action: 'verify' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEmailVerified(true);
+        setOtpError('');
+      } else {
+        setOtpError(data.error || 'Verification failed');
+      }
+    } catch (err) {
+      setOtpError('Network error. Please try again.');
+    }
+    setOtpVerifying(false);
   };
 
   const handleCategoryToggle = (cat) => {
@@ -278,18 +319,20 @@ export default function RegisterPage() {
                     {emailVerified ? (
                       <span className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">✓ Verified</span>
                     ) : (
-                      <button type="button" onClick={() => handleSendOtp('email')} disabled={!email || otpTimer > 0}
+                      <button type="button" onClick={() => handleSendOtp('email')} disabled={!email || otpTimer > 0 || otpSending}
                         className="px-4 py-2.5 bg-ob-purple text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap">
-                        {otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send Code'}
+                        {otpSending ? 'Sending...' : otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send Code'}
                       </button>
                     )}
                   </div>
+                  {otpError && <p className="text-xs text-red-500 mt-1">{otpError}</p>}
                   {otpSent && !emailVerified && (
                     <div className="mt-2 flex gap-2">
                       <input type="text" value={emailOtp} onChange={e => setEmailOtp(e.target.value)} placeholder="Enter 6-digit code"
                         className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm" maxLength={6} />
-                      <button type="button" onClick={() => handleVerifyOtp('email', emailOtp)} className="px-4 py-2.5 bg-ob-lime text-ob-navy rounded-lg text-sm font-medium">
-                        Verify
+                      <button type="button" onClick={() => handleVerifyOtp('email', emailOtp)} disabled={otpVerifying || emailOtp.length !== 6}
+                        className="px-4 py-2.5 bg-ob-lime text-ob-navy rounded-lg text-sm font-medium disabled:opacity-50">
+                        {otpVerifying ? 'Verifying...' : 'Verify'}
                       </button>
                     </div>
                   )}

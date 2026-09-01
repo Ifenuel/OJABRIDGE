@@ -17,7 +17,42 @@ export default function ProductDetailPage({ params }) {
   const [selectedColor, setSelectedColor] = useState(0);
   const [activeTab, setActiveTab] = useState('description');
   const [addedToCart, setAddedToCart] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDesc, setReportDesc] = useState('');
+  const [reportSending, setReportSending] = useState(false);
+  const [reportMessage, setReportMessage] = useState('');
   const { addItem } = useCart();
+
+  const handleReport = async () => {
+    if (!reportReason.trim() || !reportDesc.trim()) return;
+    setReportSending(true);
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetType: 'product',
+          targetId: product.id,
+          reason: reportReason,
+          description: reportDesc,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setReportMessage('Report submitted. Our team will review it.');
+        setShowReportModal(false);
+        setReportReason('');
+        setReportDesc('');
+      } else {
+        setReportMessage(data.error || 'Failed to submit report');
+      }
+    } catch (err) {
+      setReportMessage('Network error. Please try again.');
+    }
+    setReportSending(false);
+    setTimeout(() => setReportMessage(''), 5000);
+  };
 
   useEffect(() => {
     if (id) loadProduct();
@@ -229,11 +264,21 @@ export default function ProductDetailPage({ params }) {
                 </Link>
               </div>
 
-              {/* Favorite */}
-              <div className="flex items-center gap-2">
-                <HeartButton productId={product.id} size="large" />
-                <span className="text-sm text-gray-500">Save to favorites</span>
+              {/* Favorite + Report */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <HeartButton productId={product.id} size="large" />
+                  <span className="text-sm text-gray-500">Save to favorites</span>
+                </div>
+                <button onClick={() => setShowReportModal(true)} className="text-sm text-gray-400 hover:text-red-500 transition-colors">
+                  🚩 Report this product
+                </button>
               </div>
+              {reportMessage && (
+                <div className={`p-3 rounded-lg text-sm ${reportMessage.includes('submitted') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                  {reportMessage}
+                </div>
+              )}
 
               {/* Trust strip */}
               <div className="grid grid-cols-3 gap-3 pt-4 border-t border-gray-100">
@@ -320,6 +365,35 @@ export default function ProductDetailPage({ params }) {
           </div>
         </div>
       </section>
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-ob-navy">Report Product</h3>
+              <button onClick={() => setShowReportModal(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">Why are you reporting this product?</p>
+            <div className="space-y-2 mb-4">
+              {['Fake or counterfeit product', 'Misleading description', 'Fraudulent seller', 'Inappropriate content', 'Other'].map(r => (
+                <button key={r} onClick={() => setReportReason(r)} className={`w-full text-left px-4 py-2.5 rounded-lg text-sm border transition-all ${reportReason === r ? 'border-ob-purple bg-ob-purple/5 text-ob-purple' : 'border-gray-200 text-gray-600 hover:border-ob-purple/30'}`}>
+                  {r}
+                </button>
+              ))}
+            </div>
+            <textarea value={reportDesc} onChange={e => setReportDesc(e.target.value)} placeholder="Provide more details..." rows={3} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none resize-none mb-4" />
+            <div className="flex gap-3">
+              <button onClick={handleReport} disabled={!reportReason || !reportDesc.trim() || reportSending} className="flex-1 bg-red-600 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50">
+                {reportSending ? 'Submitting...' : 'Submit Report'}
+              </button>
+              <button onClick={() => setShowReportModal(false)} className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

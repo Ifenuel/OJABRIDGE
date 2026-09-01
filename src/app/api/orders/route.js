@@ -254,3 +254,52 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
+
+/**
+ * PATCH /api/orders — Update order status (vendor/admin)
+ */
+export async function PATCH(request) {
+  try {
+    const user = await getUserFromRequest(request);
+    const auth = requireAuth(user);
+    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+
+    if (!isDatabaseConnected()) {
+      return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
+    }
+
+    const body = await request.json();
+    const { orderId, status, payment_status, tracking_number, carrier } = body;
+
+    if (!orderId) return NextResponse.json({ success: false, error: 'Order ID required' }, { status: 400 });
+
+    // Verify order exists
+    const { data: orders } = await dbQuery('orders', { filter: { id: orderId } });
+    const order = orders?.[0];
+    if (!order) return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
+
+    // Vendors can only update orders containing their items
+    if (user.role === 'vendor') {
+      const vendorProfile = await dbQuery('vendors', { filter: { user_id: user.id } });
+      const vendorId = vendorProfile.data?.[0]?.id;
+      if (!vendorId) return NextResponse.json({ success: false, error: 'Vendor profile not found' }, { status: 404 });
+
+      const { data: items } = await dbQuery('order_items', { filter: { order_id: orderId, vendor_id: vendorId } });
+      if (!items || items.length === 0) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const updates = {};
+    if (status) updates.status = status;
+    if (payment_status) updates.payment_status = payment_status;
+    if (tracking_number) updates.tracking_number = tracking_number;
+    if (carrier) updates.carrier = carrier;
+
+    const { data: updated, error } = await dbUpdate('orders', { id: orderId }, updates);
+    if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+
+    return NextResponse.json({ success: true, order: updated });
+  } catch (error) {
+    console.error('Order update error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}

@@ -48,6 +48,9 @@ export async function POST(request) {
       if (user.status === 'pending_verification') {
         return NextResponse.json({ success: false, error: 'Please verify your email before signing in.' }, { status: 403 });
       }
+      if (!user.email_verified && user.status === 'active') {
+        return NextResponse.json({ success: false, error: 'Please verify your email before signing in. Check your inbox for the verification code.', requiresVerification: true }, { status: 403 });
+      }
 
       // Check if locked
       if (user.locked_until && new Date(user.locked_until) > new Date()) {

@@ -108,9 +108,9 @@ export default function VendorOrdersPage() {
                 filteredOrders.map((order) => (
                   <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-ob-navy">{order.order_number}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{order.shipping_name || 'Customer'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{(() => { try { const addr = typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address; return addr?.name || 'Customer'; } catch { return 'Customer'; } })()}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{new Date(order.created_at).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-ob-navy">₦{Number(order.total_amount).toLocaleString()}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-ob-navy">₦{Number(order.total).toLocaleString()}</td>
                     <td className="px-6 py-4">
                       <span className={`text-xs font-medium px-2 py-1 rounded-full ${order.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                         {order.payment_status}
@@ -154,15 +154,19 @@ export default function VendorOrdersPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div><p className="text-xs text-gray-400">Status</p><span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[selectedOrder.status]}`}>{selectedOrder.status}</span></div>
                 <div><p className="text-xs text-gray-400">Payment</p><span className={`text-xs font-medium px-2 py-1 rounded-full ${selectedOrder.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{selectedOrder.payment_status}</span></div>
-                <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-ob-navy">₦{Number(selectedOrder.total_amount).toLocaleString()}</p></div>
+                <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-ob-navy">₦{Number(selectedOrder.total).toLocaleString()}</p></div>
                 <div><p className="text-xs text-gray-400">Date</p><p className="text-sm text-gray-600">{new Date(selectedOrder.created_at).toLocaleDateString()}</p></div>
               </div>
               <div className="border-t border-gray-100 pt-4">
                 <p className="text-xs text-gray-400 mb-2">Shipping To</p>
-                <p className="text-sm text-ob-navy">{selectedOrder.shipping_name}</p>
-                <p className="text-sm text-gray-600">{selectedOrder.shipping_email}</p>
-                <p className="text-sm text-gray-600">{selectedOrder.shipping_address}</p>
-                {selectedOrder.shipping_phone && <p className="text-sm text-gray-600">{selectedOrder.shipping_phone}</p>}
+                {(() => { try { const addr = typeof selectedOrder.shipping_address === 'string' ? JSON.parse(selectedOrder.shipping_address) : selectedOrder.shipping_address || {}; return (
+                  <>
+                    <p className="text-sm text-ob-navy">{addr.name || 'Customer'}</p>
+                    <p className="text-sm text-gray-600">{addr.email || ''}</p>
+                    <p className="text-sm text-gray-600">{addr.address || ''}{addr.city ? `, ${addr.city}` : ''}{addr.state ? `, ${addr.state}` : ''}</p>
+                    {addr.phone && <p className="text-sm text-gray-600">{addr.phone}</p>}
+                  </>
+                ); } catch { return <p className="text-sm text-gray-600">No address</p>; } })()}
               </div>
               <div className="border-t border-gray-100 pt-4 flex gap-3">
                 {selectedOrder.status === 'confirmed' && (

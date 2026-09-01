@@ -71,10 +71,13 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
 
+  // Server external packages (not bundled by webpack)
+  serverExternalPackages: ['ioredis'],
+
   // Environment variables that should be available
   env: {
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://ojabridge.com',
-    NEXT_PUBLIC_PAYSTACK_KEY: process.env.NEXT_PUBLIC_PAYSTACK_KEY || '',
+    NEXT_PUBLIC_PAYSTACK_KEY: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || process.env.NEXT_PUBLIC_PAYSTACK_KEY || '',
   },
 };
 

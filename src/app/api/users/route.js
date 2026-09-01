@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { dbQuery, dbRaw, isDatabaseConnected } from '@/lib/db';
+import { dbQuery, dbInsert, dbUpdate, dbRaw, isDatabaseConnected } from '@/lib/db';
 import { getUserFromRequest, requireAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -80,6 +80,54 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('Users API error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/users — Admin user management
+ * Body: { userId, status, role }
+ */
+export async function PATCH(request) {
+  try {
+    const user = await getUserFromRequest(request);
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
+    }
+
+    if (!isDatabaseConnected()) {
+      return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
+    }
+
+    const body = await request.json();
+    const { userId, status, role } = body;
+
+    if (!userId) return NextResponse.json({ success: false, error: 'User ID required' }, { status: 400 });
+
+    const updates = {};
+    if (status && ['active', 'suspended', 'banned'].includes(status)) updates.status = status;
+    if (role && ['customer', 'vendor', 'retailer', 'admin'].includes(role)) updates.role = role;
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ success: false, error: 'No valid updates provided' }, { status: 400 });
+    }
+
+    const { data: updated, error } = await dbUpdate('users', { id: userId }, updates);
+    if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+
+    // Audit log
+    await dbInsert('audit_logs', {
+      user_id: user.id,
+      action: `user.${status ? 'status_changed' : 'role_changed'}`,
+      entity_type: 'user',
+      entity_id: userId,
+      new_data: updates,
+      created_at: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ success: true, user: updated });
+  } catch (error) {
+    console.error('User update error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

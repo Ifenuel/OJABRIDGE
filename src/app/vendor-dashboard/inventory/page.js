@@ -26,7 +26,7 @@ export default function VendorInventoryPage() {
     if (isNaN(stock) || stock < 0) return;
     try {
       await fetch('/api/inventory', {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId, stock }),
       });
@@ -35,8 +35,7 @@ export default function VendorInventoryPage() {
     } catch (err) { console.error(err); }
   };
 
-  const getStockStatus = (stock) => {
-    if (stock === 0) return { label: 'Out of Stock', color: 'bg-red-100 text-red-700' };
+  const getStockStatus = (stock) => {        if (stock === 0) return { label: 'Out of Stock', color: 'bg-red-100 text-red-700' };
     if (stock <= 5) return { label: 'Low Stock', color: 'bg-amber-100 text-amber-700' };
     if (stock <= 20) return { label: 'In Stock', color: 'bg-blue-100 text-blue-700' };
     return { label: 'Well Stocked', color: 'bg-green-100 text-green-700' };
@@ -53,9 +52,9 @@ export default function VendorInventoryPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Total Products', value: products.length, color: 'text-ob-navy' },
-          { label: 'In Stock', value: products.filter(p => p.stock > 5).length, color: 'text-green-600' },
-          { label: 'Low Stock', value: products.filter(p => p.stock > 0 && p.stock <= 5).length, color: 'text-amber-600' },
-          { label: 'Out of Stock', value: products.filter(p => p.stock === 0).length, color: 'text-red-600' },
+          { label: 'In Stock', value: products.filter(p => (p.stock_quantity ?? 0) > 5).length, color: 'text-green-600' },
+          { label: 'Low Stock', value: products.filter(p => (p.stock_quantity ?? 0) > 0 && (p.stock_quantity ?? 0) <= 5).length, color: 'text-amber-600' },
+          { label: 'Out of Stock', value: products.filter(p => (p.stock_quantity ?? 0) === 0).length, color: 'text-red-600' },
         ].map((s, i) => (
           <div key={i} className="bg-white p-4 rounded-xl border border-gray-100">
             <p className="text-xs text-gray-500">{s.label}</p>
@@ -84,8 +83,7 @@ export default function VendorInventoryPage() {
               ) : products.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-500 text-sm">No products found.</td></tr>
               ) : (
-                products.map((product) => {
-                  const stockStatus = getStockStatus(product.stock);
+                products.map((product) => {                   const stockStatus = getStockStatus(product.stock_quantity ?? 0);
                   return (
                     <tr key={product.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 text-sm font-medium text-ob-navy">{product.name}</td>
@@ -97,14 +95,12 @@ export default function VendorInventoryPage() {
                             <button onClick={() => updateStock(product.id)} className="text-green-600 text-xs font-medium">Save</button>
                             <button onClick={() => setEditingStock(null)} className="text-gray-400 text-xs">Cancel</button>
                           </div>
-                        ) : (
-                          <span className="text-sm font-semibold text-ob-navy">{product.stock}</span>
+                        ) : (                           <span className="text-sm font-semibold text-ob-navy">{product.stock_quantity ?? 0}</span>
                         )}
                       </td>
                       <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${stockStatus.color}`}>{stockStatus.label}</span></td>
                       <td className="px-6 py-4 text-sm text-gray-500">{product.total_sold || 0}</td>
-                      <td className="px-6 py-4">
-                        <button onClick={() => { setEditingStock(product.id); setNewStock(String(product.stock)); }} className="text-ob-purple text-xs font-medium hover:underline">
+                      <td className="px-6 py-4">                         <button onClick={() => { setEditingStock(product.id); setNewStock(String(product.stock_quantity ?? 0)); }} className="text-ob-purple text-xs font-medium hover:underline">
                           Update Stock
                         </button>
                       </td>

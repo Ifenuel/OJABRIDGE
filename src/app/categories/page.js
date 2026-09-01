@@ -1,23 +1,59 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-export const metadata = { title: 'Categories — OjaBridge', description: 'Browse all product categories on OjaBridge marketplace.' };
+const CATEGORY_COLORS = {
+  'Electronics': 'from-blue-500 to-cyan-500',
+  'Phones': 'from-blue-500 to-cyan-500',
+  'Laptops': 'from-blue-500 to-indigo-500',
+  'Fashion': 'from-purple-500 to-pink-500',
+  'Beauty': 'from-pink-500 to-rose-500',
+  'Home & Living': 'from-amber-500 to-orange-500',
+  'Health': 'from-green-500 to-emerald-500',
+  'Accessories': 'from-indigo-500 to-violet-500',
+  'Groceries': 'from-lime-500 to-green-500',
+  'Sports': 'from-teal-500 to-cyan-500',
+  'Automotive': 'from-slate-500 to-gray-500',
+  'Gaming': 'from-violet-500 to-purple-500',
+  'Tablets': 'from-blue-500 to-indigo-500',
+  'default': 'from-ob-purple to-ob-purple-light',
+};
 
-const categories = [
-  { name: 'Fashion', desc: 'Clothing, shoes, bags and accessories', count: '2,400+', color: 'from-purple-500 to-pink-500' },
-  { name: 'Electronics', desc: 'Phones, laptops, gadgets and accessories', count: '1,800+', color: 'from-blue-500 to-cyan-500' },
-  { name: 'Beauty', desc: 'Skincare, makeup, fragrances and hair care', count: '1,200+', color: 'from-pink-500 to-rose-500' },
-  { name: 'Home & Living', desc: 'Furniture, decor, kitchen and household', count: '950+', color: 'from-amber-500 to-orange-500' },
-  { name: 'Health', desc: 'Supplements, wellness and health products', count: '780+', color: 'from-green-500 to-emerald-500' },
-  { name: 'Accessories', desc: 'Watches, jewelry, bags and tech accessories', count: '650+', color: 'from-indigo-500 to-violet-500' },
-  { name: 'Groceries', desc: 'Food, beverages and everyday essentials', count: '520+', color: 'from-lime-500 to-green-500' },
-  { name: 'Sports & Outdoors', desc: 'Fitness, outdoor gear and sporting goods', count: '340+', color: 'from-teal-500 to-cyan-500' },
-  { name: 'Automotive', desc: 'Car parts, tools and accessories', count: '280+', color: 'from-slate-500 to-gray-500' },
-  { name: 'Baby & Kids', desc: 'Toys, clothing and essentials for children', count: '410+', color: 'from-yellow-500 to-amber-500' },
-  { name: 'Books & Stationery', desc: 'Books, office supplies and educational materials', count: '190+', color: 'from-red-500 to-pink-500' },
-  { name: 'More Categories', desc: 'Explore additional product categories', count: '500+', color: 'from-ob-purple to-ob-purple-light' },
-];
+const CATEGORY_ICONS = {
+  'Electronics': '📱', 'Phones': '📱', 'Laptops': '💻', 'Fashion': '👔',
+  'Beauty': '💄', 'Home & Living': '🏠', 'Health': '💊', 'Accessories': '⌚',
+  'Groceries': '🛒', 'Sports': '⚽', 'Automotive': '🚗', 'Gaming': '🎮',
+  'Tablets': '📟', 'default': '📦',
+};
 
 export default function CategoriesPage() {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/products?limit=200');
+        const data = await res.json();
+        const products = data.products || [];
+
+        const catMap = {};
+        products.forEach(p => {
+          if (p.category) {
+            if (!catMap[p.category]) catMap[p.category] = { name: p.category, count: 0 };
+            catMap[p.category].count++;
+          }
+        });
+
+        const cats = Object.values(catMap).sort((a, b) => b.count - a.count);
+        setCategories(cats);
+      } catch (e) {}
+      setLoading(false);
+    }
+    load();
+  }, []);
+
   return (
     <>
       <section className="bg-ob-navy text-white py-12">
@@ -28,18 +64,28 @@ export default function CategoriesPage() {
       </section>
       <section className="section-padding bg-ob-light">
         <div className="max-w-7xl mx-auto">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((cat, i) => (
-              <Link key={i} href="/shop" className="bg-white p-6 rounded-2xl border border-gray-100 card-hover group">
-                <div className={`w-14 h-14 bg-gradient-to-br ${cat.color} rounded-xl flex items-center justify-center mb-4`}>
-                  <span className="text-white font-bold text-lg">{cat.name.charAt(0)}</span>
-                </div>
-                <h3 className="font-bold text-ob-navy text-lg mb-1 group-hover:text-ob-purple transition-colors">{cat.name}</h3>
-                <p className="text-gray-500 text-sm mb-3">{cat.desc}</p>
-                <span className="text-ob-purple text-sm font-semibold">{cat.count} products</span>
-              </Link>
-            ))}
-          </div>
+          {loading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[1,2,3,4,5,6].map(i => <div key={i} className="bg-white rounded-2xl p-6 h-32 animate-pulse" />)}
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400">No categories yet. Products will appear as vendors list them.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {categories.map(cat => (
+                <Link key={cat.name} href={`/shop?category=${encodeURIComponent(cat.name)}`}
+                  className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 card-hover group">
+                  <div className={`w-14 h-14 bg-gradient-to-br ${CATEGORY_COLORS[cat.name] || CATEGORY_COLORS.default} rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform`}>
+                    {CATEGORY_ICONS[cat.name] || CATEGORY_ICONS.default}
+                  </div>
+                  <h3 className="font-bold text-ob-navy text-lg mb-1 group-hover:text-ob-purple transition-colors">{cat.name}</h3>
+                  <p className="text-ob-purple text-sm font-semibold">{cat.count} products</p>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </>
