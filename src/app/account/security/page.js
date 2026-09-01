@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import DashboardLayout from '@/components/DashboardLayout';
 
 function PasswordField({ label, value, onChange, required = true, minLength }) {
   const [show, setShow] = useState(false);
@@ -62,68 +63,65 @@ export default function AccountSecurityPage() {
   };
 
   return (
-    <>
-      <section className="bg-ob-navy text-white py-12">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold">Security Settings</h1>
-          <p className="text-gray-300 text-sm mt-1">Manage your password, multi-factor authentication and active sessions.</p>
+    <DashboardLayout role="customer" showSidebar={false}>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-ob-navy">Security Settings</h1>
+        <p className="text-gray-500 text-sm mt-1">Manage your password, multi-factor authentication and active sessions.</p>
+      </div>
+
+      <div className="space-y-6 max-w-3xl">
+        <div className="bg-white p-6 rounded-xl border border-gray-100">
+          <h3 className="font-bold text-ob-navy mb-4">Change Password</h3>
+          <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
+            <PasswordField label="Current Password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+            <PasswordField label="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} />
+            <PasswordField label="Confirm New Password" value={confirmNew} onChange={e => setConfirmNew(e.target.value)} minLength={8} />
+            {confirmNew && newPassword !== confirmNew && <p className="text-xs text-red-500">Passwords do not match</p>}
+            <button type="submit" className="btn-primary px-6 py-2.5">Update Password</button>
+          </form>
         </div>
-      </section>
-      <section className="section-padding bg-ob-light">
-        <div className="max-w-3xl mx-auto space-y-6">
-          <div className="bg-white p-6 rounded-xl border border-gray-100">
-            <h3 className="font-bold text-ob-navy mb-4">Change Password</h3>
-            <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
-              <PasswordField label="Current Password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
-              <PasswordField label="New Password" value={newPassword} onChange={e => setNewPassword(e.target.value)} minLength={8} />
-              <PasswordField label="Confirm New Password" value={confirmNew} onChange={e => setConfirmNew(e.target.value)} minLength={8} />
-              {confirmNew && newPassword !== confirmNew && <p className="text-xs text-red-500">Passwords do not match</p>}
-              <button type="submit" className="btn-primary px-6 py-2.5">Update Password</button>
-            </form>
-          </div>
 
-          <div className="bg-white p-6 rounded-xl border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-ob-navy">Multi-Factor Authentication (MFA)</h3>
-                <p className="text-gray-500 text-sm mt-1">Add an extra layer of security to your account.</p>
-              </div>
-              <span className="bg-gray-100 text-gray-500 text-xs px-3 py-1 rounded-full">Not Enabled</span>
+        <div className="bg-white p-6 rounded-xl border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-ob-navy">Multi-Factor Authentication (MFA)</h3>
+              <p className="text-gray-500 text-sm mt-1">Add an extra layer of security to your account.</p>
             </div>
-            <p className="text-gray-600 text-sm mb-4">When MFA is enabled, you will need to enter a verification code from your authenticator app in addition to your password when signing in.</p>
-            <button className="border border-ob-purple text-ob-purple text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-ob-purple hover:text-white transition-colors">
-              Enable MFA
-            </button>
+            <span className="bg-gray-100 text-gray-500 text-xs px-3 py-1 rounded-full">Not Enabled</span>
           </div>
-
-          <div className="bg-white p-6 rounded-xl border border-gray-100">
-            <h3 className="font-bold text-ob-navy mb-4">Active Sessions</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between py-3 border-b border-gray-50">
-                <div>
-                  <p className="text-sm font-medium text-ob-navy">Current Session</p>
-                  <p className="text-xs text-gray-400">This device</p>
-                </div>
-                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">Active</span>
-              </div>
-            </div>
-            <button className="text-red-500 text-sm font-medium mt-4 hover:underline">Sign out of all other sessions</button>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl border border-gray-100">
-            <h3 className="font-bold text-ob-navy mb-4">Account Status</h3>
-            <div className="flex items-center gap-3 p-4 bg-green-50 rounded-xl">
-              <span className="text-xl">✅</span>
-              <div>
-                <p className="text-sm font-medium text-green-700">Account Active</p>
-                <p className="text-xs text-green-600">Your account is in good standing.</p>
-              </div>
-            </div>
-          </div>
-
-          {message.text && <div className={`p-4 rounded-xl text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{message.text}</div>}
+          <p className="text-gray-600 text-sm mb-4">When MFA is enabled, you will need to enter a verification code from your authenticator app in addition to your password when signing in.</p>
+          <button className="border border-ob-purple text-ob-purple text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-ob-purple hover:text-white transition-colors">
+            Enable MFA
+          </button>
         </div>
-      </section>
-    </>
+
+        <div className="bg-white p-6 rounded-xl border border-gray-100">
+          <h3 className="font-bold text-ob-navy mb-4">Active Sessions</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-3 border-b border-gray-50">
+              <div>
+                <p className="text-sm font-medium text-ob-navy">Current Session</p>
+                <p className="text-xs text-gray-400">This device</p>
+              </div>
+              <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">Active</span>
+            </div>
+          </div>
+          <button className="text-red-500 text-sm font-medium mt-4 hover:underline">Sign out of all other sessions</button>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-gray-100">
+          <h3 className="font-bold text-ob-navy mb-4">Account Status</h3>
+          <div className="flex items-center gap-3 p-4 bg-green-50 rounded-xl">
+            <span className="text-xl">✅</span>
+            <div>
+              <p className="text-sm font-medium text-green-700">Account Active</p>
+              <p className="text-xs text-green-600">Your account is in good standing.</p>
+            </div>
+          </div>
+        </div>
+
+        {message.text && <div className={`p-4 rounded-xl text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{message.text}</div>}
+      </div>
+    </DashboardLayout>
   );
 }

@@ -15,6 +15,38 @@ const VERIFICATION_STATES = {
 
 const ID_TYPES = ['National ID (NIN)', "Driver's License", 'International Passport', "Voter's Card"];
 
+const NIGERIAN_BANKS = [
+  'Access Bank', 'Citibank Nigeria', 'Ecobank Nigeria', 'Fidelity Bank',
+  'First Bank of Nigeria', 'First City Monument Bank (FCMB)', 'Globus Bank',
+  'Guaranty Trust Bank (GTBank)', 'Heritage Bank', 'Keystone Bank',
+  'Kuda Bank', 'Opay (Paycom)', 'Palmpay', 'Polaris Bank',
+  'Providus Bank', 'Stanbic IBTC Bank', 'Standard Chartered Bank',
+  'Sterling Bank', 'SunTrust Bank', 'Titan Trust Bank',
+  'Union Bank', 'United Bank for Africa (UBA)', 'Unity Bank',
+  'VFD Microfinance Bank', 'Wema Bank', 'Zenith Bank',
+  'Abir Microfinance Bank', 'Accès Bank Mali', 'ALAT by Wema',
+  'Amju Unique Microfinance Bank', 'ASO Savings and Loans',
+  'Baobab Microfinance Bank', 'Branch International Finance',
+  'Carbon (Formerly OneCredit)', 'Chaka', 'Cowrywise',
+  'CrusaderSterling Microfinance Bank', 'DLM Asset Management',
+  'Ekondo Microfinance Bank', 'Eyowo', 'Fairmoney',
+  'Firmus Finance', 'FSDH Asset Managers', 'FundQuest Financial Services',
+  'Hedon Consulting', 'Ignite Education Fund', 'IzMee Microfinance Bank',
+  'Jubilee Life Mortgage Bank', 'Lagos Building Investment Company',
+  'La Canera Microfinance Bank', 'Lotus Bank', 'Malachy Microfinance Bank',
+  'Meridian Microfinance Bank', 'Microvis Microfinance Bank',
+  'Money Trust Microfinance Bank', 'NPF Microfinance Bank',
+  'Oakland Microfinance Bank', 'Ohafx Microfinance Bank',
+  'Olympic Microfinance Bank', 'One Finance', 'Parallex Bank',
+  'Petra Microfinance Bank', 'Pillar Microfinance Bank',
+  'Rephidim Microfinance Bank', 'Rogo Microfinance Bank',
+  'SafeHaven Microfinance Bank', 'Sparkle Microfinance Bank',
+  'Spring Capital', 'Supreme Microfinance Bank',
+  'Tangerine Microfinance Bank', 'TrustBanc Financial Services',
+  'Unical Microfinance Bank', 'VAS2Nets Technologies',
+  'Wagnet Microfinance Bank', 'Wow Momo', 'Zedvance',
+];
+
 export default function VendorKycPage() {
   const { user } = useAuth();
   const [kycData, setKycData] = useState(null);
@@ -35,6 +67,8 @@ export default function VendorKycPage() {
 
   // Bank account
   const [bankName, setBankName] = useState('');
+  const [bankSearch, setBankSearch] = useState('');
+  const [showBankDropdown, setShowBankDropdown] = useState(false);
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
 
@@ -47,6 +81,15 @@ export default function VendorKycPage() {
   // Load KYC data from API
   useEffect(() => {
     fetchKycData();
+  }, []);
+
+  // Close bank dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (!e.target.closest('.bank-dropdown')) setShowBankDropdown(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
   const fetchKycData = async () => {
@@ -274,16 +317,34 @@ export default function VendorKycPage() {
             </div>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
-            <div>
+            <div className="relative bank-dropdown">
               <label className="block text-xs text-gray-500 mb-1">Bank Name *</label>
-              <select value={bankName} onChange={e => setBankName(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none">
-                <option value="">Select your bank</option>
-                <option>Access Bank</option><option>GTBank</option><option>First Bank</option>
-                <option>UBA</option><option>Zenith Bank</option><option>Fidelity Bank</option>
-                <option>Polaris Bank</option><option>Wema Bank</option><option>Sterling Bank</option>
-                <option>Unity Bank</option><option>Stanbic IBTC</option><option>Ecobank</option>
-              </select>
+              <div onClick={() => setShowBankDropdown(!showBankDropdown)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm cursor-pointer bg-white flex items-center justify-between">
+                <span className={bankName ? 'text-ob-navy' : 'text-gray-400'}>{bankName || 'Search and select your bank'}</span>
+                <svg className={`w-4 h-4 text-gray-400 transition-transform ${showBankDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </div>
+              {showBankDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden">
+                  <div className="p-2 border-b border-gray-100 sticky top-0 bg-white">
+                    <input type="text" value={bankSearch} onChange={e => setBankSearch(e.target.value)} placeholder="Type to search banks..."
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-ob-purple" autoFocus />
+                  </div>
+                  <div className="overflow-y-auto max-h-48">
+                    {NIGERIAN_BANKS.filter(b => !bankSearch || b.toLowerCase().includes(bankSearch.toLowerCase())).map(bank => (
+                      <button key={bank} type="button" onClick={() => { setBankName(bank); setBankSearch(''); setShowBankDropdown(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-ob-purple/5 transition-colors ${bankName === bank ? 'bg-ob-purple/10 text-ob-purple font-medium' : 'text-gray-700'}`}>
+                        {bank}
+                      </button>
+                    ))}
+                    {NIGERIAN_BANKS.filter(b => !bankSearch || b.toLowerCase().includes(bankSearch.toLowerCase())).length === 0 && (
+                      <div className="px-4 py-3 text-sm text-gray-400 text-center">No banks found matching &quot;{bankSearch}&quot;</div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {bankName && (
+                <button type="button" onClick={() => { setBankName(''); setBankSearch(''); }} className="absolute right-8 top-7 text-gray-400 hover:text-red-500 text-xs">Clear</button>
+              )}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Account Number *</label>

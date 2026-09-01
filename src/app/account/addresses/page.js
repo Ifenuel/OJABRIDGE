@@ -55,7 +55,7 @@ export default function AccountAddressesPage() {
   };
 
   return (
-    <DashboardLayout role="customer">
+    <DashboardLayout role="customer" showSidebar={false}>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-ob-navy">My Addresses</h1>

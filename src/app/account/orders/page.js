@@ -68,7 +68,7 @@ export default function AccountOrdersPage() {
   }[s] || 'bg-gray-100 text-gray-600');
 
   return (
-    <DashboardLayout role="customer">
+    <DashboardLayout role="customer" showSidebar={false}>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-ob-navy">My Orders</h1>
         <p className="text-gray-500 text-sm mt-1">Track and manage your orders.</p>
