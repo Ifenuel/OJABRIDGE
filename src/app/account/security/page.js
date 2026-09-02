@@ -46,7 +46,7 @@ export default function AccountSecurityPage() {
 
   if (authLoading || !isAuthenticated) return <div className="min-h-screen bg-ob-light flex items-center justify-center"><div className="w-12 h-12 border-4 border-ob-purple border-t-transparent rounded-full animate-spin" /></div>;
 
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmNew) {
       setMessage({ type: 'error', text: 'New passwords do not match.' });
@@ -56,10 +56,24 @@ export default function AccountSecurityPage() {
       setMessage({ type: 'error', text: 'New password must be at least 8 characters.' });
       return;
     }
-    setMessage({ type: 'success', text: 'Password updated successfully.' });
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmNew('');
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Password updated successfully.' });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNew('');
+      } else {
+        setMessage({ type: 'error', text: data.error || data.errors?.[0] || 'Failed to update password' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+    }
   };
 
   return (

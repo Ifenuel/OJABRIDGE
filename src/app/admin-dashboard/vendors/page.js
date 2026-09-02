@@ -122,12 +122,17 @@ export default function AdminVendorsPage() {
                     <td className="px-6 py-4">
                       <div className="font-medium text-sm text-ob-navy">{v.store_name}</div>
                       <div className="text-xs text-gray-400">/{v.store_slug}</div>
+                      {v.store_description && <div className="text-xs text-gray-400 mt-1 max-w-[200px] truncate">{v.store_description}</div>}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <div className="text-gray-700">{v.owner_name || '—'}</div>
                       <div className="text-xs text-gray-400">{v.owner_email || '—'}</div>
+                      {v.owner_phone && <div className="text-xs text-gray-400">{v.owner_phone}</div>}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{v.business_name || '—'}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <div className="text-gray-500">{v.business_name || '—'}</div>
+                      {v.product_categories?.length > 0 && <div className="text-xs text-gray-400 mt-1">{v.product_categories.slice(0, 2).join(', ')}{v.product_categories.length > 2 ? '...' : ''}</div>}
+                    </td>
                     <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${kycBadge(v.kyc_status)}`}>{(v.kyc_status || 'NOT_STARTED').replace(/_/g, ' ')}</span></td>
                     <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${v.bank_verification_status === 'VERIFIED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{(v.bank_verification_status || 'NOT_STARTED').replace(/_/g, ' ')}</span></td>
                     <td className="px-6 py-4 text-sm text-gray-600">{v.average_rating ? `⭐ ${Number(v.average_rating).toFixed(1)}` : '—'}</td>
