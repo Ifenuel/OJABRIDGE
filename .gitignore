@@ -96,8 +96,6 @@ test-*.txt
 # ============================================
 # AI TOOLS / TEMP DATA
 # ============================================
-.freebuff/
-.freebuff*
 .test-tmp/
 .test-tmp*
 .ngrok/
