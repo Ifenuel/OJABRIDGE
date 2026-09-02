@@ -3,9 +3,8 @@
  * OJABRIDGE EMAIL SERVICE (Brevo)
  * ============================================
  * 
- * Sends transactional emails via Brevo API.
- * Handles order confirmations, shipping updates, 
- * password resets, and notification emails.
+ * Professional email templates for OjaBridge marketplace.
+ * All emails use a clean, premium design system.
  */
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
@@ -14,6 +13,7 @@ const SENDER = {
   name: process.env.BREVO_SENDER_NAME || 'OjaBridge',
   email: process.env.BREVO_SENDER_EMAIL || 'awoyoemmanuel12@gmail.com',
 };
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 /**
  * Send a transactional email via Brevo
@@ -26,7 +26,7 @@ async function sendEmail({ to, subject, htmlContent, textContent, replyTo }) {
   }
 
   try {
-    const recipients = Array.isArray(to) 
+    const recipients = Array.isArray(to)
       ? to.map(addr => typeof addr === 'string' ? { email: addr } : addr)
       : [{ email: typeof to === 'string' ? to : to.email }];
 
@@ -53,7 +53,6 @@ async function sendEmail({ to, subject, htmlContent, textContent, replyTo }) {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       console.error('[EMAIL] Brevo API error:', response.status, error.message);
-      // Don't throw — email failure shouldn't break order flow
       return { success: false, error: error.message, messageId: null };
     }
 
@@ -67,101 +66,433 @@ async function sendEmail({ to, subject, htmlContent, textContent, replyTo }) {
 }
 
 // ============================================
-// EMAIL TEMPLATES
+// PROFESSIONAL EMAIL DESIGN SYSTEM
 // ============================================
 
-const emailStyles = `
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: #f8f9fa; }
-    .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
-    .header { background: linear-gradient(135deg, #0f172a 0%, #6b21a8 100%); padding: 32px; text-align: center; }
-    .header h1 { color: #ffffff; margin: 0; font-size: 28px; letter-spacing: 2px; }
-    .header .tagline { color: #a3e635; font-size: 12px; letter-spacing: 4px; margin-top: 4px; }
-    .content { padding: 32px; color: #1e293b; line-height: 1.6; }
-    .content h2 { color: #0f172a; margin-top: 0; }
-    .order-box { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
-    .order-box .label { color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
-    .order-box .value { color: #0f172a; font-size: 18px; font-weight: 600; margin: 4px 0 16px; }
-    .btn { display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; margin: 16px 0; }
-    .footer { background: #0f172a; padding: 24px; text-align: center; color: #94a3b8; font-size: 12px; }
-    .footer a { color: #a3e635; text-decoration: none; }
-    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; }
-    .status-paid { background: #dcfce7; color: #16a34a; }
-    .status-shipped { background: #dbeafe; color: #2563eb; }
-    .status-delivered { background: #f3e8ff; color: #7c3aed; }
-  </style>
-`;
+/**
+ * Shared email wrapper — clean white design with OjaBridge branding
+ * Every email gets: header with logo, content area, professional footer
+ */
+function wrapEmail({ title, content, preheader }) {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="color-scheme" content="light">
+      <meta name="supported-color-schemes" content="light">
+      <title>${title || 'OjaBridge'}</title>
+      ${preheader ? `<meta name="preview" content="${preheader}">` : ''}
+      <style>
+        /* Reset */
+        body, table, td, p, a, li { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        body { margin: 0; padding: 0; width: 100% !important; }
+        img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+        
+        /* Base */
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f5f7; color: #1a1a2e; }
+        
+        /* Responsive */
+        @media only screen and (max-width: 600px) {
+          .email-container { width: 100% !important; }
+          .fluid { max-width: 100% !important; height: auto !important; }
+          .stack-column { display: block !important; width: 100% !important; }
+          .mobile-pad { padding-left: 20px !important; padding-right: 20px !important; }
+          .mobile-center { text-align: center !important; }
+          .otp-code { font-size: 36px !important; letter-spacing: 8px !important; }
+        }
+      </style>
+    </head>
+    <body style="margin:0; padding:0; background-color:#f4f5f7;">
+      
+      <!-- Preheader (hidden preview text) -->
+      ${preheader ? `<div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">${preheader}&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>` : ''}
+      
+      <!-- Email Wrapper -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f4f5f7;">
+        <tr>
+          <td style="padding: 40px 16px;" align="center">
+            
+            <!-- Main Container -->
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="email-container" style="max-width:600px; width:100%;">
+              
+              <!-- HEADER — Clean OjaBridge Branding -->
+              <tr>
+                <td style="padding: 32px 40px; background-color: #ffffff; border-radius: 16px 16px 0 0; border-bottom: 1px solid #f0f0f0;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td style="font-size: 24px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px;">
+                        <span style="color: #6b21a8;">Oja</span>Bridge
+                      </td>
+                      <td align="right" style="font-size: 11px; color: #94a3b8; letter-spacing: 2px; text-transform: uppercase; font-weight: 500;">
+                        Shop &bull; Connect &bull; Grow
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- CONTENT -->
+              <tr>
+                <td style="padding: 40px; background-color: #ffffff;" class="mobile-pad">
+                  ${content}
+                </td>
+              </tr>
+
+              <!-- FOOTER — Professional & Clean -->
+              <tr>
+                <td style="padding: 32px 40px; background-color: #fafbfc; border-top: 1px solid #f0f0f0; border-radius: 0 0 16px 16px;" class="mobile-pad">
+                  
+                  <!-- Social Links -->
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center" style="padding-bottom: 20px;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                          <tr>
+                            <td style="padding: 0 8px;">
+                              <a href="https://facebook.com/ojabridge" style="display:inline-block; width:36px; height:36px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:36px; color:#64748b; text-decoration:none; font-size:14px; font-weight:600;">f</a>
+                            </td>
+                            <td style="padding: 0 8px;">
+                              <a href="https://x.com/ojabridge" style="display:inline-block; width:36px; height:36px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:36px; color:#64748b; text-decoration:none; font-size:14px; font-weight:600;">X</a>
+                            </td>
+                            <td style="padding: 0 8px;">
+                              <a href="https://linkedin.com/company/ojabridge" style="display:inline-block; width:36px; height:36px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:36px; color:#64748b; text-decoration:none; font-size:14px; font-weight:600;">in</a>
+                            </td>
+                            <td style="padding: 0 8px;">
+                              <a href="https://instagram.com/ojabridge" style="display:inline-block; width:36px; height:36px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:36px; color:#64748b; text-decoration:none; font-size:14px; font-weight:600;">ig</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- Links -->
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center" style="padding-bottom: 16px; font-size: 13px;">
+                        <a href="${SITE_URL}/support" style="color: #6b21a8; text-decoration: none; margin: 0 12px;">Help Center</a>
+                        <span style="color: #d1d5db;">|</span>
+                        <a href="${SITE_URL}/privacy" style="color: #6b21a8; text-decoration: none; margin: 0 12px;">Privacy</a>
+                        <span style="color: #d1d5db;">|</span>
+                        <a href="${SITE_URL}/terms" style="color: #6b21a8; text-decoration: none; margin: 0 12px;">Terms</a>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- Address & Copyright -->
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td align="center" style="font-size: 12px; color: #94a3b8; line-height: 1.8;">
+                        <p style="margin: 0 0 4px; font-weight: 500; color: #64748b;">OjaBridge Marketplace</p>
+                        <p style="margin: 0 0 4px;">Connecting verified vendors with customers across Africa</p>
+                        <p style="margin: 0 0 4px;">Lagos, Nigeria</p>
+                        <p style="margin: 12px 0 0;">
+                          <a href="${SITE_URL}" style="color: #6b21a8; text-decoration: none; font-weight: 500;">ojabridge.com</a>
+                        </p>
+                        <p style="margin: 12px 0 0; font-size: 11px; color: #cbd5e1;">
+                          &copy; ${new Date().getFullYear()} OjaBridge. All rights reserved.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+// ============================================
+// INDIVIDUAL EMAIL TEMPLATES
+// ============================================
+
+/**
+ * Welcome Email — Sent after registration
+ */
+async function sendWelcomeEmail({ email, name, role }) {
+  const roleContent = {
+    customer: {
+      headline: 'Welcome to OjaBridge!',
+      body: `Your account is now active. You have access to thousands of products from verified vendors across Africa — all with secure payments and buyer protection.`,
+      cta: 'Start Shopping',
+      ctaUrl: `${SITE_URL}/shop`,
+      tips: [
+        { icon: '🔍', text: 'Browse products from verified vendors' },
+        { icon: '🔒', text: 'Pay securely with Paystack — your money is protected' },
+        { icon: '📦', text: 'Track every order from purchase to delivery' },
+        { icon: '💬', text: 'Get support whenever you need it' },
+      ],
+    },
+    vendor: {
+      headline: 'Welcome to OjaBridge!',
+      body: `Your vendor account has been created. Complete your identity verification (KYC) to start listing products and receiving orders.`,
+      cta: 'Complete Verification',
+      ctaUrl: `${SITE_URL}/vendor-dashboard/kyc`,
+      tips: [
+        { icon: '📋', text: 'Complete KYC/KYB to activate your store' },
+        { icon: '📸', text: 'Upload quality product images for more sales' },
+        { icon: '💳', text: 'Receive payouts directly to your bank account' },
+        { icon: '📊', text: 'Track performance with real-time analytics' },
+      ],
+    },
+    retailer: {
+      headline: 'Welcome to OjaBridge!',
+      body: `Your retailer account is ready. Source products at wholesale prices from verified vendors for your business.`,
+      cta: 'Complete Verification',
+      ctaUrl: `${SITE_URL}/retailer-dashboard/kyc`,
+      tips: [
+        { icon: '🔍', text: 'Discover wholesale pricing from verified vendors' },
+        { icon: '📋', text: 'Complete KYC to start sourcing products' },
+        { icon: '🤝', text: 'Build relationships with reliable suppliers' },
+        { icon: '📦', text: 'Manage orders and track deliveries' },
+      ],
+    },
+  };
+
+  const roleInfo = roleContent[role] || roleContent.customer;
+
+  const tipsHtml = roleInfo.tips.map(tip => `
+    <tr>
+      <td style="padding: 10px 0; font-size: 14px; color: #374151; vertical-align: top; width: 36px;">${tip.icon}</td>
+      <td style="padding: 10px 0; font-size: 14px; color: #374151; line-height: 1.5;">${tip.text}</td>
+    </tr>
+  `).join('');
+
+  const html = wrapEmail({
+    title: `Welcome to OjaBridge, ${name || 'there'}!`,
+    preheader: `Your ${role || 'customer'} account is ready. Here's how to get started.`,
+    content: `
+      <!-- Greeting -->
+      <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 700; color: #0f172a; line-height: 1.3;">
+        ${roleInfo.headline}
+      </h1>
+      <p style="margin: 0 0 24px; font-size: 15px; color: #64748b; line-height: 1.5;">
+        Hi ${name || 'there'},
+      </p>
+      
+      <p style="margin: 0 0 28px; font-size: 15px; color: #374151; line-height: 1.7;">
+        ${roleInfo.body}
+      </p>
+
+      <!-- CTA Button -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding: 8px 0 32px;">
+            <a href="${roleInfo.ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">
+              ${roleInfo.cta} &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Divider -->
+      <hr style="border: none; border-top: 1px solid #f0f0f0; margin: 8px 0 24px;">
+
+      <!-- Tips Section -->
+      <p style="margin: 0 0 12px; font-size: 13px; font-weight: 600; color: #0f172a; text-transform: uppercase; letter-spacing: 1px;">
+        Getting Started
+      </p>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        ${tipsHtml}
+      </table>
+
+      <!-- Divider -->
+      <hr style="border: none; border-top: 1px solid #f0f0f0; margin: 16px 0 24px;">
+
+      <!-- Help -->
+      <p style="margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.6;">
+        Questions? Visit our <a href="${SITE_URL}/support" style="color: #6b21a8; text-decoration: none; font-weight: 500;">Help Center</a> or reply to this email.
+      </p>
+    `,
+  });
+
+  return sendEmail({
+    to: email,
+    subject: `Welcome to OjaBridge, ${name || 'there'}! 🎉`,
+    htmlContent: html,
+  });
+}
+
+/**
+ * Verification Code Email — OTP for email verification
+ */
+async function sendVerificationCode({ email, name, code }) {
+  const html = wrapEmail({
+    title: 'Verify Your Email',
+    preheader: `Your OjaBridge verification code is ${code}`,
+    content: `
+      <!-- Icon -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding-bottom: 24px;">
+            <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #f3e8ff, #ede9fe); border-radius: 50%; text-align: center; line-height: 64px; font-size: 28px;">
+              &#9993;
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Greeting -->
+      <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 700; color: #0f172a; text-align: center; line-height: 1.3;">
+        Verify Your Email
+      </h1>
+      <p style="margin: 0 0 24px; font-size: 15px; color: #64748b; text-align: center;">
+        Hi ${name || 'there'}, enter the code below to verify your email address.
+      </p>
+
+      <!-- OTP Code Box -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding: 8px 0 32px;">
+            <div style="background: #fafbfc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 24px 40px; display: inline-block;">
+              <span class="otp-code" style="font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 42px; font-weight: 700; color: #6b21a8; letter-spacing: 10px; line-height: 1;">
+                ${code}
+              </span>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Info Box -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 16px 20px; background-color: #fefce8; border-radius: 10px; border-left: 4px solid #eab308;">
+            <p style="margin: 0; font-size: 13px; color: #854d0e; line-height: 1.6;">
+              This code expires in <strong>10 minutes</strong>. If you didn't request this, you can safely ignore this email — your account is secure.
+            </p>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Divider -->
+      <hr style="border: none; border-top: 1px solid #f0f0f0; margin: 28px 0 20px;">
+
+      <!-- Help -->
+      <p style="margin: 0; font-size: 13px; color: #94a3b8; text-align: center; line-height: 1.6;">
+        Having trouble? Contact us at <a href="mailto:support@ojabridge.com" style="color: #6b21a8; text-decoration: none;">support@ojabridge.com</a>
+      </p>
+    `,
+  });
+
+  return sendEmail({
+    to: email,
+    subject: `Your OjaBridge Verification Code: ${code}`,
+    htmlContent: html,
+  });
+}
 
 /**
  * Order Confirmation Email
  */
 async function sendOrderConfirmation({ email, name, orderNumber, items, total, currency, shippingAddress, paymentRef }) {
-  const itemsHtml = items?.map(item => `
-    <tr>
-      <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;">${item.product_name || item.name || 'Product'}</td>
-      <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;text-align:center;">${item.quantity}</td>
-      <td style="padding:12px 0;border-bottom:1px solid #e2e8f0;text-align:right;">${currency || '₦'}${parseFloat(item.unit_price || item.price || 0).toLocaleString()}</td>
-    </tr>
-  `).join('') || '';
+  const cur = currency || '₦';
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>${emailStyles}</head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>OJABRIDGE</h1>
-          <div class="tagline">SHOP • CONNECT • GROW</div>
-        </div>
-        <div class="content">
-          <h2>Order Confirmed! 🎉</h2>
-          <p>Hi ${name || 'Customer'},</p>
-          <p>Thank you for your order. Your payment has been confirmed and your order is being processed.</p>
-          
-          <div class="order-box">
-            <div class="label">Order Number</div>
-            <div class="value">${orderNumber}</div>
-            ${paymentRef ? `<div class="label">Payment Reference</div><div class="value" style="font-size:14px;">${paymentRef}</div>` : ''}
-          </div>
-
-          ${itemsHtml ? `
-          <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-            <thead>
-              <tr style="border-bottom:2px solid #0f172a;">
-                <th style="text-align:left;padding:8px 0;color:#64748b;font-size:13px;">ITEM</th>
-                <th style="text-align:center;padding:8px 0;color:#64748b;font-size:13px;">QTY</th>
-                <th style="text-align:right;padding:8px 0;color:#64748b;font-size:13px;">PRICE</th>
-              </tr>
-            </thead>
-            <tbody>${itemsHtml}</tbody>
-          </table>
-          ` : ''}
-
-          <div class="order-box">
-            <div class="label">Total Paid</div>
-            <div class="value" style="color:#7c3aed;font-size:24px;">${currency || '₦'}${parseFloat(total || 0).toLocaleString()}</div>
-          </div>
-
-          ${shippingAddress ? `
-          <div class="order-box">
-            <div class="label">Shipping To</div>
-            <div class="value" style="font-size:14px;">${shippingAddress}</div>
-          </div>
-          ` : ''}
-
-          <p style="margin-top:24px;">You can track your order from your account dashboard. We'll also send you updates as your order progresses.</p>
-
-          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/account/orders" class="btn">Track Your Order</a>
-        </div>
-        <div class="footer">
-          <p>OjaBridge — Africa's Leading Multi-Vendor Marketplace</p>
-          <p><a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}">ojabridge.com</a></p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const itemsHtml = items?.length > 0 ? `
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 20px 0;">
+      <tr style="border-bottom: 2px solid #f0f0f0;">
+        <td style="padding: 8px 0; font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Item</td>
+        <td style="padding: 8px 0; font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; text-align: center;">Qty</td>
+        <td style="padding: 8px 0; font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; text-align: right;">Price</td>
+      </tr>
+      ${items.map(item => `
+        <tr style="border-bottom: 1px solid #f8f8f8;">
+          <td style="padding: 14px 0; font-size: 14px; color: #1a1a2e; font-weight: 500;">${item.product_name || item.name || 'Product'}</td>
+          <td style="padding: 14px 0; font-size: 14px; color: #64748b; text-align: center;">${item.quantity}</td>
+          <td style="padding: 14px 0; font-size: 14px; color: #1a1a2e; font-weight: 600; text-align: right;">${cur}${parseFloat(item.unit_price || item.price || 0).toLocaleString()}</td>
+        </tr>
+      `).join('')}
+      <tr>
+        <td colspan="2" style="padding: 16px 0 8px; font-size: 15px; font-weight: 600; color: #0f172a; border-top: 2px solid #f0f0f0;">Total Paid</td>
+        <td style="padding: 16px 0 8px; font-size: 18px; font-weight: 700; color: #6b21a8; text-align: right; border-top: 2px solid #f0f0f0;">${cur}${parseFloat(total || 0).toLocaleString()}</td>
+      </tr>
+    </table>
+  ` : `
+    <div style="background: #fafbfc; border-radius: 10px; padding: 20px; margin: 20px 0;">
+      <p style="margin: 0; font-size: 13px; color: #94a3b8;">Total Paid</p>
+      <p style="margin: 4px 0 0; font-size: 24px; font-weight: 700; color: #6b21a8;">${cur}${parseFloat(total || 0).toLocaleString()}</p>
+    </div>
   `;
+
+  const html = wrapEmail({
+    title: `Order Confirmed — ${orderNumber}`,
+    preheader: `Order ${orderNumber} confirmed. Total: ${cur}${parseFloat(total || 0).toLocaleString()}`,
+    content: `
+      <!-- Success Badge -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding-bottom: 24px;">
+            <div style="display: inline-block; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 50px; padding: 8px 20px;">
+              <span style="font-size: 14px; color: #16a34a; font-weight: 600;">&#10003; Payment Confirmed</span>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 700; color: #0f172a; text-align: center; line-height: 1.3;">
+        Order Confirmed!
+      </h1>
+      <p style="margin: 0 0 24px; font-size: 15px; color: #64748b; text-align: center;">
+        Hi ${name || 'Customer'}, your order has been placed successfully.
+      </p>
+
+      <!-- Order Details Card -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 20px 24px; background: #fafbfc; border-radius: 12px; border: 1px solid #f0f0f0;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+              <tr>
+                <td style="padding: 4px 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Order Number</td>
+                <td style="padding: 4px 0; font-size: 15px; color: #0f172a; font-weight: 600; text-align: right;">${orderNumber}</td>
+              </tr>
+              ${paymentRef ? `
+              <tr>
+                <td style="padding: 4px 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Payment Reference</td>
+                <td style="padding: 4px 0; font-size: 13px; color: #64748b; text-align: right; font-family: monospace;">${paymentRef}</td>
+              </tr>
+              ` : ''}
+              <tr>
+                <td style="padding: 4px 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Date</td>
+                <td style="padding: 4px 0; font-size: 13px; color: #64748b; text-align: right;">${new Date().toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Items -->
+      ${itemsHtml}
+
+      ${shippingAddress ? `
+      <div style="margin: 20px 0;">
+        <p style="margin: 0 0 4px; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Shipping To</p>
+        <p style="margin: 0; font-size: 14px; color: #374151; line-height: 1.5;">${shippingAddress}</p>
+      </div>
+      ` : ''}
+
+      <!-- CTA -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding: 24px 0 8px;">
+            <a href="${SITE_URL}/account/orders" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+              Track Your Order &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <p style="margin: 20px 0 0; font-size: 13px; color: #94a3b8; text-align: center;">
+        We'll send you updates as your order progresses.
+      </p>
+    `,
+  });
 
   return sendEmail({
     to: email,
@@ -175,53 +506,76 @@ async function sendOrderConfirmation({ email, name, orderNumber, items, total, c
  */
 async function sendShippingUpdate({ email, name, orderNumber, status, trackingNumber, carrier }) {
   const statusMessages = {
-    processing: { text: 'Your order is being prepared', icon: '📦' },
-    packed: { text: 'Your order has been packed and is ready for pickup', icon: '📋' },
-    shipped: { text: 'Your order is on its way!', icon: '🚚' },
-    in_transit: { text: 'Your order is in transit', icon: '✈️' },
-    delivered: { text: 'Your order has been delivered!', icon: '✅' },
+    processing: { text: 'Your order is being prepared', icon: '&#128230;', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
+    packed: { text: 'Your order has been packed', icon: '&#128203;', color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
+    shipped: { text: 'Your order is on its way!', icon: '&#128666;', color: '#8b5cf6', bg: '#f5f3ff', border: '#ddd6fe' },
+    in_transit: { text: 'Your order is in transit', icon: '&#9992;', color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
+    delivered: { text: 'Your order has been delivered!', icon: '&#10003;', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
   };
 
-  const statusInfo = statusMessages[status] || { text: `Order status: ${status}`, icon: '📦' };
+  const info = statusMessages[status] || { text: `Status: ${status}`, icon: '&#128230;', color: '#64748b', bg: '#f8fafc', border: '#e2e8f0' };
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>${emailStyles}</head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>OJABRIDGE</h1>
-          <div class="tagline">SHOP • CONNECT • GROW</div>
-        </div>
-        <div class="content">
-          <h2>${statusInfo.icon} Shipping Update</h2>
-          <p>Hi ${name || 'Customer'},</p>
-          <p><strong>${statusInfo.text}</strong></p>
-          
-          <div class="order-box">
-            <div class="label">Order Number</div>
-            <div class="value">${orderNumber}</div>
-            <div class="label">Status</div>
-            <div class="value"><span class="status-badge status-${status === 'delivered' ? 'delivered' : status === 'shipped' ? 'shipped' : 'paid'}">${status?.toUpperCase()}</span></div>
-            ${trackingNumber ? `<div class="label">Tracking Number</div><div class="value" style="font-size:14px;">${trackingNumber}</div>` : ''}
-            ${carrier ? `<div class="label">Carrier</div><div class="value" style="font-size:14px;">${carrier}</div>` : ''}
-          </div>
+  const html = wrapEmail({
+    title: `${info.text} — ${orderNumber}`,
+    preheader: `${info.text}. Order ${orderNumber}${trackingNumber ? ` | Tracking: ${trackingNumber}` : ''}`,
+    content: `
+      <!-- Status Badge -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding-bottom: 24px;">
+            <div style="display: inline-block; background: ${info.bg}; border: 1px solid ${info.border}; border-radius: 50px; padding: 10px 24px;">
+              <span style="font-size: 15px; color: ${info.color}; font-weight: 600;">${info.icon} ${info.text}</span>
+            </div>
+          </td>
+        </tr>
+      </table>
 
-          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/account/orders" class="btn">Track Your Order</a>
-        </div>
-        <div class="footer">
-          <p>OjaBridge — Africa's Leading Multi-Vendor Marketplace</p>
-          <p><a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}">ojabridge.com</a></p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+      <p style="margin: 0 0 24px; font-size: 15px; color: #64748b; text-align: center;">
+        Hi ${name || 'Customer'}, here's the latest update on your order.
+      </p>
+
+      <!-- Order Card -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 24px; background: #fafbfc; border-radius: 12px; border: 1px solid #f0f0f0;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+              <tr>
+                <td style="padding: 6px 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Order Number</td>
+                <td style="padding: 6px 0; font-size: 15px; color: #0f172a; font-weight: 600; text-align: right;">${orderNumber}</td>
+              </tr>
+              ${trackingNumber ? `
+              <tr>
+                <td style="padding: 6px 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Tracking Number</td>
+                <td style="padding: 6px 0; font-size: 14px; color: #64748b; text-align: right; font-family: monospace;">${trackingNumber}</td>
+              </tr>
+              ` : ''}
+              ${carrier ? `
+              <tr>
+                <td style="padding: 6px 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Carrier</td>
+                <td style="padding: 6px 0; font-size: 14px; color: #64748b; text-align: right;">${carrier}</td>
+              </tr>
+              ` : ''}
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <!-- CTA -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding: 28px 0 8px;">
+            <a href="${SITE_URL}/account/orders" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+              View Order Details &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+    `,
+  });
 
   return sendEmail({
     to: email,
-    subject: `${statusInfo.icon} ${statusInfo.text} — ${orderNumber} | OjaBridge`,
+    subject: `${info.text} — ${orderNumber} | OjaBridge`,
     htmlContent: html,
   });
 }
@@ -230,35 +584,51 @@ async function sendShippingUpdate({ email, name, orderNumber, status, trackingNu
  * Password Reset Email
  */
 async function sendPasswordReset({ email, name, resetUrl }) {
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>${emailStyles}</head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>OJABRIDGE</h1>
-          <div class="tagline">SHOP • CONNECT • GROW</div>
-        </div>
-        <div class="content">
-          <h2>Reset Your Password 🔐</h2>
-          <p>Hi ${name || 'there'},</p>
-          <p>We received a request to reset your OjaBridge account password. Click the button below to create a new password.</p>
-          
-          <div style="text-align:center;margin:32px 0;">
-            <a href="${resetUrl}" class="btn">Reset Password</a>
-          </div>
+  const html = wrapEmail({
+    title: 'Reset Your Password',
+    preheader: `Reset your OjaBridge password. This link expires in 1 hour.`,
+    content: `
+      <!-- Icon -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding-bottom: 24px;">
+            <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 50%; text-align: center; line-height: 64px; font-size: 28px;">
+              &#128274;
+            </div>
+          </td>
+        </tr>
+      </table>
 
-          <p style="color:#64748b;font-size:13px;">This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
-        </div>
-        <div class="footer">
-          <p>OjaBridge — Africa's Leading Multi-Vendor Marketplace</p>
-          <p><a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}">ojabridge.com</a></p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+      <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 700; color: #0f172a; text-align: center; line-height: 1.3;">
+        Reset Your Password
+      </h1>
+      <p style="margin: 0 0 24px; font-size: 15px; color: #64748b; text-align: center;">
+        Hi ${name || 'there'}, we received a request to reset your password.
+      </p>
+
+      <!-- CTA -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding: 8px 0 28px;">
+            <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+              Reset Password &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Info Box -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 16px 20px; background-color: #fefce8; border-radius: 10px; border-left: 4px solid #eab308;">
+            <p style="margin: 0; font-size: 13px; color: #854d0e; line-height: 1.6;">
+              This link expires in <strong>1 hour</strong>. If you didn't request a password reset, ignore this email — your password will remain unchanged.
+            </p>
+          </td>
+        </tr>
+      </table>
+    `,
+  });
 
   return sendEmail({
     to: email,
@@ -268,94 +638,82 @@ async function sendPasswordReset({ email, name, resetUrl }) {
 }
 
 /**
- * Welcome / Registration Confirmation Email
- */
-async function sendWelcomeEmail({ email, name, role }) {
-  const roleMessages = {
-    customer: 'Start exploring thousands of products from verified vendors across Africa.',
-    vendor: 'Complete your KYC verification to start selling on OjaBridge.',
-    retailer: 'Start sourcing products at wholesale prices from verified vendors.',
-  };
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>${emailStyles}</head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>OJABRIDGE</h1>
-          <div class="tagline">SHOP • CONNECT • GROW</div>
-        </div>
-        <div class="content">
-          <h2>Welcome to OjaBridge! 🎉</h2>
-          <p>Hi ${name || 'there'},</p>
-          <p>Your OjaBridge account has been created successfully. You're now part of Africa's most trusted multi-vendor marketplace.</p>
-          
-          <div class="order-box">
-            <div class="label">Account Type</div>
-            <div class="value" style="text-transform:capitalize;">${role || 'Customer'}</div>
-          </div>
-
-          <p>${roleMessages[role] || roleMessages.customer}</p>
-
-          <div style="text-align:center;margin:32px 0;">
-            <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login" class="btn">Log In to Your Account</a>
-          </div>
-        </div>
-        <div class="footer">
-          <p>OjaBridge — Africa's Leading Multi-Vendor Marketplace</p>
-          <p><a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}">ojabridge.com</a></p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
-  return sendEmail({
-    to: email,
-    subject: `Welcome to OjaBridge, ${name || 'there'}! 🎉`,
-    htmlContent: html,
-  });
-}
-
-/**
- * Vendor KYC Status Update Email
+ * KYC Status Update Email
  */
 async function sendKYCUpdate({ email, name, status }) {
   const statusMessages = {
-    verified: { title: 'KYC Verified! ✅', message: 'Your identity verification has been approved. You can now start listing products on OjaBridge.', color: '#16a34a' },
-    rejected: { title: 'KYC Requires Attention ⚠️', message: 'Your verification was not approved. Please review the feedback and resubmit your documents.', color: '#dc2626' },
-    submitted: { title: 'KYC Under Review 📋', message: 'Your verification documents have been submitted and are being reviewed. We\'ll notify you once the review is complete.', color: '#2563eb' },
+    verified: {
+      title: 'Verification Approved!',
+      message: 'Your identity has been verified. You can now start listing products and receiving orders on OjaBridge.',
+      cta: 'Go to Dashboard',
+      ctaUrl: `${SITE_URL}/vendor-dashboard`,
+      color: '#16a34a',
+      bg: '#f0fdf4',
+      border: '#bbf7d0',
+    },
+    rejected: {
+      title: 'Verification Needs Attention',
+      message: 'Your verification documents were not approved. Please review the feedback and resubmit with the required corrections.',
+      cta: 'Review & Resubmit',
+      ctaUrl: `${SITE_URL}/vendor-dashboard/kyc`,
+      color: '#dc2626',
+      bg: '#fef2f2',
+      border: '#fecaca',
+    },
+    submitted: {
+      title: 'Verification Under Review',
+      message: 'Your documents have been received and are being reviewed by our team. We\'ll notify you once the review is complete (usually within 24-48 hours).',
+      cta: 'View Status',
+      ctaUrl: `${SITE_URL}/vendor-dashboard/kyc`,
+      color: '#2563eb',
+      bg: '#eff6ff',
+      border: '#bfdbfe',
+    },
   };
 
   const info = statusMessages[status] || statusMessages.submitted;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>${emailStyles}</head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>OJABRIDGE</h1>
-          <div class="tagline">SHOP • CONNECT • GROW</div>
-        </div>
-        <div class="content">
-          <h2>${info.title}</h2>
-          <p>Hi ${name || 'Vendor'},</p>
-          <p>${info.message}</p>
-          
-          <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/vendor-dashboard" class="btn">Go to Dashboard</a>
-        </div>
-        <div class="footer">
-          <p>OjaBridge — Africa's Leading Multi-Vendor Marketplace</p>
-          <p><a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}">ojabridge.com</a></p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+  const html = wrapEmail({
+    title: info.title,
+    preheader: info.message,
+    content: `
+      <!-- Status Badge -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding-bottom: 24px;">
+            <div style="display: inline-block; background: ${info.bg}; border: 1px solid ${info.border}; border-radius: 50px; padding: 10px 24px;">
+              <span style="font-size: 15px; color: ${info.color}; font-weight: 600;">${info.title}</span>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 700; color: #0f172a; text-align: center; line-height: 1.3;">
+        ${info.title}
+      </h1>
+      <p style="margin: 0 0 8px; font-size: 15px; color: #64748b; text-align: center;">
+        Hi ${name || 'there'},
+      </p>
+      <p style="margin: 0 0 28px; font-size: 15px; color: #374151; text-align: center; line-height: 1.7;">
+        ${info.message}
+      </p>
+
+      <!-- CTA -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding: 8px 0 24px;">
+            <a href="${info.ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+              ${info.cta} &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <p style="margin: 16px 0 0; font-size: 13px; color: #94a3b8; text-align: center;">
+        Need help? <a href="${SITE_URL}/support" style="color: #6b21a8; text-decoration: none;">Contact Support</a>
+      </p>
+    `,
+  });
 
   return sendEmail({
     to: email,
@@ -365,68 +723,142 @@ async function sendKYCUpdate({ email, name, status }) {
 }
 
 /**
- * Vendor New Order Notification Email
+ * Vendor New Order Notification
  */
 async function sendVendorNewOrder({ email, vendorName, orderNumber, items, total, currency, buyerName }) {
-  const itemsHtml = items?.map(item => `
-    <tr>
-      <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${item.product_name || 'Product'}</td>
-      <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:center;">${item.quantity}</td>
-      <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;">${currency || '₦'}${parseFloat(item.total_price || 0).toLocaleString()}</td>
-    </tr>
-  `).join('') || '';
+  const cur = currency || '₦';
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>${emailStyles}</head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>OJABRIDGE</h1>
-          <div class="tagline">SHOP • CONNECT • GROW</div>
-        </div>
-        <div class="content">
-          <h2>New Order Received! 🛒</h2>
-          <p>Hi ${vendorName || 'Vendor'},</p>
-          <p>You have a new order from ${buyerName || 'a customer'}. Please process it promptly.</p>
-          
-          <div class="order-box">
-            <div class="label">Order Number</div>
-            <div class="value">${orderNumber}</div>
-            <div class="label">Order Total</div>
-            <div class="value" style="color:#7c3aed;">${currency || '₦'}${parseFloat(total || 0).toLocaleString()}</div>
-          </div>
+  const itemsHtml = items?.length > 0 ? `
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 16px 0;">
+      <tr style="border-bottom: 2px solid #f0f0f0;">
+        <td style="padding: 8px 0; font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Item</td>
+        <td style="padding: 8px 0; font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; text-align: center;">Qty</td>
+        <td style="padding: 8px 0; font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; text-align: right;">Amount</td>
+      </tr>
+      ${items.map(item => `
+        <tr style="border-bottom: 1px solid #f8f8f8;">
+          <td style="padding: 12px 0; font-size: 14px; color: #1a1a2e; font-weight: 500;">${item.product_name || 'Product'}</td>
+          <td style="padding: 12px 0; font-size: 14px; color: #64748b; text-align: center;">${item.quantity}</td>
+          <td style="padding: 12px 0; font-size: 14px; color: #1a1a2e; font-weight: 600; text-align: right;">${cur}${parseFloat(item.total_price || 0).toLocaleString()}</td>
+        </tr>
+      `).join('')}
+      <tr>
+        <td colspan="2" style="padding: 16px 0 8px; font-size: 15px; font-weight: 600; color: #0f172a; border-top: 2px solid #f0f0f0;">Total</td>
+        <td style="padding: 16px 0 8px; font-size: 18px; font-weight: 700; color: #6b21a8; text-align: right; border-top: 2px solid #f0f0f0;">${cur}${parseFloat(total || 0).toLocaleString()}</td>
+      </tr>
+    </table>
+  ` : '';
 
-          ${itemsHtml ? `
-          <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-            <thead>
-              <tr style="border-bottom:2px solid #0f172a;">
-                <th style="text-align:left;padding:8px 0;color:#64748b;font-size:13px;">ITEM</th>
-                <th style="text-align:center;padding:8px 0;color:#64748b;font-size:13px;">QTY</th>
-                <th style="text-align:right;padding:8px 0;color:#64748b;font-size:13px;">AMOUNT</th>
+  const html = wrapEmail({
+    title: `New Order — ${orderNumber}`,
+    preheader: `New order from ${buyerName || 'a customer'}: ${cur}${parseFloat(total || 0).toLocaleString()}`,
+    content: `
+      <!-- New Order Badge -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding-bottom: 24px;">
+            <div style="display: inline-block; background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 50px; padding: 10px 24px;">
+              <span style="font-size: 15px; color: #7c3aed; font-weight: 600;">&#128722; New Order Received</span>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 700; color: #0f172a; text-align: center; line-height: 1.3;">
+        New Order!
+      </h1>
+      <p style="margin: 0 0 24px; font-size: 15px; color: #64748b; text-align: center;">
+        Hi ${vendorName || 'Vendor'}, you have a new order from <strong style="color: #374151;">${buyerName || 'a customer'}</strong>.
+      </p>
+
+      <!-- Order Card -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 20px 24px; background: #fafbfc; border-radius: 12px; border: 1px solid #f0f0f0;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+              <tr>
+                <td style="padding: 4px 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Order Number</td>
+                <td style="padding: 4px 0; font-size: 15px; color: #0f172a; font-weight: 600; text-align: right;">${orderNumber}</td>
               </tr>
-            </thead>
-            <tbody>${itemsHtml}</tbody>
-          </table>
-          ` : ''}
+              <tr>
+                <td style="padding: 4px 0; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Order Total</td>
+                <td style="padding: 4px 0; font-size: 18px; color: #6b21a8; font-weight: 700; text-align: right;">${cur}${parseFloat(total || 0).toLocaleString()}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
 
-          <div style="text-align:center;margin:24px 0;">
-            <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/vendor-dashboard/orders" class="btn">View Order</a>
-          </div>
-        </div>
-        <div class="footer">
-          <p>OjaBridge — Africa's Leading Multi-Vendor Marketplace</p>
-          <p><a href="${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}">ojabridge.com</a></p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+      <!-- Items -->
+      ${itemsHtml}
+
+      <!-- CTA -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding: 24px 0 8px;">
+            <a href="${SITE_URL}/vendor-dashboard/orders" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+              View Order &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <p style="margin: 20px 0 0; font-size: 13px; color: #94a3b8; text-align: center;">
+        Please process this order promptly to maintain your vendor rating.
+      </p>
+    `,
+  });
 
   return sendEmail({
     to: email,
-    subject: `🛒 New Order ${orderNumber} — ${currency || '₦'}${parseFloat(total || 0).toLocaleString()} | OjaBridge`,
+    subject: `&#128722; New Order ${orderNumber} — ${cur}${parseFloat(total || 0).toLocaleString()} | OjaBridge`,
+    htmlContent: html,
+  });
+}
+
+/**
+ * Order Cancelled Email
+ */
+async function sendOrderCancelled({ email, name, orderNumber, reason }) {
+  const html = wrapEmail({
+    title: `Order Cancelled — ${orderNumber}`,
+    preheader: `Your order ${orderNumber} has been cancelled.`,
+    content: `
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td align="center" style="padding-bottom: 24px;">
+            <div style="display: inline-block; background: #fef2f2; border: 1px solid #fecaca; border-radius: 50px; padding: 10px 24px;">
+              <span style="font-size: 15px; color: #dc2626; font-weight: 600;">Order Cancelled</span>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 700; color: #0f172a; text-align: center;">Order Cancelled</h1>
+      <p style="margin: 0 0 24px; font-size: 15px; color: #64748b; text-align: center;">
+        Hi ${name || 'there'}, your order <strong>${orderNumber}</strong> has been cancelled.
+      </p>
+
+      ${reason ? `
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr>
+          <td style="padding: 16px 20px; background: #fafbfc; border-radius: 10px; border: 1px solid #f0f0f0;">
+            <p style="margin: 0 0 4px; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Reason</p>
+            <p style="margin: 0; font-size: 14px; color: #374151; line-height: 1.5;">${reason}</p>
+          </td>
+        </tr>
+      </table>
+      ` : ''}
+
+      <p style="margin: 24px 0 0; font-size: 13px; color: #94a3b8; text-align: center;">
+        If you have questions, contact us at <a href="mailto:support@ojabridge.com" style="color: #6b21a8; text-decoration: none;">support@ojabridge.com</a>
+      </p>
+    `,
+  });
+
+  return sendEmail({
+    to: email,
+    subject: `Order Cancelled — ${orderNumber} | OjaBridge`,
     htmlContent: html,
   });
 }
@@ -437,6 +869,8 @@ export {
   sendShippingUpdate,
   sendPasswordReset,
   sendWelcomeEmail,
+  sendVerificationCode,
   sendKYCUpdate,
   sendVendorNewOrder,
+  sendOrderCancelled,
 };

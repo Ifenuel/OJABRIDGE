@@ -15,9 +15,9 @@ export default function LoginPage() {
   const { login, isAuthenticated, user } = useAuth();
   const router = useRouter();
 
-  // Redirect if already logged in
+  // Redirect if already logged in and verified
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && user.email_verified) {
       const dashboards = { admin: '/admin-dashboard', vendor: '/vendor-dashboard', retailer: '/retailer-dashboard', customer: '/account' };
       router.replace(dashboards[user.role] || '/account');
     }

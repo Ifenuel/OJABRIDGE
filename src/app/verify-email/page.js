@@ -13,7 +13,8 @@ function VerifyEmailForm() {
   const { user, isAuthenticated, updateProfile } = useAuth();
 
   const emailParam = searchParams.get('email') || user?.email || '';
-  const [email] = useState(emailParam);
+  const [email, setEmail] = useState(emailParam);
+  const fromRegister = searchParams.get('from') === 'register';
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -22,6 +23,7 @@ function VerifyEmailForm() {
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const inputRef = useRef(null);
 
   // Focus OTP input on mount
@@ -41,10 +43,10 @@ function VerifyEmailForm() {
 
   // Auto-send on first load
   useEffect(() => {
-    if (email && !verified) {
+    if (email && !verified && !otpSent) {
       handleSendCode();
     }
-  }, [email]);
+  }, []);
 
   const handleSendCode = async () => {
     if (!email) return;
@@ -60,6 +62,7 @@ function VerifyEmailForm() {
       const data = await res.json();
       if (data.success) {
         setSuccess('Verification code sent! Check your inbox.');
+        setOtpSent(true);
         setTimer(60);
         setCanResend(false);
         // In dev mode, auto-fill OTP
@@ -92,14 +95,15 @@ function VerifyEmailForm() {
       if (data.success) {
         setVerified(true);
         setSuccess('Email verified successfully!');
-        // Update local auth state
+        // Update local auth state if logged in
         if (updateProfile) updateProfile({ email_verified: true });
-        // Redirect to dashboard after 2 seconds
+        // Redirect after 2 seconds
         setTimeout(() => {
           if (user?.role === 'vendor') router.push('/vendor-dashboard');
           else if (user?.role === 'retailer') router.push('/retailer-dashboard');
           else if (user?.role === 'admin') router.push('/admin-dashboard');
-          else router.push('/account');
+          else if (user) router.push('/account');
+          else router.push('/login'); // No session (just registered) → go to login
         }, 2000);
       } else {
         setError(data.error || 'Verification failed');
@@ -135,9 +139,10 @@ function VerifyEmailForm() {
         </div>
         <h2 className="text-xl font-bold text-ob-navy mb-1">Verify Your Email</h2>
         <p className="text-gray-500 text-sm">
-          We&apos;ve sent a 6-digit code to<br />
+          {fromRegister ? 'Your account is ready — ' : ''}We&apos;ve sent a 6-digit code to<br />
           <strong className="text-ob-navy">{email || 'your email'}</strong>
         </p>
+        {fromRegister && <p className="text-xs text-ob-purple mt-2">Enter the code below to activate your account and start using OjaBridge.</p>}
       </div>
 
       {error && (

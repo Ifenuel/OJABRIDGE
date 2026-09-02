@@ -101,44 +101,13 @@ export async function POST(request) {
       firstSentAt: existing?.firstSentAt || Date.now(),
     }, 600);
 
-    // Send verification email
+    // Send verification email using professional template
     try {
-      const { sendEmail } = await import('@/lib/email');
-      await sendEmail({
-        to: cleanEmail,
-        subject: `Verify Your OjaBridge Email — Code: ${code}`,
-        htmlContent: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: #f8f9fa; }
-              .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
-              .header { background: linear-gradient(135deg, #0f172a 0%, #6b21a8 100%); padding: 32px; text-align: center; }
-              .header h1 { color: #ffffff; margin: 0; font-size: 28px; letter-spacing: 2px; }
-              .content { padding: 32px; color: #1e293b; line-height: 1.6; text-align: center; }
-              .otp-code { font-size: 48px; font-weight: bold; color: #6b21a8; letter-spacing: 12px; margin: 24px 0; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 2px dashed #e2e8f0; }
-              .footer { background: #0f172a; padding: 24px; text-align: center; color: #94a3b8; font-size: 12px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>OJABRIDGE</h1>
-              </div>
-              <div class="content">
-                <h2>Verify Your Email</h2>
-                <p>Welcome to OjaBridge! Use the code below to verify your email address and activate your account.</p>
-                <div class="otp-code">${code}</div>
-                <p style="color:#64748b;font-size:13px;">This code expires in 10 minutes. If you didn't create an OjaBridge account, you can safely ignore this email.</p>
-              </div>
-              <div class="footer">
-                <p>OjaBridge — Shop • Connect • Grow</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+      const { sendVerificationCode } = await import('@/lib/email');
+      await sendVerificationCode({
+        email: cleanEmail,
+        name: '',
+        code,
       });
     } catch (emailErr) {
       console.error('[VERIFY-EMAIL] Send failed:', emailErr.message);

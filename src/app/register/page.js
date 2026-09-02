@@ -64,11 +64,11 @@ export default function RegisterPage() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && user.email_verified) {
       if (user.role === 'admin') router.replace('/admin-dashboard');
       else if (user.role === 'vendor') router.replace('/vendor-dashboard');
       else if (user.role === 'retailer') router.replace('/retailer-dashboard');
-      else router.replace('/account'); // Customer → Customer Dashboard
+      else router.replace('/account');
     }
   }, [isAuthenticated, user, router]);
 
@@ -85,6 +85,13 @@ export default function RegisterPage() {
   const [otpError, setOtpError] = useState('');
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
+
+  // Auto-send OTP when user reaches Step 3 and enters a valid email
+  useEffect(() => {
+    if (step === 3 && email && email.includes('@') && !otpSent && !emailVerified && !otpSending) {
+      handleSendOtp('email');
+    }
+  }, [step, email]);
 
   const handleSendOtp = async (type) => {
     if (type !== 'email') return;
@@ -147,7 +154,7 @@ export default function RegisterPage() {
     switch (step) {
       case 1: return role === 'customer' || role === 'vendor' || role === 'retailer';
       case 2: return country !== '' && currency !== '';
-      case 3: return emailVerified || email.length > 0;
+      case 3: return emailVerified;
       case 4: return firstName && lastName && email && phone && password.length >= 8 && password === confirmPassword && agreed;
       case 5: return role === 'vendor' ? businessName && businessType && rcNumber && businessAddress : true;
       case 6: return true;
@@ -180,7 +187,7 @@ export default function RegisterPage() {
 
       if (result.success) {
         // Redirect to email verification page
-        router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
+        router.push(`/verify-email?email=${encodeURIComponent(email.trim())}&from=register`);
       } else {
         setError(result.error || 'Registration failed');
         setStep(4);
@@ -307,8 +314,8 @@ export default function RegisterPage() {
           {/* STEP 3: Verify Identity */}
           {step === 3 && (
             <div>
-              <h2 className="text-lg font-bold text-ob-navy mb-1">Verify your identity</h2>
-              <p className="text-gray-500 text-sm mb-6">We&apos;ll send a verification code to confirm your contact details.</p>
+              <h2 className="text-lg font-bold text-ob-navy mb-1">Verify your email</h2>
+              <p className="text-gray-500 text-sm mb-6">Enter your email address. We&apos;ll send a 6-digit verification code — you must verify before continuing.</p>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
