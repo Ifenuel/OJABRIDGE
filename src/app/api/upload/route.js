@@ -16,7 +16,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 export async function POST(request) {
   try {
     const user = await getUserFromRequest(request);
-    const auth = requireRole(user, 'admin');
+    const auth = requireRole(user, 'admin', 'vendor', 'retailer');
     if (!auth.authorized) {
       return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
     }
