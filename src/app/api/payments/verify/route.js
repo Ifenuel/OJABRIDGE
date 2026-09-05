@@ -86,8 +86,9 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: 'Currency verification failed' }, { status: 400 });
       }
 
-      // 6. Calculate commission (SERVER-SIDE — 10%)
-      const commissionRate = parseFloat(process.env.COMMISSION_RATE || '10');
+      // 6. Calculate commission (SERVER-SIDE) — reads from platform settings
+      const { getCommissionRate } = await import('@/lib/platform-config');
+      const commissionRate = await getCommissionRate();
       const totalAmount = serverAmount;
       const commissionAmount = Math.round(totalAmount * (commissionRate / 100) * 100) / 100;
       const vendorAmount = Math.round((totalAmount - commissionAmount) * 100) / 100;

@@ -125,7 +125,8 @@ export async function verifyPayment(reference) {
  * @param {Object} params - { orderId, totalAmount, vendorId, currency }
  */
 export async function processSplitPayment({ orderId, totalAmount, vendorId, currency = 'NGN' }) {
-  const commissionRate = parseFloat(process.env.COMMISSION_RATE || '10');
+  const { getCommissionRate } = await import('@/lib/platform-config');
+  const commissionRate = await getCommissionRate();
   const commission = Math.round(totalAmount * (commissionRate / 100) * 100) / 100;
   const vendorAmount = Math.round((totalAmount - commission) * 100) / 100;
 

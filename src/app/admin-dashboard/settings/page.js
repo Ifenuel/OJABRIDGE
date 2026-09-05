@@ -28,8 +28,43 @@ export default function AdminSettingsPage() {
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newAdminForm, setNewAdminForm] = useState({ name: '', email: '', phone: '', password: '', permissions: [] });
+  const [platformSettings, setPlatformSettings] = useState({ platform_commission: 10, free_shipping_threshold: 50000 });
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); loadSettings(); }, []);
+
+  const loadSettings = async () => {
+    try {
+      const res = await fetch('/api/admin/settings');
+      const data = await res.json();
+      if (data.success && data.settings) {
+        setPlatformSettings(data.settings);
+        setSettingsLoaded(true);
+      }
+    } catch {}
+  };
+
+  const saveSettings = async () => {
+    setSettingsSaving(true);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: platformSettings }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Platform settings saved. Changes take effect immediately.' });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to save settings' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Network error saving settings' });
+    }
+    setSettingsSaving(false);
+    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -278,15 +313,44 @@ export default function AdminSettingsPage() {
         <div className="bg-white rounded-xl border border-gray-100 p-6">
           <h3 className="font-bold text-ob-navy mb-4">Commission Settings</h3>
           <div className="space-y-4">
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm text-gray-700">Platform Commission</span>
-              <span className="text-sm font-bold text-ob-navy">10% per transaction</span>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Platform Commission (%)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  step="0.5"
+                  value={platformSettings.platform_commission}
+                  onChange={e => setPlatformSettings({ ...platformSettings, platform_commission: parseFloat(e.target.value) || 0 })}
+                  className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-ob-navy focus:border-ob-purple outline-none"
+                />
+                <span className="text-sm text-gray-500">% per transaction</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Deducted from each successful payment before vendor settlement.</p>
             </div>
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm text-gray-700">Free Shipping Threshold</span>
-              <span className="text-sm font-bold text-ob-navy">₦50,000</span>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Free Shipping Threshold (₦)</label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">₦</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={platformSettings.free_shipping_threshold}
+                  onChange={e => setPlatformSettings({ ...platformSettings, free_shipping_threshold: parseInt(e.target.value) || 0 })}
+                  className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-ob-navy focus:border-ob-purple outline-none"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Orders above this amount get free shipping.</p>
             </div>
-            <p className="text-xs text-gray-400">Commission is deducted from each successful payment before vendor settlement.</p>
+            <button
+              onClick={saveSettings}
+              disabled={settingsSaving}
+              className="bg-ob-purple text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-ob-purple-dark disabled:opacity-50 transition-colors"
+            >
+              {settingsSaving ? 'Saving...' : 'Save Settings'}
+            </button>
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-6">

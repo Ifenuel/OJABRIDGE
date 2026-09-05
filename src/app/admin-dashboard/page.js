@@ -107,28 +107,28 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Stats Row 1 */}
+      {/* Stats Row 1 — Revenue */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Total Revenue" value={`₦${totalRevenue.toLocaleString()}`} color="text-green-600" />
-        <StatCard title="Platform Commission" value={`₦${commission.toLocaleString()}`} color="text-amber-600" />
-        <StatCard title="Net to Vendors" value={`₦${stats.netToVendors.toLocaleString()}`} color="text-blue-600" />
-        <StatCard title="Total Orders" value={stats.totalOrders} color="text-ob-purple" />
+        <StatCard label="Total Revenue" value={`₦${totalRevenue.toLocaleString()}`} color="text-green-600" change={totalRevenue === 0 ? 'No paid orders yet' : `From ${stats.completedOrders} completed orders`} />
+        <StatCard label="Platform Commission" value={`₦${commission.toLocaleString()}`} color="text-amber-600" change={commission === 0 ? '10% per transaction' : '10% per transaction'} />
+        <StatCard label="Net to Vendors" value={`₦${stats.netToVendors.toLocaleString()}`} color="text-blue-600" change={stats.netToVendors === 0 ? 'Paid after commission' : 'Paid after commission deduction'} />
+        <StatCard label="Total Orders" value={stats.totalOrders} color="text-ob-purple" change={stats.totalOrders === 0 ? 'No orders placed yet' : `${stats.activeOrders} active, ${stats.completedOrders} completed`} />
       </div>
 
       {/* Stats Row 2 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Total Users" value={stats.totalUsers} color="text-ob-navy" />
-        <StatCard title="Total Vendors" value={stats.totalVendors} color="text-blue-600" />
-        <StatCard title="Active Orders" value={stats.activeOrders} color="text-indigo-600" />
-        <StatCard title="Completed Orders" value={stats.completedOrders} color="text-green-600" />
+        <StatCard label="Total Users" value={stats.totalUsers} color="text-ob-navy" change={`${stats.totalCustomers} customers, ${stats.totalVendors} vendors`} />
+        <StatCard label="Total Vendors" value={stats.totalVendors} color="text-blue-600" change={stats.totalVendors === 0 ? 'No vendors registered yet' : `${pendingKyc} pending KYC`} />
+        <StatCard label="Active Orders" value={stats.activeOrders} color="text-indigo-600" change={stats.activeOrders === 0 ? 'No active orders' : 'Currently being processed'} />
+        <StatCard label="Completed Orders" value={stats.completedOrders} color="text-green-600" change={stats.completedOrders === 0 ? 'No completed orders yet' : 'Successfully delivered'} />
       </div>
 
       {/* Stats Row 3 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Pending KYC" value={pendingKyc} color={pendingKyc > 0 ? 'text-amber-600' : 'text-green-600'} />
-        <StatCard title="Pending Products" value={pendingProducts} color={pendingProducts > 0 ? 'text-amber-600' : 'text-green-600'} />
-        <StatCard title="Open Disputes" value={openDisputes} color={openDisputes > 0 ? 'text-red-600' : 'text-green-600'} />
-        <StatCard title="Payment Issues" value={paymentIssues} color={paymentIssues > 0 ? 'text-red-600' : 'text-green-600'} />
+        <StatCard label="Pending KYC" value={pendingKyc} color={pendingKyc > 0 ? 'text-amber-600' : 'text-green-600'} change={pendingKyc === 0 ? 'All vendors verified' : 'Awaiting verification'} />
+        <StatCard label="Pending Products" value={pendingProducts} color={pendingProducts > 0 ? 'text-amber-600' : 'text-green-600'} change={pendingProducts === 0 ? 'No products pending review' : 'Awaiting moderation'} />
+        <StatCard label="Open Disputes" value={openDisputes} color={openDisputes > 0 ? 'text-red-600' : 'text-green-600'} change={openDisputes === 0 ? 'No open disputes' : 'Need attention'} />
+        <StatCard label="Payment Issues" value={paymentIssues} color={paymentIssues > 0 ? 'text-red-600' : 'text-green-600'} change={paymentIssues === 0 ? 'No payment issues' : 'Failed or refunded'} />
       </div>
 
       {/* Charts */}

@@ -138,8 +138,9 @@ async function handleChargeSuccess(data) {
     return;
   }
 
-  // Calculate commission (SERVER-SIDE)
-  const commissionRate = parseFloat(process.env.COMMISSION_RATE || '10');
+  // Calculate commission (SERVER-SIDE) — reads from platform settings
+  const { getCommissionRate } = await import('@/lib/platform-config');
+  const commissionRate = await getCommissionRate();
   const totalAmount = transaction.amount;
   const commissionAmount = Math.round(totalAmount * (commissionRate / 100) * 100) / 100;
   const vendorAmount = Math.round((totalAmount - commissionAmount) * 100) / 100;

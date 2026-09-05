@@ -114,7 +114,8 @@ export async function POST(request) {
 
       const unitPrice = dbProduct.price;
       const totalPrice = unitPrice * item.quantity;
-      const commissionRate = parseFloat(process.env.COMMISSION_RATE || '10');
+      const { getCommissionRate } = await import('@/lib/platform-config');
+      const commissionRate = await getCommissionRate();
       const commissionAmount = Math.round(totalPrice * (commissionRate / 100) * 100) / 100;
 
       subtotal += totalPrice;
