@@ -6,17 +6,7 @@ import { useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { useAuth } from '@/context/AuthContext';
 
-const COUNTRIES = [
-  { code: 'NG', name: 'Nigeria', currencies: [{ code: 'NGN', active: true }] },
-  { code: 'GH', name: 'Ghana', currencies: [{ code: 'GHS', comingSoon: true }] },
-  { code: 'KE', name: 'Kenya', currencies: [{ code: 'KES', comingSoon: true }] },
-  { code: 'ZA', name: 'South Africa', currencies: [{ code: 'ZAR', comingSoon: true }] },
-  { code: 'US', name: 'United States', currencies: [{ code: 'USD', comingSoon: true }] },
-  { code: 'GB', name: 'United Kingdom', currencies: [{ code: 'GBP', comingSoon: true }] },
-  { code: 'OTHER', name: 'Other', currencies: [{ code: 'USD', comingSoon: true }] },
-];
-
-const CURRENCY_SYMBOLS = { NGN: '₦', USD: '$', GBP: '£', EUR: '€', GHS: 'GH₵', KES: 'KSh', ZAR: 'R' };
+import { COUNTRIES, CURRENCY_SYMBOLS } from '@/lib/countries';
 
 const BUSINESS_TYPES = [
   'Sole Proprietorship', 'Private Limited Company', 'Public Limited Company',
@@ -276,7 +266,7 @@ export default function RegisterPage() {
                 {selectedCountry && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Display Currency *</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {selectedCountry.currencies.map(cur => (
                         <button key={cur.code} type="button" disabled={!!cur.comingSoon}
                           onClick={() => !cur.comingSoon && setCurrency(cur.code)}

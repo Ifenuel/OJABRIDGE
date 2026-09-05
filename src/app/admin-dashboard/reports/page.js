@@ -57,7 +57,7 @@ export default function AdminReportsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[
           { l: 'Open Reports', value: openCount, c: 'text-red-600', icon: '🔴' },
           { l: 'Under Review', value: reports.filter(r => r.status === 'under_review').length, c: 'text-amber-600', icon: '🟡' },

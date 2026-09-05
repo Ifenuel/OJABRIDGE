@@ -281,7 +281,7 @@ export default function ProductDetailPage({ params }) {
               )}
 
               {/* Trust strip */}
-              <div className="grid grid-cols-3 gap-3 pt-4 border-t border-gray-100">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-gray-100">
                 {[
                   { icon: '🔒', text: 'Secure Payment' },
                   { icon: '🚚', text: 'Fast Delivery' },

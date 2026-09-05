@@ -151,7 +151,7 @@ export default function VendorOrdersPage() {
               </button>
             </div>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><p className="text-xs text-gray-400">Status</p><span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[selectedOrder.status]}`}>{selectedOrder.status}</span></div>
                 <div><p className="text-xs text-gray-400">Payment</p><span className={`text-xs font-medium px-2 py-1 rounded-full ${selectedOrder.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{selectedOrder.payment_status}</span></div>
                 <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-ob-navy">₦{Number(selectedOrder.total).toLocaleString()}</p></div>

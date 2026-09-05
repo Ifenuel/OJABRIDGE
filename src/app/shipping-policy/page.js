@@ -6,7 +6,7 @@ export default function ShippingPolicyPage() {
       <div className="max-w-4xl mx-auto px-4 py-16">
         <p className="text-ob-purple text-sm font-semibold tracking-wider uppercase mb-2">Policy</p>
         <h1 className="text-3xl md:text-4xl font-bold text-ob-navy mb-2">Shipping & Delivery Policy</h1>
-        <p className="text-gray-400 text-sm mb-8">Last updated: August 29, 2026</p>
+        <p className="text-gray-400 text-sm mb-8">Last updated: August 2025</p>
 
         <div className="prose prose-gray max-w-none space-y-8 text-sm leading-relaxed">
           <section>
@@ -57,7 +57,7 @@ export default function ShippingPolicyPage() {
 
           <section>
             <h2 className="text-xl font-bold text-ob-navy mb-3">9. Damaged or Lost Shipments</h2>
-            <p className="text-gray-600">If a product arrives damaged or is lost in transit, the customer should contact OjaBridge support within [NUMBER] days of the expected delivery date. Appropriate evidence (photographs, description) should be provided to support the claim.</p>
+            <p className="text-gray-600">If a product arrives damaged or is lost in transit, the customer should contact OjaBridge support within 14 days of the expected delivery date. Appropriate evidence (photographs, description) should be provided to support the claim.</p>
           </section>
 
           <section>

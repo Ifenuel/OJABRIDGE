@@ -201,7 +201,7 @@ export default function CheckoutPage() {
             {step === 1 && (
               <form onSubmit={handleShippingSubmit} className="bg-white rounded-xl p-6 shadow-sm">
                 <h2 className="text-lg font-bold text-ob-navy mb-4">Shipping Information</h2>
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
                     <input required value={shipping.firstName} onChange={e => setShipping({ ...shipping, firstName: e.target.value })}
@@ -229,7 +229,7 @@ export default function CheckoutPage() {
                   <input required placeholder="Street address" value={shipping.address} onChange={e => setShipping({ ...shipping, address: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
                 </div>
-                <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
                     <input required value={shipping.city} onChange={e => setShipping({ ...shipping, city: e.target.value })}
@@ -260,7 +260,7 @@ export default function CheckoutPage() {
                 {/* Currency selector */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {Object.keys(currencies).map(c => {
                       const curInfo = currencies[c];
                       return (

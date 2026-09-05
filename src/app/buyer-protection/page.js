@@ -63,9 +63,9 @@ export default function BuyerProtectionPage() {
                 <h3 className="font-bold text-ob-navy mb-2">Important Notes</h3>
                 <ul className="text-gray-500 text-sm space-y-2">
                   <li>• Buyer Protection applies to completed transactions through OjaBridge</li>
-                  <li>• Claims must be submitted within [NUMBER] days of delivery</li>
+                  <li>• Claims must be submitted within 14 days of delivery</li>
                   <li>• Evidence must support the claimed issue</li>
-                  <li>• OjaBridge does not guarantee automatic refunds — all disputes are reviewed individually</li>
+                  <li>• OjaBridge does not promise automatic refunds — all disputes are reviewed individually</li>
                   <li>• fraudulent claims may result in account restriction</li>
                 </ul>
               </div>
