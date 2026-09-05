@@ -12,6 +12,7 @@ export default function RetailerDashboardPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [kycStatus, setKycStatus] = useState(null);
+  const [period, setPeriod] = useState('30d');
 
   useEffect(() => {
     fetch('/api/kyc').then(r => r.json()).then(d => {
@@ -23,9 +24,9 @@ export default function RetailerDashboardPage() {
     async function load() {
       try {
         const [prodsRes, vendorsRes, ordersRes] = await Promise.allSettled([
-          fetch('/api/products?limit=20').then(r => r.json()),
-          fetch('/api/vendors?limit=10').then(r => r.json()),
-          fetch('/api/orders?limit=50').then(r => r.json()),
+          fetch('/api/products?limit=200').then(r => r.json()),
+          fetch('/api/vendors?limit=100').then(r => r.json()),
+          fetch('/api/orders?limit=200').then(r => r.json()),
         ]);
         if (prodsRes.status === 'fulfilled') setProducts(prodsRes.value.products || []);
         if (vendorsRes.status === 'fulfilled') setVendors(vendorsRes.value.vendors || []);
@@ -36,14 +37,33 @@ export default function RetailerDashboardPage() {
     load();
   }, []);
 
-  const recentProducts = products.slice(0, 6);
+  // Date filter
+  const filterByPeriod = (items, p) => {
+    if (p === 'all') return items;
+    const now = new Date();
+    const days = p === '7d' ? 7 : p === '30d' ? 30 : p === '90d' ? 90 : 365;
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return items.filter(item => !item.created_at || new Date(item.created_at) >= cutoff);
+  };
+  const filteredOrders = filterByPeriod(orders, period);
+  const filteredProducts = filterByPeriod(products, period);
+
   const verifiedVendors = vendors.filter(v => v.kyc_status === 'VERIFIED');
+  const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
+  const totalRevenue = filteredOrders.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + Number(o.total || 0), 0);
 
   return (
     <DashboardLayout role="retailer">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-ob-navy">Retailer Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.name || 'Retailer'}. Source products from verified vendors.</p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-ob-navy">Retailer Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.name || 'Retailer'}. Source products from verified vendors.</p>
+        </div>
+        <div className="flex gap-2">
+          {['7d', '30d', '90d', 'all'].map(p => (
+            <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-ob-purple text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>{p === 'all' ? 'All Time' : p}</button>
+          ))}
+        </div>
       </div>
 
       {/* KYC Warning */}
@@ -57,19 +77,28 @@ export default function RetailerDashboardPage() {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Stats — Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: 'Verified Vendors', value: verifiedVendors.length, color: 'text-green-600' },
-          { label: 'Available Products', value: products.length, color: 'text-ob-purple' },
-          { label: 'My Orders', value: orders.length, color: 'text-blue-600' },
-          { label: 'Categories', value: [...new Set(products.map(p => p.category).filter(Boolean))].length, color: 'text-amber-600' },
-        ].map((s, i) => (
-          <div key={i} className="bg-white p-4 rounded-xl border border-gray-100">
-            <p className="text-xs text-gray-500">{s.label}</p>
-            <p className={`text-xl font-bold mt-1 ${s.color}`}>{s.value}</p>
-          </div>
-        ))}
+        <Link href="/shop" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Verified Vendors</p>
+          <p className="text-xl font-bold text-green-600 mt-1">{verifiedVendors.length}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Ready to source from</p>
+        </Link>
+        <Link href="/shop" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Available Products ({period === 'all' ? 'All Time' : period})</p>
+          <p className="text-xl font-bold text-ob-purple mt-1">{filteredProducts.length}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Across {categories.length} categories</p>
+        </Link>
+        <Link href="/account/orders" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Marketplace Orders</p>
+          <p className="text-xl font-bold text-blue-600 mt-1">{filteredOrders.length}</p>
+          <p className="text-[10px] text-gray-400 mt-1">{filteredOrders.filter(o => o.status === 'delivered').length} delivered</p>
+        </Link>
+        <div className="bg-white p-4 rounded-xl border border-gray-100">
+          <p className="text-xs text-gray-500">Marketplace GMV ({period === 'all' ? 'All Time' : period})</p>
+          <p className="text-xl font-bold text-amber-600 mt-1">₦{totalRevenue.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Gross merchandise value</p>
+        </div>
       </div>
 
       {/* Quick Actions */}
@@ -78,6 +107,8 @@ export default function RetailerDashboardPage() {
           { label: 'Browse Products', href: '/shop', icon: '🛍️' },
           { label: 'My Orders', href: '/account/orders', icon: '📦' },
           { label: 'Find Vendors', href: '/shop', icon: '🏪' },
+          { label: 'KYC Verification', href: '/retailer-dashboard/kyc', icon: '🔐' },
+          { label: 'My Reviews', href: '/account/reviews', icon: '⭐' },
           { label: 'Contact Support', href: '/contact', icon: '💬' },
         ].map((a, i) => (
           <Link key={i} href={a.href} className="p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:bg-ob-purple/5 transition-all text-center">
@@ -93,11 +124,11 @@ export default function RetailerDashboardPage() {
           <h3 className="font-bold text-ob-navy">Featured Products</h3>
           <Link href="/shop" className="text-ob-purple text-xs font-medium hover:underline">View All →</Link>
         </div>
-        {loading ? <div className="text-center py-8"><div className="animate-spin h-6 w-6 border-2 border-ob-purple border-t-transparent rounded-full mx-auto" /></div> : recentProducts.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-8">No products available yet.</p>
+        {loading ? <div className="text-center py-8"><div className="animate-spin h-6 w-6 border-2 border-ob-purple border-t-transparent rounded-full mx-auto" /></div> : products.length === 0 ? (
+          <p className="text-gray-400 text-sm text-center py-8">No products available yet. Products will appear once vendors list them.</p>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recentProducts.map(p => (
+            {products.slice(0, 6).map(p => (
               <Link key={p.id} href={`/shop/product/${p.id}`} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-ob-purple/5 transition-colors">
                 <div className="w-12 h-12 bg-ob-purple/10 rounded-lg flex items-center justify-center flex-shrink-0">
                   {p.images?.[0] ? <img src={p.images[0]} alt="" className="w-full h-full object-cover rounded-lg" /> : <svg className="w-6 h-6 text-ob-purple/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>}
@@ -117,7 +148,7 @@ export default function RetailerDashboardPage() {
       <div className="bg-white rounded-xl border border-gray-100 p-6">
         <h3 className="font-bold text-ob-navy mb-4">Verified Vendors</h3>
         {verifiedVendors.length === 0 ? (
-          <p className="text-gray-400 text-sm text-center py-8">No verified vendors yet.</p>
+          <p className="text-gray-400 text-sm text-center py-8">No verified vendors yet. Vendors will appear here once their KYC is approved.</p>
         ) : (
           <div className="space-y-3">
             {verifiedVendors.slice(0, 5).map(v => (

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
+import { exportCsv, formatDate, formatCurrency } from '@/lib/csvExport';
 
 export default function VendorPayoutsPage() {
   const { user } = useAuth();
@@ -217,8 +218,32 @@ export default function VendorPayoutsPage() {
 
       {/* Settlement History */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-bold text-ob-navy">Settlement History</h3>
+          <button onClick={() => exportCsv({
+            title: 'Vendor Payouts Report',
+            filename: 'ojabridge_vendor_payouts',
+            summary: [
+              { label: 'Total Earnings', value: formatCurrency(vendor?.total_earnings || 0) },
+              { label: 'Pending', value: formatCurrency(vendor?.pending_earnings || 0) },
+              { label: 'Settled', value: formatCurrency(vendor?.settled_earnings || 0) },
+            ],
+            columns: [
+              { key: 'reference', label: 'Reference' },
+              { key: 'amount', label: 'Amount', format: v => formatCurrency(v) },
+              { key: 'status', label: 'Status' },
+              { key: 'created_at', label: 'Date', format: v => formatDate(v) },
+            ],
+            rows: wallet.map(s => ({
+              reference: s.reference || s.id,
+              amount: s.amount || s.total_amount,
+              status: s.status || 'completed',
+              created_at: s.created_at || s.settlement_date,
+            })),
+          })} className="flex items-center gap-2 px-3 py-1.5 bg-ob-purple text-white rounded-lg text-xs font-medium hover:bg-ob-purple-dark transition-all">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Export CSV
+          </button>
         </div>
         {loading ? (
           <div className="p-8 text-center"><div className="animate-spin h-6 w-6 border-2 border-ob-purple border-t-transparent rounded-full mx-auto" /></div>

@@ -47,11 +47,11 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       kyc: {
-        status: v.kyc_status || 'not_started',
+        status: (v.kyc_status || 'NOT_STARTED').toLowerCase(),
         submittedAt: v.kyc_submitted_at,
         verifiedAt: v.kyc_verified_at,
         rejectionReason: v.kyc_rejection_reason || null,
-        bankVerificationStatus: v.bank_verification_status || 'not_started',
+        bankVerificationStatus: (v.bank_verification_status || 'NOT_STARTED').toLowerCase(),
         businessName: v.business_name,
         rcNumber: v.rc_number,
         bankName: v.bank_name,
@@ -61,7 +61,7 @@ export async function GET(request) {
         idType: v.id_type,
         idNumber: v.id_number ? '****' + v.id_number.slice(-4) : null,
         dateOfBirth: v.date_of_birth,
-        idVerificationStatus: v.id_verification_status || 'not_started',
+        idVerificationStatus: (v.id_verification_status || 'NOT_STARTED').toLowerCase(),
       },
     });
   } catch (error) {
@@ -114,8 +114,7 @@ export async function POST(request) {
       kyc_submitted_at: new Date().toISOString(),
     };
 
-    // Personal info
-    if (fullName) updates.name = fullName;
+    // Personal info (store_name is set during vendor creation, don't overwrite)
     if (dateOfBirth) updates.date_of_birth = dateOfBirth;
 
     // Identity verification (BVN, NIN, Government ID)

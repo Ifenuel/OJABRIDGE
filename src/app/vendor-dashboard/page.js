@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
-import { StatCard, DashboardBarChart, DashboardPieChart, DashboardLineChart } from '@/components/Charts';
+import { DashboardBarChart, DashboardPieChart } from '@/components/Charts';
 
 export default function VendorDashboardPage() {
   const { user } = useAuth();
@@ -27,7 +27,7 @@ export default function VendorDashboardPage() {
         if (productsRes.status === 'fulfilled' && productsRes.value.success) setProducts(productsRes.value.products || []);
         if (vendorsRes.status === 'fulfilled' && vendorsRes.value.success) {
           const myVendor = vendorsRes.value.vendors?.find(v => v.user_id === user?.id);
-          setVendor(myVendor || vendorsRes.value.vendors?.[0] || null);
+          setVendor(myVendor || null);
         }
       } catch (err) { console.error('Vendor dashboard load error:', err); }
       setLoading(false);
@@ -51,6 +51,7 @@ export default function VendorDashboardPage() {
   const pendingOrders = filteredOrders.filter(o => o.status === 'pending').length;
   const processingOrders = filteredOrders.filter(o => o.status === 'processing' || o.status === 'shipped').length;
   const completedOrders = filteredOrders.filter(o => o.status === 'completed' || o.status === 'delivered').length;
+  const activeProducts = products.filter(p => p.is_active).length;
 
   // Chart data from FILTERED orders
   const now = new Date();
@@ -101,30 +102,62 @@ export default function VendorDashboardPage() {
         </div>
       )}
 
-      {/* Stats Row 1 */}
+      {/* Stats Row 1 — Financial */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Revenue" value={`₦${totalRevenue.toLocaleString()}`} color="text-green-600" />
-        <StatCard title="Orders" value={orders.length} color="text-ob-purple" />
-        <StatCard title="Commission" value={`₦${commission.toLocaleString()}`} color="text-amber-600" />
-        <StatCard title="Net Earnings" value={`₦${(totalRevenue - commission).toLocaleString()}`} color="text-blue-600" />
+        <Link href="/vendor-dashboard/payouts" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Total Revenue ({period === 'all' ? 'All Time' : period})</p>
+          <p className="text-xl font-bold text-green-600 mt-1">₦{totalRevenue.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-400 mt-1">From {filteredOrders.filter(o => o.payment_status === 'paid').length} paid orders</p>
+        </Link>
+        <Link href="/vendor-dashboard/payouts" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Platform Commission</p>
+          <p className="text-xl font-bold text-amber-600 mt-1">₦{commission.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-400 mt-1">10% per transaction</p>
+        </Link>
+        <Link href="/vendor-dashboard/payouts" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Net Earnings</p>
+          <p className="text-xl font-bold text-blue-600 mt-1">₦{(totalRevenue - commission).toLocaleString()}</p>
+          <p className="text-[10px] text-gray-400 mt-1">After platform commission</p>
+        </Link>
+        <Link href="/vendor-dashboard/store" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Store Rating</p>
+          <p className="text-xl font-bold text-amber-600 mt-1">{vendor?.average_rating ? `⭐ ${Number(vendor.average_rating).toFixed(1)}` : 'No ratings yet'}</p>
+          <p className="text-[10px] text-gray-400 mt-1">{vendor?.total_reviews || 0} reviews</p>
+        </Link>
       </div>
 
-      {/* Stats Row 2 */}
+      {/* Stats Row 2 — Orders & Products */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Products" value={products.length} color="text-ob-navy" />
-        <StatCard title="Pending Orders" value={pendingOrders} color={pendingOrders > 0 ? 'text-amber-600' : 'text-green-600'} />
-        <StatCard title="Rating" value={vendor?.average_rating ? `⭐ ${Number(vendor.average_rating).toFixed(1)}` : '—'} color="text-amber-600" />
-        <StatCard title="Store Views" value={vendor?.store_views || 0} color="text-blue-600" />
+        <Link href="/vendor-dashboard/products" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Products</p>
+          <p className="text-xl font-bold text-ob-navy mt-1">{products.length}</p>
+          <p className="text-[10px] text-gray-400 mt-1">{activeProducts} active, {products.length - activeProducts} inactive</p>
+        </Link>
+        <Link href="/vendor-dashboard/orders" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Pending Orders</p>
+          <p className={`text-xl font-bold mt-1 ${pendingOrders > 0 ? 'text-amber-600' : 'text-green-600'}`}>{pendingOrders}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Need your attention</p>
+        </Link>
+        <Link href="/vendor-dashboard/orders" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Completed Orders</p>
+          <p className="text-xl font-bold text-green-600 mt-1">{completedOrders}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Delivered successfully</p>
+        </Link>
+        <Link href="/vendor-dashboard/analytics" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+          <p className="text-xs text-gray-500">Store Views</p>
+          <p className="text-xl font-bold text-blue-600 mt-1">{vendor?.store_views || 0}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Total profile visits</p>
+        </Link>
       </div>
 
       {/* Charts */}
       <div className="grid md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <h3 className="font-bold text-ob-navy mb-4">Revenue Trend</h3>
+          <h3 className="font-bold text-ob-navy mb-4">Revenue Trend ({period === 'all' ? 'All Time' : period})</h3>
           <DashboardBarChart data={revenueByMonth} />
         </div>
         <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <h3 className="font-bold text-ob-navy mb-4">Order Status</h3>
+          <h3 className="font-bold text-ob-navy mb-4">Order Status Distribution</h3>
           <DashboardPieChart data={orderStatusData} />
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { exportCsv, formatDate, formatCurrency } from '@/lib/csvExport';
 
 const statusColors = {
   pending: 'bg-amber-100 text-amber-700',
@@ -78,6 +79,36 @@ export default function VendorOrdersPage() {
 
       {/* Orders Table */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-bold text-ob-navy">Orders ({filteredOrders.length})</h3>
+          <button onClick={() => exportCsv({
+            title: 'Vendor Orders Report',
+            filename: 'ojabridge_vendor_orders',
+            summary: [
+              { label: 'Total Orders', value: orders.length },
+              { label: 'Filtered', value: filteredOrders.length },
+            ],
+            columns: [
+              { key: 'order_number', label: 'Order Number' },
+              { key: 'customer', label: 'Customer' },
+              { key: 'total', label: 'Amount', format: (v) => formatCurrency(v) },
+              { key: 'payment_status', label: 'Payment Status' },
+              { key: 'status', label: 'Order Status' },
+              { key: 'created_at', label: 'Date', format: (v) => formatDate(v) },
+            ],
+            rows: filteredOrders.map(o => ({
+              order_number: o.order_number,
+              customer: (() => { try { const a = typeof o.shipping_address === 'string' ? JSON.parse(o.shipping_address) : o.shipping_address; return a?.name || '—'; } catch { return '—'; } })(),
+              total: o.total,
+              payment_status: o.payment_status,
+              status: o.status,
+              created_at: o.created_at,
+            })),
+          })} className="flex items-center gap-2 px-4 py-2 bg-ob-purple text-white rounded-lg text-xs font-medium hover:bg-ob-purple-dark transition-all">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Export CSV
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>

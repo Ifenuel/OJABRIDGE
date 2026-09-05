@@ -1,24 +1,22 @@
 import { NextResponse } from 'next/server';
-import { getUserFromRequest, requireRole } from '@/lib/auth';
+import { getUserFromRequest, requireAuth } from '@/lib/auth';
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-
 /**
- * POST /api/upload
- * Accepts multipart form data with an image file
- * Returns a base64 data URL for storing in the CMS
- * 
- * For production: replace with Cloudinary or S3 upload
+ * POST /api/upload — Upload KYC document image
+ * Accepts multipart/form-data with file field
  */
 export async function POST(request) {
   try {
     const user = await getUserFromRequest(request);
-    const auth = requireRole(user, 'admin', 'vendor', 'retailer');
-    if (!auth.authorized) {
-      return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    const auth = requireAuth(user);
+    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+
+    if (user.role !== 'vendor' && user.role !== 'retailer') {
+      return NextResponse.json({ success: false, error: 'Only vendors and retailers can upload KYC documents' }, { status: 403 });
     }
 
     const formData = await request.formData();
@@ -29,37 +27,34 @@ export async function POST(request) {
     }
 
     // Validate file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json({
-        success: false,
-        error: `Invalid file type. Allowed: ${ALLOWED_TYPES.join(', ')}`,
-      }, { status: 400 });
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json({ success: false, error: 'Only JPG, PNG, WebP, and PDF files are allowed' }, { status: 400 });
     }
 
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({
-        success: false,
-        error: `File too large. Maximum size: ${MAX_FILE_SIZE / 1024 / 1024}MB`,
-      }, { status: 400 });
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ success: false, error: 'File size must be under 5MB' }, { status: 400 });
     }
 
-    // Convert to base64
+    // Create upload directory
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'kyc');
+    await mkdir(uploadDir, { recursive: true });
+
+    // Generate unique filename
+    const ext = file.name.split('.').pop() || 'jpg';
+    const filename = `${user.id}-kyc-${Date.now()}.${ext}`;
+    const filepath = path.join(uploadDir, filename);
+
+    // Write file
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64 = buffer.toString('base64');
-    const dataUrl = `data:${file.type};base64,${base64}`;
+    await writeFile(filepath, Buffer.from(bytes));
 
-    return NextResponse.json({
-      success: true,
-      url: dataUrl,
-      name: file.name,
-      size: file.size,
-      type: file.type,
-    });
+    const url = `/uploads/kyc/${filename}`;
 
+    return NextResponse.json({ success: true, url, filename }, { status: 200 });
   } catch (error) {
-    console.error('[UPLOAD] Error:', error);
+    console.error('Upload error:', error);
     return NextResponse.json({ success: false, error: 'Upload failed' }, { status: 500 });
   }
 }

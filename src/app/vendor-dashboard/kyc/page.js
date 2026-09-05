@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 
 const VERIFICATION_STATES = {
   not_started: { label: 'Not Started', color: 'bg-gray-100 text-gray-600', icon: '📋', description: 'Complete all steps below to start the verification process.' },
-  submitted: { label: 'Submitted', color: 'bg-amber-100 text-amber-700', icon: '📤', description: 'Your information has been submitted for review.' },
-  under_review: { label: 'Under Review', color: 'bg-amber-100 text-amber-700', icon: '⏳', description: 'Your information is being reviewed. This typically takes 1-3 business days.' },
-  verified: { label: 'Verified', color: 'bg-green-100 text-green-700', icon: '✅', description: 'Your identity and business have been verified. You can now publish products.' },
-  rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700', icon: '❌', description: 'Please review the feedback and resubmit your information.' },
-  suspended: { label: 'Suspended', color: 'bg-red-100 text-red-700', icon: '🚫', description: 'Your verification has been suspended. Contact support.' },
+  submitted: { label: 'Submitted', color: 'bg-amber-100 text-amber-700', icon: '📤', description: 'Your information has been submitted for review. Our team typically reviews within 1-3 business days.' },
+  under_review: { label: 'Under Review', color: 'bg-amber-100 text-amber-700', icon: '⏳', description: 'Your information is being reviewed by our team. This typically takes 1-3 business days.' },
+  verified: { label: 'Verified', color: 'bg-green-100 text-green-700', icon: '✅', description: 'Your identity and business have been verified. You can now publish products and receive orders.' },
+  rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700', icon: '❌', description: 'Please review the feedback below and resubmit your information.' },
+  suspended: { label: 'Suspended', color: 'bg-red-100 text-red-700', icon: '🚫', description: 'Your verification has been suspended. Please contact support for assistance.' },
 };
 
 const ID_TYPES = ['National ID (NIN)', "Driver's License", 'International Passport', "Voter's Card"];
@@ -24,9 +24,8 @@ const NIGERIAN_BANKS = [
   'Sterling Bank', 'SunTrust Bank', 'Titan Trust Bank',
   'Union Bank', 'United Bank for Africa (UBA)', 'Unity Bank',
   'VFD Microfinance Bank', 'Wema Bank', 'Zenith Bank',
-  'Abir Microfinance Bank', 'Accès Bank Mali', 'ALAT by Wema',
-  'Amju Unique Microfinance Bank', 'ASO Savings and Loans',
-  'Baobab Microfinance Bank', 'Branch International Finance',
+  'AB Microfinance Bank', 'ALAT by Wema', 'Amju Unique Microfinance Bank',
+  'ASO Savings and Loans', 'Baobab Microfinance Bank', 'Branch International Finance',
   'Carbon (Formerly OneCredit)', 'Chaka', 'Cowrywise',
   'CrusaderSterling Microfinance Bank', 'DLM Asset Management',
   'Ekondo Microfinance Bank', 'Eyowo', 'Fairmoney',
@@ -47,8 +46,25 @@ const NIGERIAN_BANKS = [
   'Wagnet Microfinance Bank', 'Wow Momo', 'Zedvance',
 ];
 
+// BVN validation: must be exactly 11 digits
+function validateBvn(value) {
+  if (!value) return null; // optional
+  const cleaned = value.replace(/\s/g, '');
+  if (!/^\d{11}$/.test(cleaned)) return 'BVN must be exactly 11 digits';
+  return null;
+}
+
+// NIN validation: must be exactly 11 digits
+function validateNin(value) {
+  if (!value) return null; // optional
+  const cleaned = value.replace(/\s/g, '');
+  if (!/^\d{11}$/.test(cleaned)) return 'NIN must be exactly 11 digits';
+  return null;
+}
+
 export default function VendorKycPage() {
   const { user } = useAuth();
+  const fileInputRef = useRef(null);
   const [kycData, setKycData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -64,6 +80,11 @@ export default function VendorKycPage() {
   const [idType, setIdType] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [idFile, setIdFile] = useState(null);
+  const [idFileUrl, setIdFileUrl] = useState(null);
+  const [idFileUploading, setIdFileUploading] = useState(false);
+
+  // Validation errors
+  const [errors, setErrors] = useState({});
 
   // Bank account
   const [bankName, setBankName] = useState('');
@@ -79,9 +100,7 @@ export default function VendorKycPage() {
   const [businessAddress, setBusinessAddress] = useState('');
 
   // Load KYC data from API
-  useEffect(() => {
-    fetchKycData();
-  }, []);
+  useEffect(() => { fetchKycData(); }, []);
 
   // Close bank dropdown on outside click
   useEffect(() => {
@@ -104,6 +123,9 @@ export default function VendorKycPage() {
         if (data.kyc.bankName) setBankName(data.kyc.bankName);
         if (data.kyc.idType) setIdType(data.kyc.idType);
         if (data.kyc.dateOfBirth) setDateOfBirth(data.kyc.dateOfBirth);
+        if (data.kyc.bankAccountNumber) setAccountNumber('');
+        if (data.kyc.accountName) setAccountName('');
+        if (data.kyc.idDocumentUrl) setIdFileUrl(data.kyc.idDocumentUrl);
       }
     } catch (err) {
       console.error('Failed to fetch KYC data:', err);
@@ -113,7 +135,7 @@ export default function VendorKycPage() {
 
   const status = VERIFICATION_STATES[kycData?.status || 'not_started'] || VERIFICATION_STATES.not_started;
 
-  // Calculate completion — 4 steps
+  // Calculate completion
   const stepsCompleted = [
     fullName && dateOfBirth,
     bvn || nin || (idType && idNumber),
@@ -121,7 +143,80 @@ export default function VendorKycPage() {
     businessName && rcNumber,
   ].filter(Boolean).length;
 
+  // Validate fields
+  const validateField = (field, value) => {
+    const newErrors = { ...errors };
+    if (field === 'bvn') {
+      const err = validateBvn(value);
+      if (err) newErrors.bvn = err; else delete newErrors.bvn;
+    }
+    if (field === 'nin') {
+      const err = validateNin(value);
+      if (err) newErrors.nin = err; else delete newErrors.nin;
+    }
+    setErrors(newErrors);
+  };
+
+  // Handle file selection
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      setErrors(prev => ({ ...prev, idFile: 'Only JPG, PNG, WebP, or PDF files are allowed' }));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors(prev => ({ ...prev, idFile: 'File size must be under 5MB' }));
+      return;
+    }
+
+    setErrors(prev => { const e = { ...prev }; delete e.idFile; return e; });
+    setIdFile(file);
+    setIdFileUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', credentials: 'include', body: formData });
+      const data = await res.json();
+      if (data.success) {
+        setIdFileUrl(data.url);
+      } else {
+        setErrors(prev => ({ ...prev, idFile: data.error || 'Upload failed' }));
+        setIdFile(null);
+      }
+    } catch (err) {
+      setErrors(prev => ({ ...prev, idFile: 'Upload failed. Please try again.' }));
+      setIdFile(null);
+    }
+    setIdFileUploading(false);
+  };
+
   const handleSubmitForReview = async () => {
+    // Validate before submit
+    const newErrors = {};
+    const bvnErr = validateBvn(bvn);
+    const ninErr = validateNin(nin);
+    if (bvnErr) newErrors.bvn = bvnErr;
+    if (ninErr) newErrors.nin = ninErr;
+    if (!fullName) newErrors.fullName = 'Full name is required';
+    if (!dateOfBirth) newErrors.dateOfBirth = 'Date of birth is required';
+    if (!bankName) newErrors.bankName = 'Bank name is required';
+    if (!accountNumber) newErrors.accountNumber = 'Account number is required';
+    if (!accountName) newErrors.accountName = 'Account name is required';
+    if (!businessName) newErrors.businessName = 'Business name is required';
+    if (!rcNumber) newErrors.rcNumber = 'RC number is required';
+    if (!bvn && !nin) newErrors.identity = 'At least one of BVN or NIN is required';
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setMessage({ type: 'error', text: 'Please fix all validation errors before submitting.' });
+      return;
+    }
+
     setSubmitting(true);
     setMessage(null);
     try {
@@ -132,14 +227,14 @@ export default function VendorKycPage() {
         body: JSON.stringify({
           fullName,
           dateOfBirth,
-          bvn,
-          nin,
+          bvn: bvn.replace(/\s/g, ''),
+          nin: nin.replace(/\s/g, ''),
           idType,
           idNumber,
-          idDocumentUrl: null, // Will be set after upload
+          idDocumentUrl: idFileUrl,
           bankName,
-          accountNumber,
-          accountName,
+          bankAccountNumber: accountNumber,
+          bankAccountName: accountName,
           businessName,
           rcNumber,
           businessType,
@@ -148,13 +243,13 @@ export default function VendorKycPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setMessage({ type: 'success', text: 'KYC information submitted successfully! Our team will review your documents shortly.' });
+        setMessage({ type: 'success', text: 'KYC/KYB information submitted successfully! Our team will review your documents shortly. You will receive a notification once reviewed.' });
         await fetchKycData();
       } else {
-        setMessage({ type: 'error', text: data.error || data.errors?.[0] || 'Submission failed' });
+        setMessage({ type: 'error', text: data.error || data.errors?.[0] || 'Submission failed. Please try again.' });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+      setMessage({ type: 'error', text: 'Network error. Please check your connection and try again.' });
     }
     setSubmitting(false);
   };
@@ -185,7 +280,7 @@ export default function VendorKycPage() {
               <span className={`${status.color} px-3 py-1 rounded-full text-sm font-medium`}>{status.label}</span>
             </div>
             <p className="text-gray-600 text-sm">{status.description}</p>
-            {kycData?.rejectionReason && (kycData?.status === 'rejected' || kycData?.status === 'VERIFICATION_FAILED') && (
+            {kycData?.rejectionReason && (kycData?.status === 'rejected') && (
               <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-lg">
                 <p className="text-xs font-semibold text-red-700 mb-1">Rejection Reason:</p>
                 <p className="text-sm text-red-600">{kycData.rejectionReason}</p>
@@ -207,7 +302,7 @@ export default function VendorKycPage() {
       </div>
 
       {/* Step Overview Cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Personal Info', done: fullName && dateOfBirth, icon: '👤' },
           { label: 'Identity (BVN/NIN)', done: bvn || nin || (idType && idNumber), icon: '🪪' },
@@ -245,11 +340,13 @@ export default function VendorKycPage() {
               <label className="block text-xs text-gray-500 mb-1">Full Legal Name *</label>
               <input type="text" value={fullName} onChange={e => setFullName(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="As it appears on your government ID" />
+              {errors.fullName && <p className="text-xs text-red-500 mt-1">{errors.fullName}</p>}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Date of Birth *</label>
               <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
+              {errors.dateOfBirth && <p className="text-xs text-red-500 mt-1">{errors.dateOfBirth}</p>}
             </div>
           </div>
         </div>
@@ -270,18 +367,22 @@ export default function VendorKycPage() {
             ⚠️ At least one of BVN or NIN is required. This information is used for identity verification and fraud prevention. It is kept confidential and never shared with other users.
           </div>
 
+          {errors.identity && <p className="text-xs text-red-500 mb-3">{errors.identity}</p>}
+
           <div className="grid sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-xs text-gray-500 mb-1">BVN (Bank Verification Number)</label>
-              <input type="text" value={bvn} onChange={e => setBvn(e.target.value)} maxLength={11}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="11-digit BVN" />
+              <input type="text" value={bvn} onChange={e => { setBvn(e.target.value); validateField('bvn', e.target.value); }} maxLength={11}
+                className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.bvn ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="11-digit BVN" />
               <p className="text-[10px] text-gray-400 mt-1">Dial *565*0# to check your BVN</p>
+              {errors.bvn && <p className="text-xs text-red-500 mt-1">{errors.bvn}</p>}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">NIN (National Identification Number)</label>
-              <input type="text" value={nin} onChange={e => setNin(e.target.value)} maxLength={11}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="11-digit NIN" />
+              <input type="text" value={nin} onChange={e => { setNin(e.target.value); validateField('nin', e.target.value); }} maxLength={11}
+                className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.nin ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="11-digit NIN" />
               <p className="text-[10px] text-gray-400 mt-1">Dial *346# to check your NIN</p>
+              {errors.nin && <p className="text-xs text-red-500 mt-1">{errors.nin}</p>}
             </div>
           </div>
 
@@ -303,10 +404,41 @@ export default function VendorKycPage() {
               </div>
             </div>
 
-            <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-ob-purple transition-colors cursor-pointer">
-              <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-              <p className="text-gray-500 text-sm">Upload a clear photo of your ID</p>
-              <p className="text-gray-400 text-xs mt-1">JPG, PNG or PDF. Max 5MB.</p>
+            {/* Upload ID — Real file input */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Upload ID Document *</label>
+              <input type="file" ref={fileInputRef} accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleFileSelect}
+                className="hidden" id="id-upload" />
+              
+              {idFileUrl ? (
+                <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-green-700 truncate">{idFile?.name || 'ID Document Uploaded'}</p>
+                    <p className="text-xs text-green-600">Successfully uploaded</p>
+                  </div>
+                  <button type="button" onClick={() => { setIdFile(null); setIdFileUrl(null); }}
+                    className="text-red-500 hover:text-red-700 text-xs font-medium">Remove</button>
+                </div>
+              ) : (
+                <label htmlFor="id-upload" className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-ob-purple transition-colors cursor-pointer">
+                  {idFileUploading ? (
+                    <>
+                      <div className="animate-spin h-8 w-8 border-2 border-ob-purple border-t-transparent rounded-full mb-2" />
+                      <p className="text-gray-500 text-sm">Uploading...</p>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                      <p className="text-gray-500 text-sm">Tap to upload a clear photo of your ID</p>
+                      <p className="text-gray-400 text-xs mt-1">JPG, PNG, WebP or PDF. Max 5MB.</p>
+                    </>
+                  )}
+                </label>
+              )}
+              {errors.idFile && <p className="text-xs text-red-500 mt-1">{errors.idFile}</p>}
             </div>
           </div>
         </div>
@@ -325,7 +457,7 @@ export default function VendorKycPage() {
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="relative bank-dropdown">
               <label className="block text-xs text-gray-500 mb-1">Bank Name *</label>
-              <div onClick={() => setShowBankDropdown(!showBankDropdown)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm cursor-pointer bg-white flex items-center justify-between">
+              <div onClick={() => setShowBankDropdown(!showBankDropdown)} className={`w-full px-4 py-2.5 border rounded-lg text-sm cursor-pointer bg-white flex items-center justify-between ${errors.bankName ? 'border-red-300' : 'border-gray-200'}`}>
                 <span className={bankName ? 'text-ob-navy' : 'text-gray-400'}>{bankName || 'Search and select your bank'}</span>
                 <svg className={`w-4 h-4 text-gray-400 transition-transform ${showBankDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </div>
@@ -351,16 +483,19 @@ export default function VendorKycPage() {
               {bankName && (
                 <button type="button" onClick={() => { setBankName(''); setBankSearch(''); }} className="absolute right-8 top-7 text-gray-400 hover:text-red-500 text-xs">Clear</button>
               )}
+              {errors.bankName && <p className="text-xs text-red-500 mt-1">{errors.bankName}</p>}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Account Number *</label>
               <input type="text" value={accountNumber} onChange={e => setAccountNumber(e.target.value)} maxLength={10}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="10-digit account number" />
+                className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.accountNumber ? 'border-red-300' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="10-digit account number" />
+              {errors.accountNumber && <p className="text-xs text-red-500 mt-1">{errors.accountNumber}</p>}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Account Name *</label>
               <input type="text" value={accountName} onChange={e => setAccountName(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="Name on bank account" />
+                className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.accountName ? 'border-red-300' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="Name on bank account" />
+              {errors.accountName && <p className="text-xs text-red-500 mt-1">{errors.accountName}</p>}
             </div>
           </div>
         </div>
@@ -383,12 +518,14 @@ export default function VendorKycPage() {
             <div className="sm:col-span-2">
               <label className="block text-xs text-gray-500 mb-1">Registered Business Name *</label>
               <input type="text" value={businessName} onChange={e => setBusinessName(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="As registered with CAC" />
+                className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.businessName ? 'border-red-300' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="As registered with CAC" />
+              {errors.businessName && <p className="text-xs text-red-500 mt-1">{errors.businessName}</p>}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">RC Number *</label>
               <input type="text" value={rcNumber} onChange={e => setRcNumber(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="RC1234567" />
+                className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.rcNumber ? 'border-red-300' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="RC1234567" />
+              {errors.rcNumber && <p className="text-xs text-red-500 mt-1">{errors.rcNumber}</p>}
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Business Type</label>
@@ -409,7 +546,7 @@ export default function VendorKycPage() {
 
         {/* Submit Button */}
         <button onClick={handleSubmitForReview} disabled={!canSubmit || submitting || kycData?.status === 'verified'}
-          className="bg-ob-purple hover:bg-ob-purple-dark text-white font-semibold px-8 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          className="bg-ob-purple hover:bg-ob-purple-dark text-white font-semibold px-8 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
           {submitting ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
