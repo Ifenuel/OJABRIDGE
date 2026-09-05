@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Logo from './Logo';
+import NewsletterSubscribe from './NewsletterSubscribe';
 
 export default function Footer() {
   const companyLinks = [
@@ -149,6 +150,19 @@ export default function Footer() {
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Newsletter Subscribe */}
+      <div className="border-t border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+              <h4 className="font-semibold text-ob-navy text-sm">Stay Updated</h4>
+              <p className="text-gray-500 text-xs mt-1">Get the latest news, product updates, and exclusive offers from OjaBridge.</p>
+            </div>
+            <NewsletterSubscribe />
           </div>
         </div>
       </div>
