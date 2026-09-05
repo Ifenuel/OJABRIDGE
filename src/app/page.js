@@ -200,7 +200,12 @@ export default function Home() {
       </section>
 
       {/* ========================================
-          SECTION 04 — FOR SUPPLIERS (Clean CTA)
+          SECTION 04 — INTERACTIVE ONBOARDING DEMO
+          ======================================== */}
+      <OnboardingDemo />
+
+      {/* ========================================
+          SECTION 05 — FOR SUPPLIERS (Clean CTA)
           ======================================== */}
       <section className="py-20 bg-ob-navy text-white relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
@@ -494,12 +499,7 @@ export default function Home() {
       </section>
 
       {/* ========================================
-          SECTION 10 — INTERACTIVE ONBOARDING DEMO
-          ======================================== */}
-      <OnboardingDemo />
-
-      {/* ========================================
-          SECTION 11 — LIVE STATS
+          SECTION 10 — LIVE STATS
           ======================================== */}
       <StatsSection />
 
