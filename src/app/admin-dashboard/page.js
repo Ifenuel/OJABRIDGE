@@ -68,6 +68,7 @@ export default function AdminDashboardPage() {
     totalUsers: filteredUsers.length,
     totalVendors: vendors.length,
     totalCustomers: filteredUsers.filter(u => u.role === 'customer').length,
+    totalRetailers: filteredUsers.filter(u => u.role === 'retailer').length,
     totalOrders: filteredOrders.length,
     totalRevenue,
     commission,
@@ -134,6 +135,7 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total Users" value={stats.totalUsers} color="text-ob-navy" change={`${stats.totalCustomers} customers, ${stats.totalVendors} vendors`} />
         <StatCard label="Total Vendors" value={stats.totalVendors} color="text-blue-600" change={stats.totalVendors === 0 ? 'No vendors registered yet' : `${pendingKyc} pending KYC`} />
+        <StatCard label="Total Retailers" value={stats.totalRetailers} color="text-green-600" change={stats.totalRetailers === 0 ? 'No retailers registered yet' : 'Active retailers'} />
         <StatCard label="Active Orders" value={stats.activeOrders} color="text-indigo-600" change={stats.activeOrders === 0 ? 'No active orders' : 'Currently being processed'} />
         <StatCard label="Completed Orders" value={stats.completedOrders} color="text-green-600" change={stats.completedOrders === 0 ? 'No completed orders yet' : 'Successfully delivered'} />
       </div>

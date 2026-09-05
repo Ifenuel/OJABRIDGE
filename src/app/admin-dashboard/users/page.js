@@ -68,20 +68,20 @@ export default function AdminUsersPage() {
         <div className={`p-4 rounded-xl mb-6 text-sm ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
           {message.text}
         </div>
-      )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      )}      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         {[
           { label: 'Total Users', value: users.length, color: 'text-ob-navy' },
           { label: 'Customers', value: users.filter(u => u.role === 'customer').length, color: 'text-blue-600' },
           { label: 'Vendors', value: users.filter(u => u.role === 'vendor').length, color: 'text-ob-purple' },
-          { label: 'Suspended', value: users.filter(u => u.status === 'suspended').length, color: 'text-red-600' },
+          { label: 'Retailers', value: users.filter(u => u.role === 'retailer').length, color: 'text-green-600' },
+          { label: 'Admins', value: users.filter(u => u.role === 'admin').length, color: 'text-amber-600' },
         ].map((s, i) => (
           <div key={i} className="bg-white p-4 rounded-xl border border-gray-100">
             <p className="text-xs text-gray-500">{s.label}</p>
             <p className={`text-xl font-bold mt-1 ${s.color}`}>{s.value}</p>
           </div>
+
         ))}
       </div>
 
