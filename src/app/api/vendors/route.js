@@ -57,6 +57,7 @@ export async function GET(request) {
         v.business_country, v.product_categories, v.kyc_status, v.bank_verification_status,
         v.total_earnings, v.pending_earnings, v.settled_earnings, v.total_commission_paid,
         v.average_rating, v.total_reviews, v.total_orders, v.store_views, v.is_active,
+        v.kyc_rejection_reason, v.kyc_submitted_at, v.kyc_verified_at,
         v.created_at, v.updated_at,
         u.name as owner_name, u.email as owner_email, u.phone as owner_phone,
         u.status as user_status, u.avatar_url, u.country as user_country
@@ -101,7 +102,7 @@ export async function PATCH(request) {
     }
 
     const body = await request.json();
-    const { vendorId, kyc_status, is_active, bank_verification_status } = body;
+    const { vendorId, kyc_status, is_active, bank_verification_status, kyc_rejection_reason } = body;
 
     if (!vendorId) return NextResponse.json({ success: false, error: 'Vendor ID required' }, { status: 400 });
 
@@ -109,9 +110,11 @@ export async function PATCH(request) {
     if (kyc_status) updates.kyc_status = kyc_status;
     if (is_active !== undefined) updates.is_active = is_active;
     if (bank_verification_status) updates.bank_verification_status = bank_verification_status;
+    if (kyc_rejection_reason !== undefined) updates.kyc_rejection_reason = kyc_rejection_reason;
 
     if (kyc_status === 'VERIFIED') {
       updates.kyc_verified_at = new Date().toISOString();
+      updates.kyc_rejection_reason = null; // Clear rejection reason on approval
     }
 
     const { data: updated, error } = await dbUpdate('vendors', { id: vendorId }, updates);

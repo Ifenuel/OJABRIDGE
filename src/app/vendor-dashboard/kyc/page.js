@@ -185,6 +185,12 @@ export default function VendorKycPage() {
               <span className={`${status.color} px-3 py-1 rounded-full text-sm font-medium`}>{status.label}</span>
             </div>
             <p className="text-gray-600 text-sm">{status.description}</p>
+            {kycData?.rejectionReason && (kycData?.status === 'rejected' || kycData?.status === 'VERIFICATION_FAILED') && (
+              <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-lg">
+                <p className="text-xs font-semibold text-red-700 mb-1">Rejection Reason:</p>
+                <p className="text-sm text-red-600">{kycData.rejectionReason}</p>
+              </div>
+            )}
             {kycData?.status !== 'verified' && (
               <div className="mt-3">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">

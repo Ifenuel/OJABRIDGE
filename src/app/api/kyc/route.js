@@ -50,6 +50,7 @@ export async function GET(request) {
         status: v.kyc_status || 'not_started',
         submittedAt: v.kyc_submitted_at,
         verifiedAt: v.kyc_verified_at,
+        rejectionReason: v.kyc_rejection_reason || null,
         bankVerificationStatus: v.bank_verification_status || 'not_started',
         businessName: v.business_name,
         rcNumber: v.rc_number,

@@ -133,15 +133,34 @@ export default function AdminVendorsPage() {
                       <div className="text-gray-500">{v.business_name || '—'}</div>
                       {v.product_categories?.length > 0 && <div className="text-xs text-gray-400 mt-1">{v.product_categories.slice(0, 2).join(', ')}{v.product_categories.length > 2 ? '...' : ''}</div>}
                     </td>
-                    <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${kycBadge(v.kyc_status)}`}>{(v.kyc_status || 'NOT_STARTED').replace(/_/g, ' ')}</span></td>
+                    <td className="px-6 py-4">
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${kycBadge(v.kyc_status)}`}>{(v.kyc_status || 'NOT_STARTED').replace(/_/g, ' ')}</span>
+                      {v.kyc_rejection_reason && <p className="text-[10px] text-red-500 mt-1 max-w-[150px] truncate" title={v.kyc_rejection_reason}>Reason: {v.kyc_rejection_reason}</p>}
+                    </td>
                     <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${v.bank_verification_status === 'VERIFIED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{(v.bank_verification_status || 'NOT_STARTED').replace(/_/g, ' ')}</span></td>
                     <td className="px-6 py-4 text-sm text-gray-600">{v.average_rating ? `⭐ ${Number(v.average_rating).toFixed(1)}` : '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{v.total_orders || 0}</td>
                     <td className="px-6 py-4">
-                      <div className="flex space-x-2">
-                        {v.kyc_status !== 'VERIFIED' && <button onClick={() => updateVendor(v.id, { kyc_status: 'VERIFIED' })} className="text-green-600 text-xs font-medium hover:underline">Approve</button>}
-                        {v.kyc_status !== 'SUSPENDED' && <button onClick={() => updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false })} className="text-red-500 text-xs font-medium hover:underline">Suspend</button>}
-                        {v.kyc_status === 'SUSPENDED' && <button onClick={() => updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true })} className="text-blue-600 text-xs font-medium hover:underline">Reinstate</button>}
+                      <div className="flex flex-wrap gap-2">
+                        {v.kyc_status !== 'VERIFIED' && [
+                          'NOT_STARTED', 'IN_PROGRESS', 'SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'
+                        ].includes(v.kyc_status) && (
+                          <button onClick={() => updateVendor(v.id, { kyc_status: 'VERIFIED' })} className="text-green-600 text-xs font-medium hover:underline">Approve</button>
+                        )}
+                        {v.kyc_status !== 'VERIFIED' && v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'VERIFICATION_FAILED' && [
+                          'SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'
+                        ].includes(v.kyc_status) && (
+                          <button onClick={() => {
+                            const reason = prompt('Rejection reason (visible to vendor):');
+                            if (reason) updateVendor(v.id, { kyc_status: 'VERIFICATION_FAILED', kyc_rejection_reason: reason });
+                          }} className="text-red-500 text-xs font-medium hover:underline">Reject</button>
+                        )}
+                        {v.kyc_status !== 'SUSPENDED' && (
+                          <button onClick={() => updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false })} className="text-amber-600 text-xs font-medium hover:underline">Suspend</button>
+                        )}
+                        {v.kyc_status === 'SUSPENDED' && (
+                          <button onClick={() => updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true })} className="text-blue-600 text-xs font-medium hover:underline">Reinstate</button>
+                        )}
                       </div>
                     </td>
                   </tr>
