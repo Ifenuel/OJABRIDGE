@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { hashPassword, validatePasswordStrength, validateEmail, sanitizeInput } from '@/lib/auth';
 import { dbInsert, dbQuery, isDatabaseConnected } from '@/lib/db';
+import { cacheGet } from '@/lib/redis';
 
 /**
  * POST /api/auth/register
@@ -43,15 +44,22 @@ export async function POST(request) {
       // Hash password
       const passwordHash = await hashPassword(password);
 
-      // Create user — email_verified: false, status: pending_verification
+      // Check if email was already verified via OTP during registration
+      let emailVerified = false;
+      try {
+        const otpData = await cacheGet(`otp:${cleanEmail.toLowerCase()}`);
+        if (otpData?.verified) emailVerified = true;
+      } catch {}
+
+      // Create user — status depends on whether email was verified during registration
       const { data: user, error: userError } = await dbInsert('users', {
         email: cleanEmail.toLowerCase(),
         password_hash: passwordHash,
         name: cleanName,
         role,
         phone: phone || null,
-        status: 'pending_verification',
-        email_verified: false,
+        status: emailVerified ? 'active' : 'pending_verification',
+        email_verified: emailVerified,
         country: country || 'NG',
         currency: currency || 'NGN',
       });

@@ -1,7 +1,95 @@
 User-agent: *
-Allow: /
-Disallow: /vendor-dashboard/
 Disallow: /admin-dashboard/
+Disallow: /vendor-dashboard/
+Disallow: /retailer-dashboard/
+Disallow: /account/
 Disallow: /api/
+Disallow: /checkout/
+Disallow: /verify-email/
+Disallow: /_next/
+Disallow: /favicon.ico
+
+# Block AI crawlers specifically
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+
+# Block all scrapers and bots
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+# Allow public pages for search engines
+User-agent: Googlebot
+Allow: /
+Allow: /shop
+Allow: /categories
+Allow: /how-it-works
+Allow: /about
+Allow: /contact
+Allow: /support
+Allow: /terms
+Allow: /privacy
+Allow: /refund-policy
+Allow: /shipping-policy
+Allow: /buyer-protection
+Allow: /faq
+Disallow: /admin-dashboard/
+Disallow: /vendor-dashboard/
+Disallow: /retailer-dashboard/
+Disallow: /account/
+Disallow: /api/
+Disallow: /checkout/
+Disallow: /verify-email/
+
+User-agent: Bingbot
+Allow: /
+Allow: /shop
+Allow: /categories
+Allow: /how-it-works
+Allow: /about
+Allow: /contact
+Allow: /support
+Allow: /terms
+Allow: /privacy
+Allow: /refund-policy
+Allow: /shipping-policy
+Allow: /buyer-protection
+Allow: /faq
+Disallow: /admin-dashboard/
+Disallow: /vendor-dashboard/
+Disallow: /retailer-dashboard/
+Disallow: /account/
+Disallow: /api/
+Disallow: /checkout/
+Disallow: /verify-email/
 
 Sitemap: https://ojabridge.com/sitemap.xml
