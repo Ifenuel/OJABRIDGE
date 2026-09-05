@@ -23,19 +23,17 @@ const BUSINESS_TYPES = [
   'Partnership', 'Limited Liability Partnership', 'Other',
 ];
 
+const CATEGORIES = ['Electronics', 'Fashion', 'Home & Garden', 'Health & Beauty', 'Food & Groceries', 'Automotive', 'Sports', 'Books', 'Others'];
+
 export default function RegisterPage() {
   const router = useRouter();
   const { register, isAuthenticated, user } = useAuth();
 
-  // Multi-step state
   const [step, setStep] = useState(1);
   const [role, setRole] = useState('');
   const [country, setCountry] = useState('');
   const [currency, setCurrency] = useState('NGN');
-  const [emailOtp, setEmailOtp] = useState('');
-  const [phoneOtp, setPhoneOtp] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
 
   // Account fields
   const [firstName, setFirstName] = useState('');
@@ -46,7 +44,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
 
-  // Vendor business fields
+  // Business fields (vendor AND retailer)
   const [businessName, setBusinessName] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [rcNumber, setRcNumber] = useState('');
@@ -60,8 +58,12 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
+  const [otpCode, setOtpCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated && user && user.email_verified) {
@@ -72,7 +74,6 @@ export default function RegisterPage() {
     }
   }, [isAuthenticated, user, router]);
 
-  // OTP timer
   useEffect(() => {
     if (otpTimer > 0) {
       const t = setTimeout(() => setOtpTimer(otpTimer - 1), 1000);
@@ -80,21 +81,19 @@ export default function RegisterPage() {
     }
   }, [otpTimer]);
 
-  const selectedCountry = COUNTRIES.find(c => c.code === country);
-
-  const [otpError, setOtpError] = useState('');
-  const [otpSending, setOtpSending] = useState(false);
-  const [otpVerifying, setOtpVerifying] = useState(false);
-
-  // Auto-send OTP when user reaches Step 3 and enters a valid email
+  // Auto-send OTP when Step 3 and valid email
   useEffect(() => {
     if (step === 3 && email && email.includes('@') && !otpSent && !emailVerified && !otpSending) {
-      handleSendOtp('email');
+      handleSendOtp();
     }
   }, [step, email]);
 
-  const handleSendOtp = async (type) => {
-    if (type !== 'email') return;
+  const selectedCountry = COUNTRIES.find(c => c.code === country);
+
+  // Retailer has 6 steps like vendor, customer has 4
+  const totalSteps = role === 'customer' ? 4 : 6;
+
+  const handleSendOtp = async () => {
     setOtpSending(true);
     setOtpError('');
     try {
@@ -107,27 +106,25 @@ export default function RegisterPage() {
       if (data.success) {
         setOtpSent(true);
         setOtpTimer(60);
-        // In dev mode, auto-fill the OTP for testing
-        if (data.devOtp) setEmailOtp(data.devOtp);
+        if (data.devOtp) setOtpCode(data.devOtp);
       } else {
         setOtpError(data.error || 'Failed to send code');
       }
-    } catch (err) {
+    } catch {
       setOtpError('Network error. Please try again.');
     }
     setOtpSending(false);
   };
 
-  const handleVerifyOtp = async (type, code) => {
-    if (type !== 'email') return;
-    if (!code || code.length !== 6) { setOtpError('Please enter the 6-digit code'); return; }
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpCode.length !== 6) { setOtpError('Please enter the 6-digit code'); return; }
     setOtpVerifying(true);
     setOtpError('');
     try {
       const res = await fetch('/api/auth/otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), otp: code, action: 'verify' }),
+        body: JSON.stringify({ email: email.trim(), otp: otpCode, action: 'verify' }),
       });
       const data = await res.json();
       if (data.success) {
@@ -136,7 +133,7 @@ export default function RegisterPage() {
       } else {
         setOtpError(data.error || 'Verification failed');
       }
-    } catch (err) {
+    } catch {
       setOtpError('Network error. Please try again.');
     }
     setOtpVerifying(false);
@@ -148,15 +145,13 @@ export default function RegisterPage() {
     );
   };
 
-  const totalSteps = role === 'vendor' ? 6 : 4;
-
   const canProceed = () => {
     switch (step) {
       case 1: return role === 'customer' || role === 'vendor' || role === 'retailer';
       case 2: return country !== '' && currency !== '';
       case 3: return emailVerified;
       case 4: return firstName && lastName && email && phone && password.length >= 8 && password === confirmPassword && agreed;
-      case 5: return role === 'vendor' ? businessName && businessType && rcNumber && businessAddress : true;
+      case 5: return businessName && businessType && businessAddress;
       case 6: return true;
       default: return false;
     }
@@ -165,7 +160,6 @@ export default function RegisterPage() {
   const handleSubmit = async () => {
     setError('');
     setIsSubmitting(true);
-
     try {
       const result = await register({
         name: `${firstName.trim()} ${lastName.trim()}`,
@@ -186,13 +180,12 @@ export default function RegisterPage() {
       });
 
       if (result.success) {
-        // Redirect to email verification page
         router.push(`/verify-email?email=${encodeURIComponent(email.trim())}&from=register`);
       } else {
-        setError(result.error || 'Registration failed');
+        setError(result.error || (result.errors ? result.errors.join('. ') : 'Registration failed'));
         setStep(4);
       }
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.');
     }
     setIsSubmitting(false);
@@ -201,7 +194,6 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-ob-light py-8 px-4">
       <div className="max-w-lg mx-auto">
-        {/* Header */}
         <div className="text-center mb-6">
           <Link href="/" className="inline-block"><Logo size="large" /></Link>
           <h1 className="text-2xl font-bold text-ob-navy mt-4">Create Your Account</h1>
@@ -209,7 +201,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center justify-center gap-2 mb-8">
+        <div className="flex items-center justify-center gap-1.5 mb-8">
           {Array.from({ length: totalSteps }, (_, i) => (
             <div key={i} className="flex items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
@@ -220,7 +212,7 @@ export default function RegisterPage() {
                 {i + 1 < step ? '✓' : i + 1}
               </div>
               {i < totalSteps - 1 && (
-                <div className={`w-6 h-0.5 mx-1 ${i + 1 < step ? 'bg-ob-lime' : 'bg-gray-200'}`} />
+                <div className={`w-4 sm:w-6 h-0.5 mx-0.5 ${i + 1 < step ? 'bg-ob-lime' : 'bg-gray-200'}`} />
               )}
             </div>
           ))}
@@ -259,9 +251,9 @@ export default function RegisterPage() {
                   </button>
                 ))}
               </div>
-              {role === 'vendor' && (
+              {(role === 'vendor' || role === 'retailer') && (
                 <div className="bg-ob-purple/5 border border-ob-purple/20 rounded-lg p-3 mt-4 text-xs text-ob-purple">
-                  Vendor accounts require KYC/KYB verification including a mandatory RC Number before you can start selling.
+                  {role === 'vendor' ? 'Vendor' : 'Retailer'} accounts require KYC/KYB verification including a mandatory RC Number before you can start {role === 'vendor' ? 'selling' : 'sourcing products'}.
                 </div>
               )}
             </div>
@@ -274,7 +266,8 @@ export default function RegisterPage() {
               <p className="text-gray-500 text-sm mb-6">Select your country and preferred display currency.</p>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Country / Region *</label>                    <select value={country} onChange={e => { setCountry(e.target.value); const active = COUNTRIES.find(c => c.code === e.target.value)?.currencies?.find(cu => cu.active); setCurrency(active ? active.code : 'NGN'); }}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Country / Region *</label>
+                  <select value={country} onChange={e => { setCountry(e.target.value); const active = COUNTRIES.find(c => c.code === e.target.value)?.currencies?.find(cu => cu.active); setCurrency(active ? active.code : 'NGN'); }}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple focus:ring-2 focus:ring-ob-purple/20 outline-none">
                     <option value="">Select your country</option>
                     {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
@@ -302,20 +295,18 @@ export default function RegisterPage() {
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">
-                      Display currency can be changed later. Settlement currency is handled by the payment provider.
-                    </p>
+                    <p className="text-xs text-gray-400 mt-2">Display currency can be changed later. Settlement currency is handled by the payment provider.</p>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* STEP 3: Verify Identity */}
+          {/* STEP 3: Email Verification ONLY — no phone */}
           {step === 3 && (
             <div>
               <h2 className="text-lg font-bold text-ob-navy mb-1">Verify your email</h2>
-              <p className="text-gray-500 text-sm mb-6">Enter your email address. We&apos;ll send a 6-digit verification code — you must verify before continuing.</p>
+              <p className="text-gray-500 text-sm mb-6">Enter your email address. We&apos;ll send a 6-digit verification code to your email — you must verify before continuing.</p>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
@@ -325,18 +316,19 @@ export default function RegisterPage() {
                     {emailVerified ? (
                       <span className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">✓ Verified</span>
                     ) : (
-                      <button type="button" onClick={() => handleSendOtp('email')} disabled={!email || otpTimer > 0 || otpSending}
+                      <button type="button" onClick={handleSendOtp} disabled={!email || otpTimer > 0 || otpSending}
                         className="px-4 py-2.5 bg-ob-purple text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap">
                         {otpSending ? 'Sending...' : otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send Code'}
                       </button>
                     )}
                   </div>
                   {otpError && <p className="text-xs text-red-500 mt-1">{otpError}</p>}
+                  <p className="text-xs text-gray-400 mt-1">A verification code will be sent to your email address.</p>
                   {otpSent && !emailVerified && (
-                    <div className="mt-2 flex gap-2">
-                      <input type="text" value={emailOtp} onChange={e => setEmailOtp(e.target.value)} placeholder="Enter 6-digit code"
+                    <div className="mt-3 flex gap-2">
+                      <input type="text" value={otpCode} onChange={e => setOtpCode(e.target.value)} placeholder="Enter 6-digit code"
                         className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm" maxLength={6} />
-                      <button type="button" onClick={() => handleVerifyOtp('email', emailOtp)} disabled={otpVerifying || emailOtp.length !== 6}
+                      <button type="button" onClick={handleVerifyOtp} disabled={otpVerifying || otpCode.length !== 6}
                         className="px-4 py-2.5 bg-ob-lime text-ob-navy rounded-lg text-sm font-medium disabled:opacity-50">
                         {otpVerifying ? 'Verifying...' : 'Verify'}
                       </button>
@@ -345,18 +337,9 @@ export default function RegisterPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                  <div className="flex gap-2">
-                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+234..." required
-                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" disabled={phoneVerified} />
-                    {phoneVerified ? (
-                      <span className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">✓ Verified</span>
-                    ) : (
-                      <button type="button" onClick={() => handleSendOtp('phone')} disabled={!phone}
-                        className="px-4 py-2.5 bg-ob-purple text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap">
-                        Send Code
-                      </button>
-                    )}
-                  </div>
+                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+234..." required
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
+                  <p className="text-xs text-gray-400 mt-1">Phone number for order updates and delivery. No SMS verification required.</p>
                 </div>
               </div>
             </div>
@@ -383,11 +366,15 @@ export default function RegisterPage() {
                   <input type="email" value={email} readOnly className="w-full px-4 py-2.5 border border-gray-100 bg-gray-50 rounded-lg text-sm text-gray-600" />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number (confirmed)</label>
+                  <input type="tel" value={phone} readOnly className="w-full px-4 py-2.5 border border-gray-100 bg-gray-50 rounded-lg text-sm text-gray-600" />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
                   <div className="relative">
                     <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none pr-12" placeholder="Min 8 characters, 1 uppercase, 1 number" minLength={8} />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                      {showPassword ? (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>) : (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>)}
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showPassword ? "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"} /></svg>
                     </button>
                   </div>
                   {password.length > 0 && (
@@ -403,7 +390,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <input type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none pr-12" placeholder="Re-enter password" minLength={8} />
                     <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                      {showConfirm ? (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>) : (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>)}
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showConfirm ? "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"} /></svg>
                     </button>
                   </div>
                   {confirmPassword && password !== confirmPassword && <p className="text-xs text-red-500 mt-1">Passwords do not match</p>}
@@ -416,11 +403,11 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* STEP 5: Business Information (Vendor only) */}
-          {step === 5 && role === 'vendor' && (
+          {/* STEP 5: Business Information (Vendor AND Retailer — 6-step flow) */}
+          {step === 5 && (role === 'vendor' || role === 'retailer') && (
             <div>
               <h2 className="text-lg font-bold text-ob-navy mb-1">Business Information</h2>
-              <p className="text-gray-500 text-sm mb-6">Tell us about your business. Fields marked with * are required.</p>
+              <p className="text-gray-500 text-sm mb-6">Tell us about your {role === 'vendor' ? 'business' : 'retail operation'}. Fields marked with * are required.</p>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Registered Business Name *</label>
@@ -434,9 +421,9 @@ export default function RegisterPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">RC Number *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">RC Number {role === 'vendor' ? '*' : '(if applicable)'}</label>
                   <input type="text" value={rcNumber} onChange={e => setRcNumber(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="RC1234567" />
-                  <p className="text-xs text-gray-400 mt-1">Your Corporate Affairs Commission registration number. This is mandatory for vendor verification.</p>
+                  <p className="text-xs text-gray-400 mt-1">Your Corporate Affairs Commission registration number. {role === 'vendor' ? 'This is mandatory for vendor verification.' : 'Required for business verification if you have a registered company.'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Business Address *</label>
@@ -455,7 +442,7 @@ export default function RegisterPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Product Categories (optional)</label>
                   <div className="flex flex-wrap gap-2">
-                    {['Electronics', 'Fashion', 'Home & Garden', 'Health & Beauty', 'Food & Groceries', 'Automotive', 'Sports', 'Books', 'Others'].map(cat => (
+                    {CATEGORIES.map(cat => (
                       <button key={cat} type="button" onClick={() => handleCategoryToggle(cat)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                           productCategories.includes(cat) ? 'bg-ob-purple text-white border-ob-purple' : 'bg-white text-gray-600 border-gray-200 hover:border-ob-purple'
@@ -479,19 +466,19 @@ export default function RegisterPage() {
                 {phone && <div className="flex justify-between text-sm"><span className="text-gray-500">Phone</span><span className="font-medium text-ob-navy">{phone}</span></div>}
                 <div className="flex justify-between text-sm"><span className="text-gray-500">Country</span><span className="font-medium text-ob-navy">{selectedCountry?.name || country}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-gray-500">Currency</span><span className="font-medium text-ob-navy">{CURRENCY_SYMBOLS[currency]} {currency}</span></div>
-                {role === 'vendor' && (
+                {(role === 'vendor' || role === 'retailer') && (
                   <>
                     <div className="border-t border-gray-200 my-2 pt-2"><p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Business Details</p></div>
                     <div className="flex justify-between text-sm"><span className="text-gray-500">Business Name</span><span className="font-medium text-ob-navy">{businessName}</span></div>
                     <div className="flex justify-between text-sm"><span className="text-gray-500">Business Type</span><span className="font-medium text-ob-navy">{businessType}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-500">RC Number</span><span className="font-medium text-ob-navy">{rcNumber}</span></div>
+                    {rcNumber && <div className="flex justify-between text-sm"><span className="text-gray-500">RC Number</span><span className="font-medium text-ob-navy">{rcNumber}</span></div>}
                     <div className="flex justify-between text-sm"><span className="text-gray-500">Address</span><span className="font-medium text-ob-navy">{businessAddress}</span></div>
                   </>
                 )}
               </div>
-              {role === 'vendor' && (
+              {(role === 'vendor' || role === 'retailer') && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4 text-xs text-amber-700">
-                  After registration, you&apos;ll need to complete KYC/KYB verification (government ID, bank account, and identity verification) before you can publish products.
+                  After registration, you&apos;ll need to complete KYC/KYB verification (government ID, bank account, and identity verification) before you can {role === 'vendor' ? 'publish products' : 'source products'}.
                 </div>
               )}
             </div>

@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import ScrollReveal from '@/components/ScrollReveal';
 import StatsSection from '@/components/StatsSection';
+import OnboardingDemo from '@/components/OnboardingDemo';
 
 export default function Home() {
   return (
@@ -493,7 +494,12 @@ export default function Home() {
       </section>
 
       {/* ========================================
-          SECTION 10 — LIVE STATS
+          SECTION 10 — INTERACTIVE ONBOARDING DEMO
+          ======================================== */}
+      <OnboardingDemo />
+
+      {/* ========================================
+          SECTION 11 — LIVE STATS
           ======================================== */}
       <StatsSection />
 
