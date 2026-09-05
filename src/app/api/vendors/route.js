@@ -120,13 +120,59 @@ export async function PATCH(request) {
     const { data: updated, error } = await dbUpdate('vendors', { id: vendorId }, updates);
     if (error) return NextResponse.json({ success: false, error }, { status: 500 });
 
+    // Get vendor user info for notifications
+    let vendorUser = null;
+    try {
+      const { data: vendorData } = await dbQuery('vendors', { filter: { id: vendorId } });
+      if (vendorData?.[0]?.user_id) {
+        const { data: userData } = await dbQuery('users', { filter: { id: vendorData[0].user_id } });
+        vendorUser = userData?.[0];
+      }
+    } catch {}
+
+    // Send in-app notification to vendor
+    if (vendorUser && kyc_status) {
+      const statusMessages = {
+        VERIFIED: { title: 'KYC Verified!', message: 'Your identity verification has been approved. You can now start selling on OjaBridge.', type: 'success' },
+        SUSPENDED: { title: 'Account Suspended', message: 'Your vendor account has been suspended. Please contact support for more information.', type: 'warning' },
+        VERIFICATION_FAILED: { title: 'KYC Rejected', message: kyc_rejection_reason ? `Verification was not approved. Reason: ${kyc_rejection_reason}` : 'Your verification documents were not approved. Please review and resubmit.', type: 'error' },
+        NOT_STARTED: { title: 'Account Reinstate', message: 'Your account has been reinstated. Please complete your KYC verification.', type: 'info' },
+      };
+      const notif = statusMessages[kyc_status];
+      if (notif) {
+        try {
+          await dbInsert('notifications', {
+            user_id: vendorUser.id,
+            title: notif.title,
+            message: notif.message,
+            type: notif.type,
+            is_read: false,
+            created_at: new Date().toISOString(),
+          });
+        } catch (e) { console.error('Notification insert failed:', e.message); }
+      }
+    }
+
+    // Send email notification to vendor
+    if (vendorUser && kyc_status) {
+      try {
+        const { sendKYCUpdate } = await import('@/lib/email');
+        const emailStatus = kyc_status === 'VERIFIED' ? 'verified' : kyc_status === 'SUSPENDED' ? 'rejected' : 'submitted';
+        await sendKYCUpdate({
+          email: vendorUser.email,
+          name: vendorUser.name,
+          status: emailStatus,
+        });
+      } catch (e) { console.error('KYC email failed:', e.message); }
+    }
+
     // Audit log
     await dbInsert('audit_logs', {
       user_id: user.id,
       action: 'vendor.status_changed',
       entity_type: 'vendor',
       entity_id: vendorId,
-      new_data: { kyc_status, is_active, bank_verification_status },
+      new_data: { kyc_status, is_active, bank_verification_status, rejection_reason: kyc_rejection_reason },
       created_at: new Date().toISOString(),
     });
 
