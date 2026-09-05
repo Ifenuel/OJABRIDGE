@@ -41,7 +41,7 @@ function VerifyEmailForm() {
     }
   }, [timer]);
 
-  // Auto-send on first load
+  // Auto-send verification code on first load
   useEffect(() => {
     if (email && !verified && !otpSent) {
       handleSendCode();

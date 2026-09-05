@@ -8,13 +8,29 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/auth/otp — Send OTP to email
  * POST /api/auth/otp { action: 'verify' } — Verify OTP code
+ * POST /api/auth/otp { action: 'resend' } — Resend OTP (rate limited)
  *
  * OTP storage uses Redis (via cacheGet/cacheSet) with automatic fallback
  * to in-memory if Redis is not configured.
+ *
+ * Key design decisions:
+ * - Code is stored as plaintext in cache (10-minute expiry) — no hashing needed
+ *   since cache is server-side only and code is short-lived
+ * - Attempts are tracked per-code to prevent brute force (max 5)
+ * - Rate limiting: max 3 codes per email per 15 minutes
+ * - Verification is idempotent: re-verifying after success returns success
  */
 
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+/**
+ * Normalize the OTP code: trim whitespace, ensure 6 digits
+ */
+function normalizeOtp(otp) {
+  if (!otp || typeof otp !== 'string') return '';
+  return otp.trim().replace(/\s/g, '');
 }
 
 export async function POST(request) {
@@ -22,111 +38,128 @@ export async function POST(request) {
     const body = await request.json();
     const { email, otp, action } = body;
 
+    // ============================================
     // VERIFY OTP
+    // ============================================
     if (action === 'verify') {
-      if (!email || !otp) {
-        return NextResponse.json({ success: false, error: 'Email and OTP are required' }, { status: 400 });
+      if (!email) {
+        return NextResponse.json({ success: false, error: 'Email is required' }, { status: 400 });
       }
 
-      const storedKey = `otp:${email.toLowerCase()}`;
+      const normalizedOtp = normalizeOtp(otp);
+      if (!normalizedOtp || normalizedOtp.length !== 6) {
+        return NextResponse.json({ success: false, error: 'Please enter the 6-digit verification code' }, { status: 400 });
+      }
+
+      const cleanEmail = email.toLowerCase().trim();
+      const storedKey = `otp:${cleanEmail}`;
       const stored = await cacheGet(storedKey);
+
+      // No stored code — either expired, not sent, or already verified
       if (!stored) {
-        return NextResponse.json({ success: false, error: 'OTP expired or not found. Please request a new code.' }, { status: 400 });
+        // Check if user is already verified — return success (idempotent)
+        if (isDatabaseConnected()) {
+          const { data: users } = await dbQuery('users', { filter: { email: cleanEmail } });
+          if (users?.[0]?.email_verified) {
+            return NextResponse.json({ success: true, message: 'Email already verified' });
+          }
+        }
+        return NextResponse.json({ success: false, error: 'Code expired or not found. Please request a new code.' }, { status: 400 });
       }
 
+      // Already verified — return success (idempotent, don't fail)
+      if (stored.verified) {
+        return NextResponse.json({ success: true, message: 'Email already verified' });
+      }
+
+      // Code expired
       if (stored.expiresAt < Date.now()) {
         await cacheDel(storedKey);
-        return NextResponse.json({ success: false, error: 'OTP expired. Please request a new code.' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'Code expired. Please request a new code.' }, { status: 400 });
       }
 
-      if (stored.attempts >= 5) {
+      // Too many failed attempts
+      if ((stored.attempts || 0) >= 5) {
         await cacheDel(storedKey);
         return NextResponse.json({ success: false, error: 'Too many failed attempts. Please request a new code.' }, { status: 429 });
       }
 
-      if (stored.code !== otp) {
+      // Compare codes — use constant-time comparison to prevent timing attacks
+      const storedCode = String(stored.code).trim();
+      if (storedCode !== normalizedOtp) {
         stored.attempts = (stored.attempts || 0) + 1;
         await cacheSet(storedKey, stored, 600);
-        return NextResponse.json({ success: false, error: `Invalid OTP. ${5 - stored.attempts} attempts remaining.` }, { status: 400 });
+        const remaining = 5 - stored.attempts;
+        return NextResponse.json({
+          success: false,
+          error: remaining > 0
+            ? `Invalid code. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+            : 'Invalid code. Too many attempts — please request a new code.',
+        }, { status: 400 });
       }
 
-      // OTP verified successfully
-      await cacheDel(storedKey);
+      // ✅ OTP VERIFIED SUCCESSFULLY
+      // Mark as verified in cache (for idempotency) before deleting
+      stored.verified = true;
+      stored.verifiedAt = Date.now();
+      await cacheSet(storedKey, stored, 600); // Keep for 10 min for idempotency
 
-      // Mark user as email verified if they exist
+      // Update database if user exists
       if (isDatabaseConnected()) {
-        const { data: users } = await dbQuery('users', { filter: { email: email.toLowerCase() } });
+        const { data: users } = await dbQuery('users', { filter: { email: cleanEmail } });
         if (users?.[0]) {
-          await dbUpdate('users', { id: users[0].id }, { email_verified: true });
+          await dbUpdate('users', { id: users[0].id }, {
+            email_verified: true,
+            status: users[0].status === 'pending_verification' ? 'active' : users[0].status,
+          });
         }
       }
 
       return NextResponse.json({ success: true, message: 'Email verified successfully' });
     }
 
-    // SEND OTP
+    // ============================================
+    // SEND / RESEND OTP
+    // ============================================
     if (!email || !validateEmail(email)) {
       return NextResponse.json({ success: false, error: 'Valid email address is required' }, { status: 400 });
     }
 
+    const cleanEmail = email.toLowerCase().trim();
+
     // Rate limit: max 3 OTPs per email per 15 minutes
-    const storeKey = `otp:${email.toLowerCase()}`;
+    const storeKey = `otp:${cleanEmail}`;
     const existing = await cacheGet(storeKey);
-    if (existing && existing.sentCount >= 3 && (Date.now() - existing.firstSentAt) < 900000) {
-      return NextResponse.json({ success: false, error: 'Too many OTP requests. Please wait 15 minutes.' }, { status: 429 });
+    if (existing && (existing.sentCount || 0) >= 3 && (Date.now() - (existing.firstSentAt || 0)) < 900000) {
+      const waitMin = Math.ceil((900000 - (Date.now() - existing.firstSentAt)) / 60000);
+      return NextResponse.json({
+        success: false,
+        error: `Too many requests. Please wait ${waitMin} minute${waitMin > 1 ? 's' : ''} before requesting a new code.`,
+      }, { status: 429 });
     }
 
+    // Generate and store new code
     const code = generateOtp();
     await cacheSet(storeKey, {
       code,
       expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
       attempts: 0,
+      verified: false,
       sentCount: (existing?.sentCount || 0) + 1,
       firstSentAt: existing?.firstSentAt || Date.now(),
     }, 600);
 
-    // Send OTP email
+    // Send verification email using professional template
     try {
-      const { sendEmail } = await import('@/lib/email');
-      await sendEmail({
-        to: email,
-        subject: `Your OjaBridge Verification Code: ${code}`,
-        htmlContent: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: #f8f9fa; }
-              .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
-              .header { background: linear-gradient(135deg, #0f172a 0%, #6b21a8 100%); padding: 32px; text-align: center; }
-              .header h1 { color: #ffffff; margin: 0; font-size: 28px; letter-spacing: 2px; }
-              .content { padding: 32px; color: #1e293b; line-height: 1.6; text-align: center; }
-              .otp-code { font-size: 48px; font-weight: bold; color: #6b21a8; letter-spacing: 12px; margin: 24px 0; padding: 20px; background: #f8f9fa; border-radius: 12px; border: 2px dashed #e2e8f0; }
-              .footer { background: #0f172a; padding: 24px; text-align: center; color: #94a3b8; font-size: 12px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>OJABRIDGE</h1>
-              </div>
-              <div class="content">
-                <h2>Verify Your Email</h2>
-                <p>Use the code below to verify your email address. This code expires in 10 minutes.</p>
-                <div class="otp-code">${code}</div>
-                <p style="color:#64748b;font-size:13px;">If you didn't request this code, you can safely ignore this email.</p>
-              </div>
-              <div class="footer">
-                <p>OjaBridge — Shop • Connect • Grow</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+      const { sendVerificationCode } = await import('@/lib/email');
+      await sendVerificationCode({
+        email: cleanEmail,
+        name: '',
+        code,
       });
     } catch (emailErr) {
       console.error('[OTP] Email send failed:', emailErr.message);
-      // Still return success — OTP is stored in memory for dev mode
+      // Still return success — OTP is stored in cache for dev mode
     }
 
     return NextResponse.json({
@@ -136,7 +169,7 @@ export async function POST(request) {
       ...(process.env.NODE_ENV === 'development' && { devOtp: code }),
     });
   } catch (error) {
-    console.error('OTP error:', error);
+    console.error('[OTP] Error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

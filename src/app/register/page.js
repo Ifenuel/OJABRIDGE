@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
@@ -55,6 +55,14 @@ export default function RegisterPage() {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
 
+  // Email validation state
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [emailAvailable, setEmailAvailable] = useState(null); // null = not checked, true/false
+  const [emailError, setEmailError] = useState('');
+
+  // Field validation errors
+  const [fieldErrors, setFieldErrors] = useState({});
+
   useEffect(() => {
     if (isAuthenticated && user && user.email_verified) {
       if (user.role === 'admin') router.replace('/admin-dashboard');
@@ -71,19 +79,66 @@ export default function RegisterPage() {
     }
   }, [otpTimer]);
 
-  // Auto-send OTP when Step 3 and valid email
+  // Reset email validation when email changes
   useEffect(() => {
-    if (step === 3 && email && email.includes('@') && !otpSent && !emailVerified && !otpSending) {
-      handleSendOtp();
+    setEmailAvailable(null);
+    setEmailError('');
+    if (otpSent) {
+      // If email changed after OTP was sent, reset OTP state
+      setOtpSent(false);
+      setOtpCode('');
+      setEmailVerified(false);
     }
-  }, [step, email]);
+  }, [email]);
 
   const selectedCountry = COUNTRIES.find(c => c.code === country);
-
-  // Retailer has 6 steps like vendor, customer has 4
   const totalSteps = role === 'customer' ? 4 : 6;
 
+  // ============================================
+  // EMAIL AVAILABILITY CHECK
+  // ============================================
+  const checkEmailAvailability = useCallback(async (emailToCheck) => {
+    if (!emailToCheck || !emailToCheck.includes('@')) return;
+
+    setEmailChecking(true);
+    setEmailError('');
+    setEmailAvailable(null);
+
+    try {
+      const res = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToCheck.trim() }),
+      });
+      const data = await res.json();
+
+      if (data.available) {
+        setEmailAvailable(true);
+        setEmailError('');
+      } else {
+        setEmailAvailable(false);
+        setEmailError(data.error || 'This email is not available');
+      }
+    } catch {
+      // Don't block on network errors — let the register API handle it
+      setEmailAvailable(true);
+    }
+    setEmailChecking(false);
+  }, []);
+
+  // ============================================
+  // OTP HANDLERS
+  // ============================================
   const handleSendOtp = async () => {
+    if (!email || !email.includes('@')) return;
+
+    // First check email availability
+    if (emailAvailable !== true) {
+      await checkEmailAvailability(email);
+      // If still not available after check, don't send OTP
+      if (emailAvailable === false) return;
+    }
+
     setOtpSending(true);
     setOtpError('');
     try {
@@ -98,7 +153,7 @@ export default function RegisterPage() {
         setOtpTimer(60);
         if (data.devOtp) setOtpCode(data.devOtp);
       } else {
-        setOtpError(data.error || 'Failed to send code');
+        setOtpError(data.error || 'Failed to send verification code');
       }
     } catch {
       setOtpError('Network error. Please try again.');
@@ -107,14 +162,18 @@ export default function RegisterPage() {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otpCode || otpCode.length !== 6) { setOtpError('Please enter the 6-digit code'); return; }
+    const normalizedCode = otpCode.trim().replace(/\s/g, '');
+    if (!normalizedCode || normalizedCode.length !== 6) {
+      setOtpError('Please enter the 6-digit verification code');
+      return;
+    }
     setOtpVerifying(true);
     setOtpError('');
     try {
       const res = await fetch('/api/auth/otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), otp: otpCode, action: 'verify' }),
+        body: JSON.stringify({ email: email.trim(), otp: normalizedCode, action: 'verify' }),
       });
       const data = await res.json();
       if (data.success) {
@@ -135,27 +194,112 @@ export default function RegisterPage() {
     );
   };
 
+  // ============================================
+  // FIELD VALIDATION
+  // ============================================
+  const validateStep = (stepNum) => {
+    const errors = {};
+
+    switch (stepNum) {
+      case 3:
+        // Email validation
+        if (!email || !email.includes('@')) {
+          errors.email = 'Please enter a valid email address';
+        } else if (emailAvailable === false) {
+          errors.email = emailError || 'This email is not available';
+        } else if (!emailVerified) {
+          errors.otp = 'Please verify your email before continuing';
+        }
+        // Phone validation
+        if (!phone || phone.trim().length < 7) {
+          errors.phone = 'Phone number is required (e.g. +234...)';
+        }
+        break;
+      case 4:
+        if (!firstName || firstName.trim().length < 2) errors.firstName = 'First name must be at least 2 characters';
+        if (!lastName || lastName.trim().length < 2) errors.lastName = 'Last name must be at least 2 characters';
+        if (!password) errors.password = 'Password is required';
+        else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
+        else if (!/[A-Z]/.test(password)) errors.password = 'Password must include an uppercase letter';
+        else if (!/[a-z]/.test(password)) errors.password = 'Password must include a lowercase letter';
+        else if (!/\d/.test(password)) errors.password = 'Password must include a number';
+        else if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) errors.password = 'Password must include a special character';
+        if (!confirmPassword) errors.confirmPassword = 'Please confirm your password';
+        else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match';
+        if (!agreed) errors.agreed = 'You must agree to the Terms of Service and Privacy Policy';
+        break;
+      case 5:
+        if (!businessName || businessName.trim().length < 2) errors.businessName = 'Business name is required';
+        if (!businessType) errors.businessType = 'Business type is required';
+        if (role === 'vendor' && (!rcNumber || rcNumber.trim().length < 3)) errors.rcNumber = 'RC Number is required for vendors';
+        if (!businessAddress || businessAddress.trim().length < 5) errors.businessAddress = 'Business address is required';
+        break;
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // ============================================
+  // STEP NAVIGATION
+  // ============================================
   const canProceed = () => {
     switch (step) {
       case 1: return role === 'customer' || role === 'vendor' || role === 'retailer';
       case 2: return country !== '' && currency !== '';
-      case 3: return emailVerified;
-      case 4: return firstName && lastName && email && phone && password.length >= 8 && password === confirmPassword && agreed;
-      case 5: return businessName && businessType && businessAddress;
+      case 3: return emailVerified && phone && phone.trim().length >= 7;
+      case 4: return firstName.trim().length >= 2 && lastName.trim().length >= 2 && password.length >= 8 && password === confirmPassword && agreed;
+      case 5: return businessName.trim().length >= 2 && businessType && businessAddress.trim().length >= 5;
       case 6: return true;
       default: return false;
     }
   };
 
+  const handleNext = () => {
+    if (!validateStep(step)) return;
+
+    // Check email availability before moving from Step 3 to Step 4
+    if (step === 3 && emailAvailable !== true) {
+      checkEmailAvailability(email).then(() => {
+        // If email becomes available, proceed after check
+        setEmailAvailable(prev => {
+          if (prev === true) setStep(step + 1);
+          return prev;
+        });
+      });
+      return;
+    }
+
+    setStep(step + 1);
+  };
+
   const handleSubmit = async () => {
     setError('');
     setIsSubmitting(true);
+
+    // Final email availability check (server-side integrity)
+    try {
+      const checkRes = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const checkData = await checkRes.json();
+      if (!checkData.available) {
+        setError(checkData.error || 'This email is already registered. Please use a different email.');
+        setIsSubmitting(false);
+        return;
+      }
+    } catch {
+      // Don't block on network error — let register API handle it
+    }
+
     try {
       const result = await register({
         name: `${firstName.trim()} ${lastName.trim()}`,
         email: email.trim(),
         password,
-        phone: phone.trim() || null,
+        phone: phone.trim(),
         role,
         country,
         currency,
@@ -181,6 +325,9 @@ export default function RegisterPage() {
     setIsSubmitting(false);
   };
 
+  // ============================================
+  // RENDER
+  // ============================================
   return (
     <div className="min-h-screen bg-ob-light py-8 px-4">
       <div className="max-w-lg mx-auto">
@@ -292,50 +439,83 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* STEP 3: Email Verification ONLY — no phone */}
+          {/* STEP 3: Email Verification — with availability check + phone */}
           {step === 3 && (
             <div>
               <h2 className="text-lg font-bold text-ob-navy mb-1">Verify your email</h2>
-              <p className="text-gray-500 text-sm mb-6">Enter your email address. We&apos;ll send a 6-digit verification code to your email — you must verify before continuing.</p>
+              <p className="text-gray-500 text-sm mb-6">Enter your email address. We&apos;ll send a 6-digit verification code — you must verify before continuing.</p>
               <div className="space-y-4">
+                {/* Email + Check Availability */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
                   <div className="flex gap-2">
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
-                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" disabled={emailVerified} />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      onBlur={() => { if (email && email.includes('@') && !emailVerified) checkEmailAvailability(email); }}
+                      placeholder="you@example.com"
+                      className={`flex-1 px-4 py-2.5 border rounded-lg text-sm focus:outline-none ${
+                        emailError ? 'border-red-300 focus:border-red-500' :
+                        emailAvailable === true ? 'border-green-300 focus:border-green-500' :
+                        'border-gray-200 focus:border-ob-purple'
+                      }`}
+                      disabled={emailVerified}
+                    />
                     {emailVerified ? (
-                      <span className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">✓ Verified</span>
+                      <span className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium whitespace-nowrap">✓ Verified</span>
                     ) : (
-                      <button type="button" onClick={handleSendOtp} disabled={!email || otpTimer > 0 || otpSending}
+                      <button type="button" onClick={handleSendOtp} disabled={!email || otpTimer > 0 || otpSending || emailChecking || emailAvailable === false}
                         className="px-4 py-2.5 bg-ob-purple text-white rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap">
-                        {otpSending ? 'Sending...' : otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send Code'}
+                        {otpSending ? 'Sending...' : emailChecking ? 'Checking...' : otpTimer > 0 ? `Resend (${otpTimer}s)` : 'Send Code'}
                       </button>
                     )}
                   </div>
+                  {/* Email availability status */}
+                  {emailChecking && <p className="text-xs text-gray-400 mt-1">Checking email availability...</p>}
+                  {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
+                  {emailAvailable === true && !emailVerified && <p className="text-xs text-green-600 mt-1">✓ Email is available</p>}
                   {otpError && <p className="text-xs text-red-500 mt-1">{otpError}</p>}
-                  <p className="text-xs text-gray-400 mt-1">A verification code will be sent to your email address.</p>
+                  {otpSent && !emailVerified && (
+                    <p className="text-xs text-gray-400 mt-1">A verification code has been sent to your email.</p>
+                  )}
+
+                  {/* OTP Input */}
                   {otpSent && !emailVerified && (
                     <div className="mt-3 flex gap-2">
-                      <input type="text" value={otpCode} onChange={e => setOtpCode(e.target.value)} placeholder="Enter 6-digit code"
-                        className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm" maxLength={6} />
+                      <input
+                        type="text"
+                        value={otpCode}
+                        onChange={e => { const val = e.target.value.replace(/\D/g, '').slice(0, 6); setOtpCode(val); }}
+                        placeholder="Enter 6-digit code"
+                        className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none"
+                        maxLength={6}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                      />
                       <button type="button" onClick={handleVerifyOtp} disabled={otpVerifying || otpCode.length !== 6}
-                        className="px-4 py-2.5 bg-ob-lime text-ob-navy rounded-lg text-sm font-medium disabled:opacity-50">
+                        className="px-4 py-2.5 bg-ob-lime text-ob-navy rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap">
                         {otpVerifying ? 'Verifying...' : 'Verify'}
                       </button>
                     </div>
                   )}
                 </div>
+
+                {/* Phone Number — REQUIRED */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+234..." required
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />
-                  <p className="text-xs text-gray-400 mt-1">Phone number for order updates and delivery. No SMS verification required.</p>
+                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+234 801 234 5678" required
+                    className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none ${
+                      fieldErrors.phone ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'
+                    }`} />
+                  {fieldErrors.phone && <p className="text-xs text-red-500 mt-1">{fieldErrors.phone}</p>}
+                  <p className="text-xs text-gray-400 mt-1">Required for order updates and delivery notifications.</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* STEP 4: Account Setup */}
+          {/* STEP 4: Account Setup — with inline validation */}
           {step === 4 && (
             <div>
               <h2 className="text-lg font-bold text-ob-navy mb-1">Set up your account</h2>
@@ -344,29 +524,41 @@ export default function RegisterPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
-                    <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="First name" />
+                    <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
+                      className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none ${
+                        fieldErrors.firstName ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'
+                      }`} placeholder="First name" />
+                    {fieldErrors.firstName && <p className="text-xs text-red-500 mt-1">{fieldErrors.firstName}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
-                    <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="Last name" />
+                    <input type="text" value={lastName} onChange={e => setLastName(e.target.value)}
+                      className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none ${
+                        fieldErrors.lastName ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'
+                      }`} placeholder="Last name" />
+                    {fieldErrors.lastName && <p className="text-xs text-red-500 mt-1">{fieldErrors.lastName}</p>}
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email (confirmed)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email (verified)</label>
                   <input type="email" value={email} readOnly className="w-full px-4 py-2.5 border border-gray-100 bg-gray-50 rounded-lg text-sm text-gray-600" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number (confirmed)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number (verified)</label>
                   <input type="tel" value={phone} readOnly className="w-full px-4 py-2.5 border border-gray-100 bg-gray-50 rounded-lg text-sm text-gray-600" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
                   <div className="relative">
-                    <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none pr-12" placeholder="Min 8 characters, 1 uppercase, 1 number" minLength={8} />
+                    <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                      className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none pr-12 ${
+                        fieldErrors.password ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'
+                      }`} placeholder="Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special" minLength={8} />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showPassword ? "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"} /></svg>
                     </button>
                   </div>
+                  {fieldErrors.password && <p className="text-xs text-red-500 mt-1">{fieldErrors.password}</p>}
                   {password.length > 0 && (
                     <div className="mt-1 flex gap-1">
                       {[8, 12, 16].map(len => (
@@ -374,26 +566,47 @@ export default function RegisterPage() {
                       ))}
                     </div>
                   )}
+                  {password.length > 0 && (
+                    <div className="mt-1 text-xs text-gray-400 flex flex-wrap gap-x-2 gap-y-0.5">
+                      <span className={password.length >= 8 ? 'text-green-600' : 'text-red-500'}>{password.length >= 8 ? '✓' : '✗'} 8+ chars</span>
+                      <span className={/[A-Z]/.test(password) ? 'text-green-600' : 'text-red-500'}>{/[A-Z]/.test(password) ? '✓' : '✗'} Uppercase</span>
+                      <span className={/[a-z]/.test(password) ? 'text-green-600' : 'text-red-500'}>{/[a-z]/.test(password) ? '✓' : '✗'} Lowercase</span>
+                      <span className={/\d/.test(password) ? 'text-green-600' : 'text-red-500'}>{/\d/.test(password) ? '✓' : '✗'} Number</span>
+                      <span className={/[!@#$%^&*(),.?":{}|<>]/.test(password) ? 'text-green-600' : 'text-red-500'}>{/[!@#$%^&*(),.?":{}|<>]/.test(password) ? '✓' : '✗'} Special</span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
                   <div className="relative">
-                    <input type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none pr-12" placeholder="Re-enter password" minLength={8} />
+                    <input type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                      className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none pr-12 ${
+                        fieldErrors.confirmPassword ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'
+                      }`} placeholder="Re-enter password" minLength={8} />
                     <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={showConfirm ? "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"} /></svg>
                     </button>
                   </div>
-                  {confirmPassword && password !== confirmPassword && <p className="text-xs text-red-500 mt-1">Passwords do not match</p>}
+                  {fieldErrors.confirmPassword && <p className="text-xs text-red-500 mt-1">{fieldErrors.confirmPassword}</p>}
+                  {confirmPassword && password !== confirmPassword && !fieldErrors.confirmPassword && (
+                    <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+                  )}
                 </div>
                 <div className="flex items-start space-x-2">
-                  <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-1 rounded border-gray-300 text-ob-purple focus:ring-ob-purple" />
-                  <span className="text-xs text-gray-500">I agree to the{' '}<a href="/terms" target="_blank" rel="noopener noreferrer" className="text-ob-purple hover:underline">Terms of Service</a>{' '}and{' '}<a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-ob-purple hover:underline">Privacy Policy</a></span>
+                  <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
+                    className="mt-1 rounded border-gray-300 text-ob-purple focus:ring-ob-purple" />
+                  <span className="text-xs text-gray-500">I agree to the{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-ob-purple hover:underline" onClick={e => e.stopPropagation()}>Terms of Service</a>
+                    {' '}and{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-ob-purple hover:underline" onClick={e => e.stopPropagation()}>Privacy Policy</a>
+                  </span>
                 </div>
+                {fieldErrors.agreed && <p className="text-xs text-red-500">{fieldErrors.agreed}</p>}
               </div>
             </div>
           )}
 
-          {/* STEP 5: Business Information (Vendor AND Retailer — 6-step flow) */}
+          {/* STEP 5: Business Information (Vendor AND Retailer) */}
           {step === 5 && (role === 'vendor' || role === 'retailer') && (
             <div>
               <h2 className="text-lg font-bold text-ob-navy mb-1">Business Information</h2>
@@ -401,23 +614,39 @@ export default function RegisterPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Registered Business Name *</label>
-                  <input type="text" value={businessName} onChange={e => setBusinessName(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="As registered with CAC" />
+                  <input type="text" value={businessName} onChange={e => setBusinessName(e.target.value)}
+                    className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none ${
+                      fieldErrors.businessName ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'
+                    }`} placeholder="As registered with CAC" />
+                  {fieldErrors.businessName && <p className="text-xs text-red-500 mt-1">{fieldErrors.businessName}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Business Type *</label>
-                  <select value={businessType} onChange={e => setBusinessType(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none">
+                  <select value={businessType} onChange={e => setBusinessType(e.target.value)}
+                    className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none ${
+                      fieldErrors.businessType ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'
+                    }`}>
                     <option value="">Select business type</option>
                     {BUSINESS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
+                  {fieldErrors.businessType && <p className="text-xs text-red-500 mt-1">{fieldErrors.businessType}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">RC Number {role === 'vendor' ? '*' : '(if applicable)'}</label>
-                  <input type="text" value={rcNumber} onChange={e => setRcNumber(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="RC1234567" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">RC Number {role === 'vendor' ? '* (Required)' : '(if applicable)'}</label>
+                  <input type="text" value={rcNumber} onChange={e => setRcNumber(e.target.value)}
+                    className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none ${
+                      fieldErrors.rcNumber ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'
+                    }`} placeholder="RC1234567" />
+                  {fieldErrors.rcNumber && <p className="text-xs text-red-500 mt-1">{fieldErrors.rcNumber}</p>}
                   <p className="text-xs text-gray-400 mt-1">Your Corporate Affairs Commission registration number. {role === 'vendor' ? 'This is mandatory for vendor verification.' : 'Required for business verification if you have a registered company.'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Business Address *</label>
-                  <input type="text" value={businessAddress} onChange={e => setBusinessAddress(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="Street address, city" />
+                  <input type="text" value={businessAddress} onChange={e => setBusinessAddress(e.target.value)}
+                    className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none ${
+                      fieldErrors.businessAddress ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'
+                    }`} placeholder="Street address, city" />
+                  {fieldErrors.businessAddress && <p className="text-xs text-red-500 mt-1">{fieldErrors.businessAddress}</p>}
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
@@ -444,7 +673,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* STEP 6: Review & Submit */}
+          {/* STEP 6 (or 4 for customer): Review & Submit */}
           {step === totalSteps && (
             <div>
               <h2 className="text-lg font-bold text-ob-navy mb-1">Review & Create Account</h2>
@@ -477,22 +706,22 @@ export default function RegisterPage() {
           {/* Navigation Buttons */}
           <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
             {step > 1 && (
-              <button type="button" onClick={() => setStep(step - 1)}
+              <button type="button" onClick={() => { setFieldErrors({}); setStep(step - 1); }}
                 className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all">
                 Back
               </button>
             )}
-            <button type="button" onClick={() => {
-                if (step === totalSteps) handleSubmit();
-                else setStep(step + 1);
-              }}
-              disabled={!canProceed() || isSubmitting}
+            <button type="button"
+              onClick={() => { if (step === totalSteps) handleSubmit(); else handleNext(); }}
+              disabled={!canProceed() || isSubmitting || emailChecking}
               className="flex-1 py-3 btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
                   Creating Account...
                 </span>
+              ) : emailChecking ? (
+                'Checking email...'
               ) : step === totalSteps ? 'Create Account' : 'Continue'}
             </button>
           </div>
