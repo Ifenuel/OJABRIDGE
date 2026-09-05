@@ -282,11 +282,11 @@ async function sendWelcomeEmail({ email, name, role }) {
         ${roleInfo.body}
       </p>
 
-      <!-- CTA Button -->
+      <!-- CTA Button — Clean, professional, not too deep -->
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
           <td align="center" style="padding: 8px 0 32px;">
-            <a href="${roleInfo.ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">
+            <a href="${roleInfo.ctaUrl}" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">
               ${roleInfo.cta} &rarr;
             </a>
           </td>
@@ -481,7 +481,7 @@ async function sendOrderConfirmation({ email, name, orderNumber, items, total, c
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
           <td align="center" style="padding: 24px 0 8px;">
-            <a href="${SITE_URL}/account/orders" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+            <a href="${SITE_URL}/account/orders" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
               Track Your Order &rarr;
             </a>
           </td>
@@ -564,7 +564,7 @@ async function sendShippingUpdate({ email, name, orderNumber, status, trackingNu
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
           <td align="center" style="padding: 28px 0 8px;">
-            <a href="${SITE_URL}/account/orders" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+            <a href="${SITE_URL}/account/orders" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
               View Order Details &rarr;
             </a>
           </td>
@@ -610,7 +610,7 @@ async function sendPasswordReset({ email, name, resetUrl }) {
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
           <td align="center" style="padding: 8px 0 28px;">
-            <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+            <a href="${resetUrl}" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
               Reset Password &rarr;
             </a>
           </td>
@@ -702,7 +702,7 @@ async function sendKYCUpdate({ email, name, status }) {
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
           <td align="center" style="padding: 8px 0 24px;">
-            <a href="${info.ctaUrl}" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+            <a href="${info.ctaUrl}" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
               ${info.cta} &rarr;
             </a>
           </td>
@@ -796,7 +796,7 @@ async function sendVendorNewOrder({ email, vendorName, orderNumber, items, total
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>
           <td align="center" style="padding: 24px 0 8px;">
-            <a href="${SITE_URL}/vendor-dashboard/orders" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
+            <a href="${SITE_URL}/vendor-dashboard/orders" style="display: inline-block; background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-size: 15px; font-weight: 600;">
               View Order &rarr;
             </a>
           </td>

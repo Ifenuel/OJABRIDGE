@@ -442,6 +442,35 @@ const EMAIL_TYPO_MAP = {
   'outlook.co':'outlook.com','icloud.co':'icloud.com',
 };
 
+/**
+ * Known-good email providers — ALWAYS allowed regardless of disposable list
+ */
+const TRUSTED_DOMAINS = new Set([
+  // Major providers
+  'gmail.com', 'googlemail.com',
+  'yahoo.com', 'yahoo.co.uk', 'yahoo.co.in', 'yahoo.ca', 'yahoo.com.au', 'yahoo.co.jp',
+  'hotmail.com', 'hotmail.co.uk', 'hotmail.fr', 'hotmail.de',
+  'outlook.com', 'outlook.co.uk', 'live.com', 'live.co.uk', 'live.nl',
+  'aol.com', 'aol.co.uk',
+  // Apple
+  'icloud.com', 'me.com', 'mac.com',
+  // Corporate / workspace
+  'protonmail.com', 'proton.me', 'protonmail.ch',
+  'zoho.com', 'zohomail.com',
+  'yandex.com', 'yandex.ru',
+  'mail.com', 'email.com',
+  // Nigerian providers
+  'mtnng.ng', 'glo.ng', '9mobile.ng',
+  // Education / Government
+  'edu', 'gov.ng',
+  // Common free providers
+  'gmx.com', 'gmx.de', 'gmx.net',
+  'tutanota.com', 'tutanota.de',
+  'fastmail.com',
+  'hey.com',
+  'pm.me',
+]);
+
 function getEmailDomain(email) {
   return email.split('@')[1]?.toLowerCase().trim() || '';
 }
@@ -449,6 +478,9 @@ function getEmailDomain(email) {
 /**
  * Validate email — checks format, typos, and disposable domains
  * Returns { valid: boolean, error?: string }
+ * 
+ * Always allows: Gmail, Yahoo, Outlook, Hotmail, iCloud, Proton, etc.
+ * Only blocks: known disposable/temporary email services
  */
 export function validateEmailDetailed(email) {
   if (!email || typeof email !== 'string')
@@ -457,11 +489,21 @@ export function validateEmailDetailed(email) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean))
     return { valid: false, error: 'Please enter a valid email address (e.g. name@example.com)' };
   const domain = getEmailDomain(clean);
+
+  // Check for common typos FIRST (before whitelist)
   const suggested = EMAIL_TYPO_MAP[domain];
   if (suggested && suggested !== domain)
     return { valid: false, error: `Did you mean ${clean.split('@')[0]}@${suggested}? Please check your email address.` };
+
+  // ALWAYS allow trusted/known-good providers
+  if (TRUSTED_DOMAINS.has(domain))
+    return { valid: true };
+
+  // Allow any domain with a valid TLD that's NOT in the disposable list
+  // This means new/unknown providers are allowed unless specifically blocked
   if (DISPOSABLE_DOMAINS.has(domain))
     return { valid: false, error: 'Disposable or temporary email addresses are not allowed. Please use a permanent email (e.g. Gmail, Yahoo, Outlook).' };
+
   return { valid: true };
 }
 

@@ -48,14 +48,14 @@ export default function FirstVisitPopup() {
           </svg>
         </button>
 
-        {/* Header — Light, clean, professional */}
-        <div className="bg-gradient-to-br from-white via-purple-50/50 to-green-50/30 px-8 pt-8 pb-6 text-center border-b border-gray-100">
+        {/* Header — Pure white, clean, no purple covering logo */}
+        <div className="bg-white px-8 pt-8 pb-6 text-center border-b border-gray-100">
           <div className="mb-3">
             <Logo size="default" />
           </div>
-          <p className="text-ob-purple/70 text-xs font-semibold uppercase tracking-[3px] mt-3">Welcome</p>
+          <p className="text-gray-400 text-xs font-semibold uppercase tracking-[3px] mt-3">Welcome</p>
           <h2 className="text-2xl font-bold text-ob-navy mt-2">
-            Shop <span className="text-ob-purple">·</span> Connect <span className="text-ob-lime-dark">·</span> Grow
+            Shop <span className="text-ob-purple">·</span> Connect <span className="text-green-500">·</span> Grow
           </h2>
         </div>
 
