@@ -10,6 +10,7 @@
  * Run: node scripts/cleanup-fake-data.js
  */
 
+require('dotenv').config();
 const { Pool } = require('pg');
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -59,21 +60,44 @@ async function cleanup() {
 
       // Delete related data first (foreign keys)
       // Delete audit logs for fake users
-      const auditResult = await client.query(
-        'DELETE FROM audit_logs WHERE user_id = ANY($1) OR user_email = ANY($2) RETURNING id',
-        [fakeIds, fakeResult.rows.map(r => r.email)]
-      );
-      console.log(`   📝 Deleted ${auditResult.rowCount} audit log entries`);
+      try {
+        const auditResult = await client.query(
+          'DELETE FROM audit_logs WHERE user_id = ANY($1) RETURNING id',
+          [fakeIds]
+        );
+        console.log(`   📝 Deleted ${auditResult.rowCount} audit log entries`);
+      } catch (e) {
+        console.log(`   ⚠️  Audit logs cleanup: ${e.message}`);
+      }
 
       // Delete vendor profiles for fake users
-      const vendorResult = await client.query(
-        'DELETE FROM vendors WHERE user_id = ANY($1) RETURNING id',
-        [fakeIds]
-      );
-      console.log(`   🏪 Deleted ${vendorResult.rowCount} vendor profiles`);
+      try {
+        const vendorResult = await client.query(
+          'DELETE FROM vendors WHERE user_id = ANY($1) RETURNING id',
+          [fakeIds]
+        );
+        console.log(`   🏪 Deleted ${vendorResult.rowCount} vendor profiles`);
+      } catch (e) {
+        console.log(`   ⚠️  Vendor cleanup: ${e.message}`);
+      }
 
-      // Delete OTP codes for fake emails
-      // (These are in Redis, not DB — will expire automatically)
+      // Delete orders for fake users
+      try {
+        const orderResult = await client.query(
+          'DELETE FROM orders WHERE user_id = ANY($1) RETURNING id',
+          [fakeIds]
+        );
+        console.log(`   📦 Deleted ${orderResult.rowCount} orders`);
+      } catch (e) {}
+
+      // Delete transactions for fake users
+      try {
+        const txResult = await client.query(
+          'DELETE FROM transactions WHERE user_id = ANY($1) RETURNING id',
+          [fakeIds]
+        );
+        console.log(`   💳 Deleted ${txResult.rowCount} transactions`);
+      } catch (e) {}
 
       // Delete the fake users
       const deleteResult = await client.query(
@@ -83,18 +107,20 @@ async function cleanup() {
       console.log(`   👤 Deleted ${deleteResult.rowCount} user accounts`);
     }
 
-    // 3. Also clean audit logs by email pattern (test accounts)
-    const testAuditResult = await client.query(
-      `DELETE FROM audit_logs WHERE user_email LIKE '%@example.com' 
-       OR user_email LIKE '%@test.com' 
-       OR user_email LIKE '%test%@%'
-       OR user_email LIKE '%audit-%'
-       OR user_email LIKE '%flowtest%'
-       OR user_email LIKE '%finaltest%'
-       RETURNING id`
-    );
-    if (testAuditResult.rowCount > 0) {
-      console.log(`   📝 Cleaned ${testAuditResult.rowCount} additional test audit entries`);
+    // 3. Also clean any remaining test audit logs by user_id pattern
+    try {
+      const testAuditResult = await client.query(
+        `DELETE FROM audit_logs WHERE user_id NOT IN (
+          SELECT id FROM users WHERE email = ANY($1)
+        ) AND user_id != 'a0000000-0000-0000-0000-000000000001'
+        RETURNING id`,
+        [KEEP_EMAILS]
+      );
+      if (testAuditResult.rowCount > 0) {
+        console.log(`   📝 Cleaned ${testAuditResult.rowCount} additional orphaned audit entries`);
+      }
+    } catch (e) {
+      console.log(`   ⚠️  Orphaned audit cleanup: ${e.message}`);
     }
 
     // 4. Summary
