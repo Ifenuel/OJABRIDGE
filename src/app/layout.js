@@ -1,6 +1,7 @@
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import NewsletterBanner from '@/components/NewsletterBanner';
 import ClientProviders from '@/components/ClientProviders';
 import { AuthProvider } from '@/context/AuthContext';
 import { FavoritesProvider } from '@/context/FavoritesContext';
@@ -53,6 +54,7 @@ export default function RootLayout({ children }) {
             <FavoritesProvider>
               <Navbar />
               <main className="flex-1">{children}</main>
+              <NewsletterBanner />
               <Footer />
               <ClientProviders />
             </FavoritesProvider>
