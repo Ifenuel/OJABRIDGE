@@ -39,21 +39,36 @@ export default function AdminDashboardPage() {
     loadAll();
   }, []);
 
-  // Computed stats from real data
-  const totalRevenue = orders.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + Number(o.total || 0), 0);
+  // === DATE FILTER ===
+  const filterByPeriod = (items, p) => {
+    if (p === 'all') return items;
+    const now = new Date();
+    const days = p === '7d' ? 7 : p === '30d' ? 30 : p === '90d' ? 90 : 365;
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return items.filter(item => {
+      if (!item.created_at) return true;
+      return new Date(item.created_at) >= cutoff;
+    });
+  };
+
+  const filteredOrders = filterByPeriod(orders, period);
+  const filteredUsers = filterByPeriod(users, period);
+
+  // Computed stats from FILTERED data
+  const totalRevenue = filteredOrders.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + Number(o.total || 0), 0);
   const commission = Math.round(totalRevenue * 0.10);
   const pendingKyc = vendors.filter(v => ['NOT_STARTED', 'IN_PROGRESS', 'SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status)).length;
   const pendingProducts = products.filter(p => p.moderation_status === 'pending').length;
   const openDisputes = disputes.filter(d => ['open', 'under_review', 'vendor_response_required', 'escalated'].includes(d.status)).length;
-  const paymentIssues = orders.filter(o => o.payment_status === 'failed' || o.payment_status === 'refunded').length;
-  const activeOrders = orders.filter(o => ['confirmed', 'processing', 'shipped', 'in_transit'].includes(o.status)).length;
-  const completedOrders = orders.filter(o => ['delivered', 'completed'].includes(o.status)).length;
+  const paymentIssues = filteredOrders.filter(o => o.payment_status === 'failed' || o.payment_status === 'refunded').length;
+  const activeOrders = filteredOrders.filter(o => ['confirmed', 'processing', 'shipped', 'in_transit'].includes(o.status)).length;
+  const completedOrders = filteredOrders.filter(o => ['delivered', 'completed'].includes(o.status)).length;
 
   const stats = {
-    totalUsers: users.length,
+    totalUsers: filteredUsers.length,
     totalVendors: vendors.length,
-    totalCustomers: users.filter(u => u.role === 'customer').length,
-    totalOrders: orders.length,
+    totalCustomers: filteredUsers.filter(u => u.role === 'customer').length,
+    totalOrders: filteredOrders.length,
     totalRevenue,
     commission,
     netToVendors: totalRevenue - commission,
@@ -65,11 +80,11 @@ export default function AdminDashboardPage() {
     completedOrders,
   };
 
-  // Chart data from real orders
+  // Chart data from FILTERED orders
   const now = new Date();
   const revenueByMonth = Array.from({ length: 12 }, (_, i) => {
     const month = new Date(now.getFullYear(), i, 1).toLocaleString('en', { month: 'short' });
-    const monthOrders = orders.filter(o => {
+    const monthOrders = filteredOrders.filter(o => {
       const d = new Date(o.created_at);
       return d.getMonth() === i && d.getFullYear() === now.getFullYear() && o.payment_status === 'paid';
     });
@@ -90,8 +105,8 @@ export default function AdminDashboardPage() {
     { name: 'Admins', value: users.filter(u => u.role === 'admin').length },
   ];
 
-  const recentUsers = users.slice(0, 5);
-  const recentOrders = orders.slice(0, 5);
+  const recentUsers = filteredUsers.slice(0, 5);
+  const recentOrders = filteredOrders.slice(0, 5);
 
   return (
     <DashboardLayout role="admin">
@@ -101,8 +116,8 @@ export default function AdminDashboardPage() {
           <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.name || 'Admin'}. Here&apos;s what&apos;s happening on OjaBridge.</p>
         </div>
         <div className="flex gap-2">
-          {['7d', '30d', '90d'].map(p => (
-            <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-ob-purple text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>{p}</button>
+          {['7d', '30d', '90d', 'all'].map(p => (
+            <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-ob-purple text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>{p === 'all' ? 'All Time' : p}</button>
           ))}
         </div>
       </div>

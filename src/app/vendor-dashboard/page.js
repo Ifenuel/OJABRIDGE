@@ -35,18 +35,28 @@ export default function VendorDashboardPage() {
     if (user) loadData();
   }, [user]);
 
-  // Compute stats from real data
-  const totalRevenue = orders.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + Number(o.total || 0), 0);
-  const commission = Math.round(totalRevenue * 0.10);
-  const pendingOrders = orders.filter(o => o.status === 'pending').length;
-  const processingOrders = orders.filter(o => o.status === 'processing' || o.status === 'shipped').length;
-  const completedOrders = orders.filter(o => o.status === 'completed' || o.status === 'delivered').length;
+  // Date filter
+  const filterByPeriod = (items, p) => {
+    if (p === 'all') return items;
+    const now = new Date();
+    const days = p === '7d' ? 7 : p === '30d' ? 30 : p === '90d' ? 90 : 365;
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return items.filter(item => !item.created_at || new Date(item.created_at) >= cutoff);
+  };
+  const filteredOrders = filterByPeriod(orders, period);
 
-  // Chart data from real orders
+  // Compute stats from FILTERED data
+  const totalRevenue = filteredOrders.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + Number(o.total || 0), 0);
+  const commission = Math.round(totalRevenue * 0.10);
+  const pendingOrders = filteredOrders.filter(o => o.status === 'pending').length;
+  const processingOrders = filteredOrders.filter(o => o.status === 'processing' || o.status === 'shipped').length;
+  const completedOrders = filteredOrders.filter(o => o.status === 'completed' || o.status === 'delivered').length;
+
+  // Chart data from FILTERED orders
   const now = new Date();
   const revenueByMonth = Array.from({ length: 12 }, (_, i) => {
     const month = new Date(now.getFullYear(), i, 1).toLocaleString('en', { month: 'short' });
-    const mOrders = orders.filter(o => {
+    const mOrders = filteredOrders.filter(o => {
       const d = new Date(o.created_at);
       return d.getMonth() === i && d.getFullYear() === now.getFullYear() && o.payment_status === 'paid';
     });
@@ -68,8 +78,8 @@ export default function VendorDashboardPage() {
           <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.name || 'Vendor'}. Here&apos;s your store overview.</p>
         </div>
         <div className="flex gap-2">
-          {['7d', '30d', '90d'].map(p => (
-            <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-ob-purple text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>{p}</button>
+          {['7d', '30d', '90d', 'all'].map(p => (
+            <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-ob-purple text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>{p === 'all' ? 'All Time' : p}</button>
           ))}
         </div>
       </div>

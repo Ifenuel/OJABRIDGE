@@ -7,6 +7,7 @@ import { exportCsv, formatDate, formatCurrency } from '@/lib/csvExport';
 export default function AdminPaymentsPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('30d');
 
   useEffect(() => {
     fetch('/api/orders?limit=200')
@@ -15,11 +16,21 @@ export default function AdminPaymentsPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  const paidOrders = orders.filter(o => o.payment_status === 'paid');
+  // Date filter
+  const filterByPeriod = (items, p) => {
+    if (p === 'all') return items;
+    const now = new Date();
+    const days = p === '7d' ? 7 : p === '30d' ? 30 : p === '90d' ? 90 : 365;
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return items.filter(item => !item.created_at || new Date(item.created_at) >= cutoff);
+  };
+
+  const filteredOrders = filterByPeriod(orders, period);
+  const paidOrders = filteredOrders.filter(o => o.payment_status === 'paid');
   const totalRevenue = paidOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
   const commission = Math.round(totalRevenue * 0.10);
   const pendingSettlements = paidOrders.filter(o => ['processing', 'shipped', 'in_transit'].includes(o.status)).reduce((sum, o) => sum + Number(o.total || 0) * 0.9, 0);
-  const failedPayments = orders.filter(o => o.payment_status === 'failed').length;
+  const failedPayments = filteredOrders.filter(o => o.payment_status === 'failed').length;
 
   const statusColor = (s) => ({
     paid: 'bg-green-100 text-green-700', pending: 'bg-amber-100 text-amber-700',
@@ -28,7 +39,14 @@ export default function AdminPaymentsPage() {
 
   return (
     <DashboardLayout role="admin">
-      <div className="mb-8"><h1 className="text-2xl font-bold text-ob-navy">Payments & Transactions</h1><p className="text-gray-500 text-sm mt-1">Monitor all payment transactions, commissions and financial activity.</p></div>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div><h1 className="text-2xl font-bold text-ob-navy">Payments & Transactions</h1><p className="text-gray-500 text-sm mt-1">Monitor all payment transactions, commissions and financial activity.</p></div>
+        <div className="flex gap-2">
+          {['7d', '30d', '90d', 'all'].map(p => (
+            <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-ob-purple text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>{p === 'all' ? 'All Time' : p}</button>
+          ))}
+        </div>
+      </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { l: 'Total Revenue', v: `₦${totalRevenue.toLocaleString()}`, c: 'text-ob-purple' },
@@ -41,7 +59,7 @@ export default function AdminPaymentsPage() {
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-bold text-ob-navy">Transaction History</h3>
           <button onClick={() => exportCsv({
-            title: 'Payments & Transactions Report',
+            title: `Payments & Transactions Report (${period === 'all' ? 'All Time' : period})`,
             filename: 'ojabridge_payments',
             summary: [
               { label: 'Total Revenue', value: formatCurrency(totalRevenue) },
