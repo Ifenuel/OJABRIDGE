@@ -59,7 +59,44 @@ function getEmotionPrefix(emotion) {
 function getSmartFallback(message, userName) {
   const msg = message.toLowerCase().trim();
   const greeting = userName ? `Hello ${userName}!` : "Hello!";
-  
+
+  // EDGE CASES — Handle inappropriate/off-topic content FIRST
+
+  // Insults, profanity, rude language
+  if (/\b(stupid|idiot|dumb|fool|ugly|shut\s*up|damn|crap|hell|nonsense|useless|trash|garbage|废物|白痴|笨蛋)\b/i.test(msg) || msg.length < 2 && !/^(hi|yo|ok|no|yes|hiya)$/i.test(msg)) {
+    return "I am sorry if something has frustrated you. I am here to help with OjaBridge and I want to make your experience better. Could you tell me what specific issue you are facing so I can assist you? 😊";
+  }
+
+  // Sexual, explicit, or inappropriate content
+  if (/\b(sex|porn|nude|naked|sexy|dirty|adult|nsfw|hookup|onlyfans|fap|dick|pussy|boob|ass|penis|vagina|blowjob|orgasm|horny|lust|erotic)\b/i.test(msg)) {
+    return "I am an AI assistant for OjaBridge and I am here to help with marketplace-related questions. Is there something about the platform I can help you with? For other matters, I would recommend speaking with a trusted person. 😊";
+  }
+
+  // Threats or harassment
+  if (/\b(kill|murder|die|suicide|hurt|harm|bomb|shoot|attack|rape|molest)\b/i.test(msg)) {
+    return "I take safety very seriously. If you are experiencing an issue, please email our support team at awoyoemmanuel12@gmail.com and they will help you right away. I am here to assist with OjaBridge platform questions. 😊";
+  }
+
+  // Jailbreak attempts
+  if (/ignore\s+(your|all|previous|above)\s+(instructions|rules|prompt)|pretend\s+(you\s+are|to\s+be)|act\s+as\s+if|do\s+not\s+follow|bypass|override|system\s+prompt|you\s+are\s+now|forget\s+everything/i.test(msg)) {
+    return "I am the OjaBridge AI assistant and I am here to help with platform-related questions. Is there something about OjaBridge I can help you with? 😊";
+  }
+
+  // Off-topic: politics, weather, sports, etc.
+  if (/\b(president|government|election|politics|religion|god|allah|church|mosque|football|soccer|basketball|nba|epl|world\s+cup|weather|temperature|forecast|music|song|movie|netflix|tiktok|instagram|twitter|x\.com|facebook|whatsapp)\b/i.test(msg) && !/ojabridge|marketplace|shop|vendor|order|payment/i.test(msg)) {
+    return "I am here to help with all things OjaBridge! 😊 Is there anything about the platform I can help you with? Whether it is shopping, selling, payments, or anything else — I am happy to assist!";
+  }
+
+  // Random gibberish — very short with no real words, or random characters
+  if (msg.length < 3 && !/^(hi|yo|ok|no|yes|hey|sup|bye|lol|brb|omg)$/i.test(msg)) {
+    return "It looks like that might have been a typo! 😊 I am the OjaBridge AI assistant — I can help you with shopping, selling, payments, KYC, and anything else on the platform. How can I help you today?";
+  }
+
+  // Very random long strings (no spaces, no real words)
+  if (msg.length > 20 && !/\s/.test(msg) && !/ojabridge|register|login|payment|order|vendor|customer|ship|deliver|refund|kyc|bvn|nin|password|email|account|product|cart|checkout/i.test(msg)) {
+    return "It looks like that might have been a typo! 😊 I am the OjaBridge AI assistant — I can help you with shopping, selling, payments, KYC, and anything else on the platform. How can I help you today?";
+  }
+
   // Greetings — must start with a greeting word
   if (/^(hi|hello|hey|howdy|good\s*(morning|afternoon|evening)|yo|sup|greetings|hiya|howdy|wassup|whats up)/i.test(msg)) {
     return `${greeting} 👋 Welcome to OjaBridge!\n\nI am your AI assistant and I am here to help you with anything on the platform.\n\nWhat can I help you with today? 😊`;
