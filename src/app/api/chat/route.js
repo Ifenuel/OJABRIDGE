@@ -161,9 +161,15 @@ function getSmartFallback(message, userName, userRole, context = []) {
     return null; // OpenAI handles with full conversation history
   }
 
-  // Questions about the AI itself — let OpenAI handle naturally
-  if (/who are you|what are you|your name|dont you know|do you know|what.*my name|tell me.*name|remember.*name|what.*remember/i.test(msg)) {
-    return null; // OpenAI handles with user data context
+  // Questions about name/identity — use real user data
+  if (/who are you|what are you|your name/i.test(msg)) {
+    return `I am your OjaBridge AI support assistant! 😊 I am here to help you with anything on the platform — shopping, orders, payments, vendor setup, KYC, disputes, and more.\n\nHow can I help you today?`;
+  }
+  if (/dont you know|do you know|what.*my name|tell me.*name|remember.*name|what.*remember/i.test(msg)) {
+    if (userName) {
+      return `Of course I know you, ${userName}! 😊 You are logged in and I can see your account.\n\nHow can I help you today? Whether it is about your orders, account, payments, or anything else on OjaBridge — I am here for you! 💪`;
+    }
+    return `I can see you are logged in, but I do not have your name in our current conversation. Could you tell me your name so I can assist you better? 😊`;
   }
 
   // Casual conversation — let OpenAI handle naturally
@@ -576,10 +582,13 @@ export async function POST(request) {
       }
     }
 
-    // GENERIC FALLBACK — conversational, not a wall of links
+    // GENERIC FALLBACK — conversational, uses the user's name
     if (!aiReply) {
-      const greet = userName ? `${userName}` : 'there';
-      aiReply = `Hey ${greet}! 😊 I want to make sure I understand what you need.\n\nCould you tell me a bit more about what you are looking for? For example:\n\n- Are you having trouble with an order?\n- Do you need help with your account or KYC?\n- Are you looking for products to buy?\n- Do you want to become a vendor or retailer?\n- Or is there something else on your mind?\n\nI am here to help with anything on OjaBridge! Just tell me what is going on and I will do my best to assist you. 💪`;
+      if (userName) {
+        aiReply = `Hey ${userName}! 😊 I want to make sure I understand what you need.\n\nCould you tell me a bit more about what you are looking for? For example:\n\n- Are you having trouble with an order?\n- Do you need help with your account or KYC?\n- Are you looking for products to buy?\n- Do you want to become a vendor or retailer?\n- Or is there something else on your mind?\n\nI am here to help with anything on OjaBridge! Just tell me what is going on and I will do my best to assist you. 💪`;
+      } else {
+        aiReply = `Hey there! 😊 I want to make sure I understand what you need.\n\nCould you tell me a bit more about what you are looking for? For example:\n\n- Are you having trouble with an order?\n- Do you need help with your account or KYC?\n- Are you looking for products to buy?\n- Do you want to become a vendor or retailer?\n- Or is there something else on your mind?\n\nI am here to help with anything on OjaBridge! Just tell me what is going on and I will do my best to assist you. 💪`;
+      }
     }
 
     // STORE ASSISTANT RESPONSE
