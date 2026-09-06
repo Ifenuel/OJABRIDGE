@@ -31,50 +31,6 @@ const ROLE_STEPS = {
   ],
 };
 
-/* Realistic hand SVG — a human right hand with index finger extended for tapping */
-function HumanHand({ visible, style }) {
-  if (!visible) return null;
-  return (
-    <div className="absolute pointer-events-none z-40 transition-all duration-500 ease-in-out" style={style}>
-      <svg width="72" height="90" viewBox="0 0 72 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* Palm and fingers — realistic hand shape */}
-        <defs>
-          <linearGradient id="skinGrad" x1="36" y1="0" x2="36" y2="90" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#E8B89D" />
-            <stop offset="100%" stopColor="#D4967A" />
-          </linearGradient>
-          <filter id="handShadow" x="-20%" y="-10%" width="140%" height="130%">
-            <feDropShadow dx="2" dy="3" stdDeviation="3" floodColor="#000" floodOpacity="0.25" />
-          </filter>
-        </defs>
-        <g filter="url(#handShadow)">
-          {/* Thumb */}
-          <path d="M18 42 C12 38, 8 32, 10 26 C12 20, 16 18, 19 22 C22 26, 22 34, 20 40" fill="url(#skinGrad)" stroke="#C4856B" strokeWidth="0.5" />
-          {/* Index finger — extended for tapping */}
-          <path d="M26 44 C25 36, 24 24, 26 14 C28 8, 32 8, 34 14 C36 24, 35 36, 34 44" fill="url(#skinGrad)" stroke="#C4856B" strokeWidth="0.5" />
-          {/* Middle finger */}
-          <path d="M34 46 C33 38, 33 26, 35 18 C37 12, 41 12, 42 18 C43 26, 42 38, 41 46" fill="url(#skinGrad)" stroke="#C4856B" strokeWidth="0.5" />
-          {/* Ring finger */}
-          <path d="M41 47 C40 40, 40 30, 42 22 C44 16, 47 16, 48 22 C49 30, 48 40, 47 47" fill="url(#skinGrad)" stroke="#C4856B" strokeWidth="0.5" />
-          {/* Pinky */}
-          <path d="M47 48 C47 42, 47 34, 49 28 C50 24, 53 24, 53 28 C53 34, 52 42, 51 48" fill="url(#skinGrad)" stroke="#C4856B" strokeWidth="0.5" />
-          {/* Palm */}
-          <path d="M18 44 C16 50, 16 58, 20 64 C24 70, 30 74, 36 74 C42 74, 48 70, 52 64 C56 58, 55 50, 51 46 L47 46 L41 45 L34 44 L26 43 Z" fill="url(#skinGrad)" stroke="#C4856B" strokeWidth="0.5" />
-          {/* Wrist */}
-          <path d="M20 64 C20 72, 22 80, 26 84 L46 84 C50 80, 52 72, 52 64" fill="url(#skinGrad)" stroke="#C4856B" strokeWidth="0.5" />
-          {/* Fingernail on index finger */}
-          <ellipse cx="30" cy="13" rx="3.5" ry="4" fill="#F2D5C7" stroke="#C4856B" strokeWidth="0.3" />
-          {/* Crease lines on palm */}
-          <path d="M22 52 Q30 48, 48 52" stroke="#C4856B" strokeWidth="0.6" fill="none" opacity="0.4" />
-          <path d="M24 58 Q34 54, 48 58" stroke="#C4856B" strokeWidth="0.6" fill="none" opacity="0.3" />
-          {/* Knuckle creases */}
-          <path d="M26 40 Q30 38, 34 40" stroke="#C4856B" strokeWidth="0.4" fill="none" opacity="0.3" />
-          <path d="M35 41 Q38 39, 42 41" stroke="#C4856B" strokeWidth="0.4" fill="none" opacity="0.3" />
-        </g>
-      </svg>
-    </div>
-  );
-}
 
 /* Typing animation hook — types text character by character */
 function useTypewriter(speed = 45) {
@@ -303,9 +259,7 @@ export default function OnboardingDemo() {
   const [fieldValues, setFieldValues] = useState({});
   const [currentField, setCurrentField] = useState(-1);
   const [otpDigits, setOtpDigits] = useState('');
-  const [handPos, setHandPos] = useState({ x: '50%', y: '65%' });
-  const [handVisible, setHandVisible] = useState(false);
-  const [fingerTap, setFingerTap] = useState(false);
+
 
   const timerRef = useRef(null);
   const playRef = useRef(false);
@@ -323,13 +277,6 @@ export default function OnboardingDemo() {
   const clearTimer = () => { if (timerRef.current) clearTimeout(timerRef.current); };
 
   /* Tap animation — finger presses down and lifts */
-  const tapFinger = (cb, delay = 300) => {
-    setFingerTap(true);
-    timerRef.current = setTimeout(() => {
-      setFingerTap(false);
-      cb?.();
-    }, delay);
-  };
 
   /* Advance to next step */
   const advanceStep = useCallback(() => {
@@ -353,21 +300,14 @@ export default function OnboardingDemo() {
 
     if (step.screen === 'role') {
       // Move hand to highlight position then advance
-      setHandPos({ x: '55%', y: '45%' });
-      timerRef.current = setTimeout(() => {
-        tapFinger(() => {
-          timerRef.current = setTimeout(advanceStep, 600);
-        });
-      }, 800);
+        timerRef.current = setTimeout(advanceStep, 1500);
       return () => clearTimer();
     }
 
     if (step.screen === 'otp') {
       // Type email in the field
-      setHandPos({ x: '50%', y: '35%' });
-      timerRef.current = setTimeout(() => {
+        timerRef.current = setTimeout(() => {
         emailType.type(step.typing, () => {
-          // Then type OTP digits
           timerRef.current = setTimeout(() => {
             otpType.type(step.otp, () => {
               timerRef.current = setTimeout(advanceStep, 800);
@@ -393,9 +333,6 @@ export default function OnboardingDemo() {
         let charIdx = 0;
 
         // Position hand over current field
-        const yPositions = ['38%', '46%', '68%'];
-        setHandPos({ x: '55%', y: yPositions[fIdx] || '50%' });
-
         const typeChar = () => {
           if (charIdx < val.length && playRef.current) {
             charIdx++;
@@ -407,7 +344,7 @@ export default function OnboardingDemo() {
           }
         };
 
-        tapFinger(typeChar, 200);
+        typeChar();
       };
 
       timerRef.current = setTimeout(typeNextField, 400);
@@ -427,9 +364,6 @@ export default function OnboardingDemo() {
         const val = fields[fIdx];
         let charIdx = 0;
 
-        const yPositions = ['35%', '48%', '60%'];
-        setHandPos({ x: '55%', y: yPositions[fIdx] || '50%' });
-
         const typeChar = () => {
           if (charIdx < val.length && playRef.current) {
             charIdx++;
@@ -441,7 +375,7 @@ export default function OnboardingDemo() {
           }
         };
 
-        tapFinger(typeChar, 200);
+        typeChar();
       };
 
       timerRef.current = setTimeout(typeNextField, 400);
@@ -449,12 +383,7 @@ export default function OnboardingDemo() {
     }
 
     if (step.screen === 'review') {
-      setHandPos({ x: '50%', y: '75%' });
-      timerRef.current = setTimeout(() => {
-        tapFinger(() => {
-          timerRef.current = setTimeout(advanceStep, 800);
-        });
-      }, 800);
+        timerRef.current = setTimeout(advanceStep, 1500);
       return () => clearTimer();
     }
   }, [currentIdx, isPlaying]);
@@ -473,8 +402,6 @@ export default function OnboardingDemo() {
     fieldIdxRef.current = 0;
     setIsPlaying(true);
     playRef.current = true;
-    setHandVisible(true);
-    setHandPos({ x: '55%', y: '45%' });
   };
 
   const togglePlay = () => {
@@ -487,7 +414,6 @@ export default function OnboardingDemo() {
       otpType.reset();
       setIsPlaying(true);
       playRef.current = true;
-      setHandVisible(true);
     }
   };
 
@@ -515,8 +441,6 @@ export default function OnboardingDemo() {
     fieldIdxRef.current = 0;
     setIsPlaying(true);
     playRef.current = true;
-    setHandVisible(true);
-    setHandPos({ x: '55%', y: '45%' });
   };
 
   return (
@@ -714,19 +638,7 @@ export default function OnboardingDemo() {
                 <div className="absolute left-[-2px] top-[170px] w-[3px] h-[30px] bg-gray-600 rounded-l" />
               </div>
 
-              {/* Human Hand — animated, typing on the phone */}
-              {handVisible && (
-                <HumanHand
-                  visible={true}
-                  style={{
-                    left: handPos.x,
-                    top: handPos.y,
-                    transform: `translate(-30%, -10%) ${fingerTap ? 'scale(0.95)' : 'scale(1)'}`,
-                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                    filter: fingerTap ? 'brightness(0.95)' : 'none',
-                  }}
-                />
-              )}
+
             </div>
           </div>
         )}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import { exportCsv, formatDate, formatCurrency } from '@/lib/csvExport';
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState([]);
@@ -64,6 +65,28 @@ export default function AdminProductsPage() {
           ))}
         </div>
         <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products..." className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none flex-1 max-w-sm" />
+        <button onClick={() => exportCsv({
+          title: 'Products Report',
+          columns: [
+            { key: 'name', label: 'Product Name' },
+            { key: 'price', label: 'Price', format: (v) => `₦${Number(v).toLocaleString()}` },
+            { key: 'stock_quantity', label: 'Stock' },
+            { key: 'store_name', label: 'Vendor' },
+            { key: 'moderation_status', label: 'Status' },
+            { key: 'category', label: 'Category' },
+            { key: 'created_at', label: 'Created', format: (v) => formatDate(v) },
+          ],
+          rows: filtered,
+          filename: 'ojabridge_products_report',
+          summary: [
+            { label: 'Total Products', value: products.length },
+            { label: 'Approved', value: products.filter(p => p.moderation_status === 'approved').length },
+            { label: 'Pending Review', value: products.filter(p => p.moderation_status === 'pending').length },
+          ],
+        })} className="flex items-center gap-2 px-4 py-2 bg-ob-lime/10 text-ob-lime-dark rounded-lg text-sm font-medium hover:bg-ob-lime/20 whitespace-nowrap">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          Export CSV ({filtered.length})
+        </button>
       </div>
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
