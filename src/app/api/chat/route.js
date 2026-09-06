@@ -453,6 +453,27 @@ export async function POST(request) {
       userName = clientUser.name?.split(' ')[0] || null;
     }
 
+    // Validate name — if it looks like a fake/app name, fetch real name from database
+    if (userName && /^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(userName)) {
+      userName = null;
+    }
+    // If no valid name yet, try to fetch from database
+    if (!userName && userId && isDatabaseConnected()) {
+      try {
+        const { data: userData } = await dbQuery('users', { filter: { id: userId }, limit: 1 });
+        if (userData && userData[0]?.name && ! /^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(userData[0].name)) {
+          userName = userData[0].name.split(' ')[0];
+        }
+      } catch {}
+    }
+    // Final fallback: email prefix
+    if (!userName && authUser?.email) {
+      userName = authUser.email.split('@')[0];
+    }
+    if (!userName && clientUser?.email) {
+      userName = clientUser.email.split('@')[0];
+    }
+
     // DATABASE: Get or create conversation
     let convId = conversationId;
     let history = [];

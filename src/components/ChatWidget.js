@@ -98,7 +98,12 @@ export default function ChatWidget() {
         const userData = localStorage.getItem('ojabridge_session');
         if (userData) {
           const user = JSON.parse(userData);
-          if (user?.name) setUserName(user.name.split(' ')[0]);
+          let name = user?.name?.split(' ')[0] || null;
+          // If name looks fake (app name, role name), use email prefix instead
+          if (name && /^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(name)) {
+            name = user?.email?.split('@')[0] || null;
+          }
+          if (name) setUserName(name);
         }
       } catch {}
     }
