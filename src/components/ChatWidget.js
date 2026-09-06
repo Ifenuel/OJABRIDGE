@@ -42,20 +42,22 @@ function EmojiPicker({ onSelect, onClose }) {
   }, [onClose]);
 
   return (
-    <div ref={ref} className="border-t border-gray-100 bg-white" style={{ maxHeight: '180px' }}>
-      <div className="flex border-b border-gray-100 px-2 pt-2 gap-1">
+    <div ref={ref} className="border-t border-gray-100 bg-white">
+      {/* Category tabs */}
+      <div className="flex border-b border-gray-100 px-1 pt-1 gap-0">
         {Object.keys(EMOJI_CATEGORIES).map(cat => (
           <button key={cat} onClick={() => setActiveTab(cat)}
-            className={`text-[10px] sm:text-xs px-2 py-1 rounded-t-lg font-medium transition-colors ${activeTab === cat ? 'bg-ob-purple/10 text-ob-purple' : 'text-gray-400 hover:text-gray-600'}`}>
+            className={`flex-1 text-[10px] py-1.5 font-medium transition-colors border-b-2 ${activeTab === cat ? 'border-ob-purple text-ob-purple bg-ob-purple/5' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
             {cat}
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-8 gap-0 p-2 overflow-y-auto" style={{ maxHeight: '140px' }}>
+      {/* Emoji grid — scrollable, clean layout */}
+      <div className="grid grid-cols-8 gap-0 p-1.5 overflow-y-auto" style={{ maxHeight: '160px' }}>
         {EMOJI_CATEGORIES[activeTab]?.map((emoji, i) => (
           <button key={i} type="button"
             onMouseDown={(e) => { e.preventDefault(); onSelect(emoji); }}
-            className="w-8 h-8 flex items-center justify-center text-lg hover:bg-ob-purple/10 rounded cursor-pointer select-none"
+            className="aspect-square flex items-center justify-center text-xl hover:bg-ob-purple/10 rounded-md cursor-pointer select-none active:scale-110 transition-transform"
           >
             {emoji}
           </button>
@@ -80,6 +82,7 @@ export default function ChatWidget() {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const emojiInputRef = useRef(null);
 
   // Detect mobile on mount and resize
   useEffect(() => {
@@ -303,8 +306,28 @@ export default function ChatWidget() {
 
             {/* Input Area */}
             <div className="px-3 py-2.5 border-t border-gray-100 bg-white flex-shrink-0" style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom, 0.625rem))' }}>
-              <div className="flex items-end gap-1.5">
-                <button onClick={() => setShowEmoji(!showEmoji)}
+              {/* Hidden native emoji input for mobile */}
+              <input ref={emojiInputRef} type="text" inputMode="emoji" readOnly
+                className="absolute opacity-0 w-0 h-0 pointer-events-none"
+                onFocus={() => {}}
+                onBlur={(e) => {
+                  // When user picks emoji from native keyboard, it goes here
+                  if (e.target.value) {
+                    setInput(prev => prev + e.target.value);
+                    e.target.value = '';
+                  }
+                }}
+              />
+              <div className="flex items-end gap-1.5 relative">
+                <button onClick={() => {
+                  if (isMobile) {
+                    // Mobile: open native emoji keyboard
+                    emojiInputRef.current?.focus();
+                  } else {
+                    // Desktop: toggle custom picker
+                    setShowEmoji(!showEmoji);
+                  }
+                }}
                   className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${showEmoji ? 'bg-ob-purple/10 text-ob-purple' : 'text-gray-400 hover:text-ob-purple hover:bg-gray-100'}`}
                   title="Emoji"
                 >
