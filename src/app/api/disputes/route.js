@@ -28,11 +28,15 @@ export async function GET(request) {
     let filter = {};
     if (user.role === 'customer') {
       filter.raised_by = user.id;
-    } else if (user.role === 'vendor') {
-      // Get vendor profile ID first
-      const vendorProfile = await dbQuery('vendors', { filter: { user_id: user.id } });
-      if (vendorProfile.data && vendorProfile.data[0]) {
-        filter.vendor_id = vendorProfile.data[0].id;
+    } else if (user.role === 'vendor' || user.role === 'retailer') {
+      // Vendor sees disputes against their products; retailer sees disputes they raised
+      if (user.role === 'vendor') {
+        const vendorProfile = await dbQuery('vendors', { filter: { user_id: user.id } });
+        if (vendorProfile.data && vendorProfile.data[0]) {
+          filter.vendor_id = vendorProfile.data[0].id;
+        }
+      } else {
+        filter.raised_by = user.id;
       }
     }
     // Admin sees all disputes (no filter)
@@ -64,8 +68,8 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: authCheck.error }, { status: authCheck.status });
     }
 
-    if (user.role !== 'customer') {
-      return NextResponse.json({ success: false, error: 'Only customers can open disputes' }, { status: 403 });
+    if (user.role !== 'customer' && user.role !== 'retailer') {
+      return NextResponse.json({ success: false, error: 'Only customers and retailers can open disputes' }, { status: 403 });
     }
 
     const body = await request.json();
