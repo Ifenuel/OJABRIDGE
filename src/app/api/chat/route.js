@@ -155,10 +155,20 @@ function getSmartFallback(message, userName, userRole, context = []) {
     return "I am here to help with all things OjaBridge! 😊 Is there anything about the platform I can help you with? Whether it is shopping, selling, payments, or anything else — I am happy to assist!";
   }
 
-  // === SHORT REPLIES (yes/no/ok) → DEFER TO OPENAI WITH CONVERSATION HISTORY ===
-  // These need full conversation context to answer properly
+  // === CONVERSATIONAL MESSAGES → DEFER TO OPENAI WITH FULL CONTEXT ===
+  // Short replies, follow-ups, questions about name/identity, casual chat
   if (/^(yes|yeah|yep|yup|ok|okay|sure|definitely|please|go ahead|tell me|show me|no|nah|nope|not.?really|nothing|nvm|never.?mind)$/i.test(msg)) {
     return null; // OpenAI handles with full conversation history
+  }
+
+  // Questions about the AI itself — let OpenAI handle naturally
+  if (/who are you|what are you|your name|dont you know|do you know|what.*my name|tell me.*name|remember.*name|what.*remember/i.test(msg)) {
+    return null; // OpenAI handles with user data context
+  }
+
+  // Casual conversation — let OpenAI handle naturally
+  if (/^(lol|haha|hehe|ok then|alright|cool|nice|great|awesome|wow|omg|smh|brb|gtg|nvm|np|ty|thx|tysm)$/i.test(msg)) {
+    return null; // OpenAI handles naturally
   }
 
   // === GIBBERISH / TYPOS ===
@@ -566,9 +576,10 @@ export async function POST(request) {
       }
     }
 
-    // GENERIC FALLBACK
+    // GENERIC FALLBACK — conversational, not a wall of links
     if (!aiReply) {
-      aiReply = `I want to make sure you get the help you need! 😊\n\nHere are some ways to get support:\n\nEmail our support team: ${SUPPORT_EMAIL}\n   — They respond quickly and can help with any issue\n\nCheck our FAQ: ${SAFE_LINKS.faq}\n   — Common questions are answered there\n\nCreate a dispute: ${SAFE_LINKS.disputes}\n   — If you have an issue with an order\n\nVisit our website: ${SAFE_LINKS.shop}\n\nIs there anything specific I can help you with? 💪`;
+      const greet = userName ? `${userName}` : 'there';
+      aiReply = `Hey ${greet}! 😊 I want to make sure I understand what you need.\n\nCould you tell me a bit more about what you are looking for? For example:\n\n- Are you having trouble with an order?\n- Do you need help with your account or KYC?\n- Are you looking for products to buy?\n- Do you want to become a vendor or retailer?\n- Or is there something else on your mind?\n\nI am here to help with anything on OjaBridge! Just tell me what is going on and I will do my best to assist you. 💪`;
     }
 
     // STORE ASSISTANT RESPONSE
@@ -586,7 +597,7 @@ export async function POST(request) {
     console.error('Chat API error:', error.message);
     return NextResponse.json({
       success: false,
-      error: `I apologize for the inconvenience. Here is how to get help:\n\nEmail: ${SUPPORT_EMAIL}\nFAQ: ${SAFE_LINKS.faq}\nDisputes: ${SAFE_LINKS.disputes}\n\nOur team will help you right away! 😊`,
+      error: `Oops! I am having a tiny technical hiccup right now. 😅 But do not worry — I am still here to help!\n\nTry asking me again in a moment, or if it is urgent, you can email us at ${SUPPORT_EMAIL} and we will get back to you quickly. 💪`,
     }, { status: 500 });
   }
 }

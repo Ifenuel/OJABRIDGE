@@ -176,14 +176,14 @@ export default function ChatWidget() {
         setMessages(prev => [...prev, {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: data.error || "I am having a small technical issue! Please try again or email us at awoyoemmanuel12@gmail.com",
+          content: data.error || "Oops! I am having a tiny hiccup right now. 😅 Try again in a moment — I am still here for you!",
         }]);
       }
     } catch (err) {
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "Oops! Connection issue! Please check your internet and try again, or email us at awoyoemmanuel12@gmail.com",
+        content: "Oops! Looks like your connection dropped for a second. 😅 Try sending your message again — I am right here!",
       }]);
     }
     setLoading(false);
