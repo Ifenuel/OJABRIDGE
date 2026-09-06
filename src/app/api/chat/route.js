@@ -183,12 +183,48 @@ function getSmartFallback(message, userName) {
   return null;
 }
 
+// Rate limiting: simple in-memory store
+const rateLimit = new Map();
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const window = 60000; // 1 minute
+  const maxRequests = 20;
+  const requests = rateLimit.get(ip) || [];
+  const recent = requests.filter(t => now - t < window);
+  if (recent.length >= maxRequests) return false;
+  recent.push(now);
+  rateLimit.set(ip, recent);
+  return true;
+}
+
+// Sanitize input — remove potential injection attempts
+function sanitizeInput(str) {
+  if (!str) return '';
+  return str
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .trim()
+    .substring(0, 2000); // Max 2000 chars
+}
+
 export async function POST(request) {
   try {
     await ensureChatTables();
 
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json({ success: false, error: 'You are sending too many messages. Please wait a moment and try again.' }, { status: 429 });
+    }
+
     const body = await request.json();
-    const { message, conversationId, image, userName } = body;
+    let { message, conversationId, image, userName } = body;
+
+    // Sanitize inputs
+    if (message) message = sanitizeInput(message);
+    if (userName) userName = sanitizeInput(userName).substring(0, 50);
 
     if (!message && !image) {
       return NextResponse.json({ success: false, error: 'Message is required' }, { status: 400 });
