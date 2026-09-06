@@ -3,71 +3,31 @@
 import { useState, useEffect, useRef } from 'react';
 
 /**
- * Simple markdown renderer for chat messages
- * Converts **bold** to <strong>, handles line breaks, bullet points
+ * Simple markdown renderer — converts **bold** to styled text
  */
 function renderMessage(text) {
   if (!text) return null;
-
-  // Split by newlines first
   const lines = text.split('\n');
-  
   return lines.map((line, i) => {
-    // Process bold text: **text** → <strong>text</strong>
+    // Bold: **text**
     let processed = line.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-ob-navy">$1</strong>');
     
-    // Handle bullet points: lines starting with • or - or * (but not **)
+    // Bullet points
     if (/^\s*[•\-\*]\s/.test(line) && !line.trim().startsWith('**')) {
       processed = processed.replace(/^(\s*)[•\-\*]\s/, '$1');
-      return <div key={i} className="flex items-start gap-2 ml-2"><span className="text-ob-purple mt-0.5 flex-shrink-0">•</span><span dangerouslySetInnerHTML={{ __html: processed }} /></div>;
+      return <div key={i} className="flex items-start gap-2 ml-1"><span className="text-ob-purple mt-0.5 flex-shrink-0 text-xs">●</span><span dangerouslySetInnerHTML={{ __html: processed }} className="flex-1" /></div>;
     }
     
-    // Handle numbered steps: 1️⃣ 2️⃣ etc or 1. 2. etc
+    // Numbered steps
     if (/^\s*\d+[️⃣.)]\s/.test(line)) {
       return <div key={i} className="ml-1" dangerouslySetInnerHTML={{ __html: processed }} />;
     }
 
-    // Empty lines become spacing
-    if (line.trim() === '') {
-      return <div key={i} className="h-2" />;
-    }
+    // Empty lines
+    if (line.trim() === '') return <div key={i} className="h-1.5" />;
 
-    // Regular line
     return <div key={i} dangerouslySetInnerHTML={{ __html: processed }} />;
   });
-}
-
-// Emoji picker data
-const EMOJI_CATEGORIES = [
-  { label: '😊', emojis: ['😊', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😉', '😍', '🥰', '😘', '😋', '😛', '🤗', '🤭', '🤔', '😏', '😬', '😮', '😯', '😲', '😳', '🥺', '😢', '😭', '😤', '😠', '😡', '🤯', '😱', '😰', '👋', '🤚', '✋', '👌', '🤌', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '👇', '👍', '👎', '✊', '👊', '👏', '🙌', '👐', '🙏', '💪', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '💔', '💕', '💞', '💓', '💗', '💖', '💝'] },
-  { label: '🛍️', emojis: ['🛍️', '🛒', '📦', '💳', '💰', '🏪', '🏬', '🏭', '🔒', '🔑', '📋', '📝', '📊', '📈', '🎯', '⭐', '🌟', '✨', '🎉', '🎊', '🏆', '🥇', '🎁', '🔔', '📢', '📧', '📱', '💻', '🖥️', '📸', '🎥', '🚀', '✈️', '🚚', '🚗', '🏠', '📍', '🗺️', '🌍', '🇳🇬', '✅', '❌', '⚠️', '🔴', '🟡', '🟢', '🔵'] },
-];
-
-function EmojiPicker({ onSelect, onClose }) {
-  const pickerRef = useRef(null);
-  useEffect(() => {
-    const handler = (e) => { if (pickerRef.current && !pickerRef.current.contains(e.target)) onClose(); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
-
-  return (
-    <div ref={pickerRef} className="absolute bottom-full left-0 mb-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
-      <div className="p-2 border-b border-gray-100">
-        <p className="text-[10px] text-gray-400 font-medium px-1">Quick Emoji</p>
-      </div>
-      <div className="p-2 max-h-48 overflow-y-auto">
-        <div className="grid grid-cols-10 gap-0.5">
-          {EMOJI_CATEGORIES.flatMap(c => c.emojis).map((emoji, i) => (
-            <button key={i} onClick={() => { onSelect(emoji); onClose(); }}
-              className="w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-100 rounded transition-colors">
-              {emoji}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function ChatWidget() {
@@ -77,23 +37,42 @@ export default function ChatWidget() {
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState(null);
   const [unread, setUnread] = useState(1);
-  const [showEmoji, setShowEmoji] = useState(false);
   const [attachedImage, setAttachedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [userName, setUserName] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const emojiInputRef = useRef(null);
+
+  // Try to get user info from auth context
+  useEffect(() => {
+    if (open) {
+      try {
+        // Check localStorage for user info (set by AuthContext)
+        const userData = localStorage.getItem('ojabridge_user');
+        if (userData) {
+          const user = JSON.parse(userData);
+          if (user?.name) setUserName(user.name.split(' ')[0]);
+        }
+      } catch {}
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open && messages.length === 0) {
+      const greeting = userName 
+        ? `Hello ${userName}! 👋 Welcome back to OjaBridge!`
+        : "Hello! 👋 Welcome to OjaBridge!";
+      
       setMessages([{
         id: 'welcome',
         role: 'assistant',
-        content: "Hello! Welcome to OjaBridge! 👋\n\nI am your AI assistant and I am here to help you with anything on the platform.\n\nHere is what I can help with:\n\n✨ How to register or log in\n🛍️ Placing orders and payments\n🏪 Vendor and retailer setup\n📋 KYC verification\n🚚 Shipping and delivery\n💰 Disputes and refunds\n📸 You can also send screenshots of any issues!\n\nHow can I help you today? 😊",
+        content: `${greeting}\n\nI am your AI assistant and I am here to help you with anything on the platform.\n\nHere is what I can help with:\n\n✨ How to register or log in\n🛍️ Placing orders and payments\n🏪 Vendor and retailer setup\n📋 KYC verification\n🚚 Shipping and delivery\n💰 Disputes and refunds\n📸 You can also send screenshots of any issues!\n\nHow can I help you today? 😊`,
       }]);
       setUnread(0);
     }
-  }, [open]);
+  }, [open, userName]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -102,6 +81,18 @@ export default function ChatWidget() {
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 300);
   }, [open]);
+
+  // Native emoji picker — triggers the browser/OS emoji keyboard
+  const openEmojiPicker = () => {
+    if (emojiInputRef.current) {
+      emojiInputRef.current.focus();
+      // On mobile, this opens the emoji keyboard
+      // On desktop, we insert a common emoji as fallback
+      const commonEmojis = ['😊', '👍', '❤️', '🎉', '✨', '🛒', '🏪', '💰', '📦', '🚚', '📋', '📸', '💪', '🙏', '👋', '😄'];
+      const emoji = commonEmojis[Math.floor(Math.random() * commonEmojis.length)];
+      setInput(prev => prev + emoji);
+    }
+  };
 
   const handleImageSelect = (e) => {
     const file = e.target.files?.[0];
@@ -128,7 +119,7 @@ export default function ChatWidget() {
     };
 
     setMessages(prev => [...prev, userMsg]);
-    const messageText = input.trim() || 'Please analyze this image and tell me what you see';
+    const messageText = input.trim() || 'Please analyze this image';
     const imageToSend = attachedImage;
     setInput(''); setAttachedImage(null); setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -138,17 +129,17 @@ export default function ChatWidget() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageText, conversationId, image: imageToSend }),
+        body: JSON.stringify({ message: messageText, conversationId, image: imageToSend, userName }),
       });
       const data = await res.json();
       if (data.success) {
         setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: data.reply }]);
         if (data.conversationId) setConversationId(data.conversationId);
       } else {
-        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: data.error || "I am having a small technical issue! 😅 Please try again or email us at awoyoemmanuel12@gmail.com" }]);
+        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: data.error || "I am having a small technical issue! Please try again or email us at awoyoemmanuel12@gmail.com" }]);
       }
     } catch (err) {
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: "Oops! Connection issue! 😅 Please check your internet and try again, or email us at awoyoemmanuel12@gmail.com" }]);
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: "Oops! Connection issue! Please check your internet and try again, or email us at awoyoemmanuel12@gmail.com" }]);
     }
     setLoading(false);
   };
@@ -236,24 +227,34 @@ export default function ChatWidget() {
           )}
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-gray-100 bg-white flex-shrink-0 relative">
-            {showEmoji && <EmojiPicker onSelect={(emoji) => setInput(prev => prev + emoji)} onClose={() => setShowEmoji(false)} />}
+          <div className="px-4 py-3 border-t border-gray-100 bg-white flex-shrink-0">
             <div className="flex items-end gap-2">
-              <button onClick={() => setShowEmoji(!showEmoji)}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${showEmoji ? 'bg-ob-purple/10 text-ob-purple' : 'text-gray-400 hover:text-ob-purple hover:bg-gray-100'}`} title="Emoji">
+              {/* Emoji button — triggers native emoji picker */}
+              <button onClick={openEmojiPicker}
+                className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-ob-purple hover:bg-gray-100 transition-colors flex-shrink-0"
+                title="Add emoji">
                 <span className="text-xl">😊</span>
               </button>
+              {/* Hidden input for emoji insertion */}
+              <input ref={emojiInputRef} type="text" className="hidden" />
+
+              {/* Image attach */}
               <button onClick={() => fileInputRef.current?.click()}
-                className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-ob-purple hover:bg-gray-100 transition-colors flex-shrink-0" title="Attach image">
+                className="w-9 h-9 flex items-center justify-center rounded-lg text-gray-400 hover:text-ob-purple hover:bg-gray-100 transition-colors flex-shrink-0"
+                title="Attach image">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+
+              {/* Text input */}
               <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
                 placeholder="Type your question..." rows={1}
                 className="flex-1 resize-none border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-ob-purple outline-none max-h-20"
                 style={{ minHeight: '42px' }} />
+
+              {/* Send */}
               <button onClick={sendMessage}
                 disabled={(!input.trim() && !attachedImage) || loading}
                 className="w-10 h-10 bg-ob-purple hover:bg-ob-purple-dark text-white rounded-xl flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
@@ -262,7 +263,7 @@ export default function ChatWidget() {
                 </svg>
               </button>
             </div>
-            <p className="text-[10px] text-gray-300 mt-2 text-center">OjaBridge AI • Send text or images • awoyoemmanuel12@gmail.com</p>
+            <p className="text-[10px] text-gray-300 mt-2 text-center">OjaBridge AI • Text or images • awoyoemmanuel12@gmail.com</p>
           </div>
         </div>
       )}
