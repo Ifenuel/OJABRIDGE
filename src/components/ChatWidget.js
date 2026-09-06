@@ -23,7 +23,7 @@ export default function ChatWidget() {
       setMessages([{
         id: 'welcome',
         role: 'assistant',
-        content: "Hi! 👋 I'm OjaBridge AI Customer Care. I can help you with:\n\n• How to register or log in\n• Placing orders & payments\n• Vendor & retailer setup\n• KYC verification\n• Shipping & delivery\n• Disputes & refunds\n\nHow can I help you today?",
+        content: "Hello there! 👋 Welcome to OjaBridge! I am your AI assistant and I am here to help you with anything with the platform.\n\nHere are some things I can help with:\n\n✨ How to register or log in\n🛍️ Placing orders & payments\n🏪 Vendor & retailer setup\n📋 KYC verification\n🚚 Shipping & delivery\n💰 Disputes & refunds\n\nFeel free to ask me anything — I am happy to help! 😊",
       }]);
       setUnread(0);
     }
