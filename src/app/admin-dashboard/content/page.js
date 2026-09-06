@@ -32,7 +32,7 @@ export default function AdminContentPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     title: '', content: '', excerpt: '', category: '',
-    status: 'draft', featured_image: '', images: [],
+    status: 'published', featured_image: '', images: [],
     video_url: '', youtube_url: '',
   });
   const [saving, setSaving] = useState(false);
@@ -161,7 +161,7 @@ export default function AdminContentPage() {
   const resetForm = () => {
     setForm({
       title: '', content: '', excerpt: '', category: '',
-      status: 'draft', featured_image: '', images: [],
+      status: 'published', featured_image: '', images: [],
       video_url: '', youtube_url: '',
     });
   };

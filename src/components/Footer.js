@@ -9,6 +9,7 @@ export default function Footer() {
     { name: 'Careers', href: '/careers' },
     { name: 'Press', href: '/press' },
     { name: 'Blog', href: '/blog' },
+    { name: 'Announcements', href: '/announcements' },
     { name: 'Contact', href: '/contact' },
   ];
 
