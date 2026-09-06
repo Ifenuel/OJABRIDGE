@@ -2,6 +2,7 @@ import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import NewsletterBanner from '@/components/NewsletterBanner';
+import ChatWidget from '@/components/ChatWidget';
 import ClientProviders from '@/components/ClientProviders';
 import { AuthProvider } from '@/context/AuthContext';
 import { FavoritesProvider } from '@/context/FavoritesContext';
@@ -56,6 +57,7 @@ export default function RootLayout({ children }) {
               <main className="flex-1">{children}</main>
               <NewsletterBanner />
               <Footer />
+              <ChatWidget />
               <ClientProviders />
             </FavoritesProvider>
           </CartProvider>
