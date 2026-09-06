@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { exportCsv, formatDate } from '@/lib/csvExport';
+import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
+import ExportButton from '@/components/ExportButton';
+
+const dateRangeOptions = [
+  { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '30d', label: 'Last 30 Days', start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '90d', label: 'Last 90 Days', start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '12m', label: 'Last 12 Months', start: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+];
 
 export default function AdminAuditPage() {
   const [orders, setOrders] = useState([]);
@@ -88,33 +96,6 @@ export default function AdminAuditPage() {
 
   const severityColor = (s) => ({ info: 'bg-blue-100 text-blue-700', warning: 'bg-amber-100 text-amber-700', critical: 'bg-red-100 text-red-700' }[s] || 'bg-gray-100 text-gray-600');
 
-  const exportCSV = () => {
-    exportCsv({
-      title: 'Audit Logs',
-      filename: 'ojabridge_audit_logs',
-      summary: [
-        { label: 'Total Events', value: filtered.length },
-        { label: 'Filter', value: actionFilter === 'all' ? 'All Actions' : actionFilter },
-      ],
-      columns: [
-        { key: 'timestamp', label: 'Timestamp', format: (v) => new Date(v).toLocaleString() },
-        { key: 'action', label: 'Action' },
-        { key: 'entity', label: 'Entity' },
-        { key: 'entityId', label: 'Entity ID' },
-        { key: 'details', label: 'Details' },
-        { key: 'severity', label: 'Severity' },
-      ],
-      rows: filtered.map(a => ({
-        timestamp: a.timestamp,
-        action: a.action,
-        entity: a.entity,
-        entityId: a.entityId,
-        details: a.details,
-        severity: a.severity,
-      })),
-    });
-  };
-
   return (
     <DashboardLayout role="admin">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
@@ -122,10 +103,39 @@ export default function AdminAuditPage() {
           <h1 className="text-2xl font-bold text-ob-navy">Audit Logs</h1>
           <p className="text-gray-500 text-sm mt-1">Complete activity log of all platform actions for compliance and investigation.</p>
         </div>
-        <button onClick={exportCSV} className="text-sm bg-white border border-gray-200 text-ob-navy px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors inline-flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-          Export CSV ({filtered.length})
-        </button>
+        <ExportButton
+          dateRangeOptions={dateRangeOptions}
+          onExport={({ format, dateRange }) => {
+            const exportRows = dateRange ? filterByDateRange(filtered, dateRange.start, dateRange.end, 'timestamp') : filtered;
+            exportData({
+              format,
+              title: 'Audit Logs',
+              filename: 'ojabridge_audit_logs',
+              dateRange,
+              summary: [
+                { label: 'Total Events', value: filtered.length },
+                { label: 'Exported', value: exportRows.length },
+                { label: 'Filter', value: actionFilter === 'all' ? 'All Actions' : actionFilter },
+              ],
+              columns: [
+                { key: 'timestamp', label: 'Timestamp', format: (v) => new Date(v).toLocaleString() },
+                { key: 'action', label: 'Action' },
+                { key: 'entity', label: 'Entity' },
+                { key: 'entityId', label: 'Entity ID' },
+                { key: 'details', label: 'Details' },
+                { key: 'severity', label: 'Severity' },
+              ],
+              rows: exportRows.map(a => ({
+                timestamp: a.timestamp,
+                action: a.action,
+                entity: a.entity,
+                entityId: a.entityId,
+                details: a.details,
+                severity: a.severity,
+              })),
+            });
+          }}
+        />
       </div>
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search logs..." className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" />

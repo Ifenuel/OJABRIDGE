@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { exportCsv, formatDate } from '@/lib/csvExport';
+import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
+import ExportButton from '@/components/ExportButton';
+
+const dateRangeOptions = [
+  { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '30d', label: 'Last 30 Days', start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '90d', label: 'Last 90 Days', start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '12m', label: 'Last 12 Months', start: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+];
 
 export default function AdminSettlementsPage() {
   const [orders, setOrders] = useState([]);
@@ -45,28 +53,32 @@ export default function AdminSettlementsPage() {
         <h1 className="text-2xl font-bold text-ob-navy">Settlements</h1>
         <p className="text-gray-500 text-sm mt-1">Track vendor payouts, commissions and settlement history.</p>
         <div className="mt-4">
-          <button onClick={() => exportCsv({
-            title: 'Settlements Report',
-            columns: [
-              { key: 'order_number', label: 'Order' },
-              { key: 'total', label: 'Total', format: (v) => `₦${Number(v).toLocaleString()}` },
-              { key: 'commission', label: 'Commission', format: (_, r) => `₦${Math.round(Number(r.total || 0) * 0.10).toLocaleString()}` },
-              { key: 'vendor_payout', label: 'Vendor Payout', format: (_, r) => `₦${Math.round(Number(r.total || 0) * 0.90).toLocaleString()}` },
-              { key: 'status', label: 'Status' },
-              { key: 'created_at', label: 'Date', format: (v) => formatDate(v) },
-            ],
-            rows: paidOrders,
-            filename: 'ojabridge_settlements_report',
-            summary: [
-              { label: 'Total Revenue', value: `₦${totalRevenue.toLocaleString()}` },
-              { label: 'Platform Commission', value: `₦${totalCommission.toLocaleString()}` },
-              { label: 'Pending Payout', value: `₦${Math.round(pendingPayout).toLocaleString()}` },
-              { label: 'Settled', value: `₦${Math.round(settledPayout).toLocaleString()}` },
-            ],
-          })} className="inline-flex items-center gap-2 px-4 py-2 bg-ob-lime/10 text-ob-lime-dark rounded-lg text-sm font-medium hover:bg-ob-lime/20">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Export Settlements CSV
-          </button>
+          <ExportButton
+            dateRangeOptions={dateRangeOptions}
+            onExport={({ format, dateRange }) => {
+              const exportOrders = dateRange ? filterByDateRange(paidOrders, dateRange.start, dateRange.end, 'created_at') : paidOrders;
+              exportData({
+                format,
+                title: 'Settlements Report',
+                filename: 'ojabridge_settlements_report',
+                dateRange,
+                columns: [
+                  { key: 'order_number', label: 'Order' },
+                  { key: 'total', label: 'Total', format: (v) => `₦${Number(v).toLocaleString()}` },
+                  { key: 'commission', label: 'Commission', format: (_, r) => `₦${Math.round(Number(r.total || 0) * 0.10).toLocaleString()}` },
+                  { key: 'vendor_payout', label: 'Vendor Payout', format: (_, r) => `₦${Math.round(Number(r.total || 0) * 0.90).toLocaleString()}` },
+                  { key: 'status', label: 'Status' },
+                  { key: 'created_at', label: 'Date', format: (v) => formatDate(v) },
+                ],
+                rows: exportOrders,
+                summary: [
+                  { label: 'Total Revenue', value: `₦${exportOrders.reduce((s, o) => s + Number(o.total || 0), 0).toLocaleString()}` },
+                  { label: 'Platform Commission', value: `₦${Math.round(exportOrders.reduce((s, o) => s + Number(o.total || 0), 0) * 0.10).toLocaleString()}` },
+                  { label: 'Exported', value: exportOrders.length },
+                ],
+              });
+            }}
+          />
         </div>
       </div>
 

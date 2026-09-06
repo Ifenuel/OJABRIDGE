@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { exportCsv, formatDate } from '@/lib/csvExport';
+import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
+import ExportButton from '@/components/ExportButton';
+
+const dateRangeOptions = [
+  { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '30d', label: 'Last 30 Days', start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '90d', label: 'Last 90 Days', start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '12m', label: 'Last 12 Months', start: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+];
 
 export default function AdminVendorsPage() {
   const [vendors, setVendors] = useState([]);
@@ -92,31 +100,35 @@ export default function AdminVendorsPage() {
         </div>
         <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by store, name or email..."
           className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none flex-1 max-w-sm" />
-        <button onClick={() => exportCsv({
-          title: 'Vendors Report',
-          columns: [
-            { key: 'store_name', label: 'Store Name' },
-            { key: 'owner_name', label: 'Owner' },
-            { key: 'owner_email', label: 'Email' },
-            { key: 'owner_phone', label: 'Phone' },
-            { key: 'business_name', label: 'Business' },
-            { key: 'kyc_status', label: 'KYC Status' },
-            { key: 'bank_verification_status', label: 'Bank Status' },
-            { key: 'average_rating', label: 'Rating' },
-            { key: 'total_orders', label: 'Orders' },
-            { key: 'created_at', label: 'Registered', format: (v) => formatDate(v) },
-          ],
-          rows: filteredVendors,
-          filename: 'ojabridge_vendors_report',
-          summary: [
-            { label: 'Total Vendors', value: vendors.length },
-            { label: 'Verified', value: vendors.filter(v => v.kyc_status === 'VERIFIED').length },
-            { label: 'Pending KYC', value: vendors.filter(v => ['NOT_STARTED', 'IN_PROGRESS', 'SUBMITTED'].includes(v.kyc_status)).length },
-          ],
-        })} className="flex items-center gap-2 px-4 py-2 bg-ob-lime/10 text-ob-lime-dark rounded-lg text-sm font-medium hover:bg-ob-lime/20 whitespace-nowrap">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-          Export CSV ({filteredVendors.length})
-        </button>
+        <ExportButton
+          dateRangeOptions={dateRangeOptions}
+          onExport={({ format, dateRange }) => {
+            const exportRows = dateRange ? filterByDateRange(filteredVendors, dateRange.start, dateRange.end, 'created_at') : filteredVendors;
+            exportData({
+              format,
+              title: 'Vendors Report',
+              filename: 'ojabridge_vendors_report',
+              dateRange,
+              columns: [
+                { key: 'store_name', label: 'Store Name' },
+                { key: 'owner_name', label: 'Owner' },
+                { key: 'owner_email', label: 'Email' },
+                { key: 'owner_phone', label: 'Phone' },
+                { key: 'business_name', label: 'Business' },
+                { key: 'kyc_status', label: 'KYC Status' },
+                { key: 'bank_verification_status', label: 'Bank Status' },
+                { key: 'average_rating', label: 'Rating' },
+                { key: 'total_orders', label: 'Orders' },
+                { key: 'created_at', label: 'Registered', format: (v) => formatDate(v) },
+              ],
+              rows: exportRows,
+              summary: [
+                { label: 'Total Vendors', value: vendors.length },
+                { label: 'Exported', value: exportRows.length },
+              ],
+            });
+          }}
+        />
       </div>
 
       {/* Vendors Table */}
