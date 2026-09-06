@@ -142,6 +142,7 @@ export async function PATCH(request) {
       const statusMessages = {
         VERIFIED: { title: 'KYC Verified!', message: 'Your identity verification has been approved. You can now start selling on OjaBridge.', type: 'success' },
         SUSPENDED: { title: 'Account Suspended', message: 'Your vendor account has been suspended. Please contact support for more information.', type: 'warning' },
+        BANNED: { title: 'Account Banned', message: 'Your account has been banned from the platform. Please contact support for more information.', type: 'error' },
         VERIFICATION_FAILED: { title: 'KYC Rejected', message: kyc_rejection_reason ? `Verification was not approved. Reason: ${kyc_rejection_reason}` : 'Your verification documents were not approved. Please review and resubmit.', type: 'error' },
         NOT_STARTED: { title: 'Account Reinstate', message: 'Your account has been reinstated. Please complete your KYC verification.', type: 'info' },
       };

@@ -258,7 +258,7 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
                   <span className="text-xs text-gray-400 truncate">{user.email}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <NotificationBell dashboardHref={isAdmin ? '/admin-dashboard/audit' : isRetailer ? '/retailer-dashboard' : role === 'customer' ? '/account/notifications' : '/vendor-dashboard'} />
+                  <NotificationBell />
                   <button onClick={handleLogout} className="text-gray-500 hover:text-red-400 flex-shrink-0" title="Sign Out">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                   </button>
@@ -309,7 +309,7 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <Link href="/"><Logo size="small" /></Link>
-            <NotificationBell dashboardHref={isAdmin ? '/admin-dashboard/audit' : isRetailer ? '/retailer-dashboard' : role === 'customer' ? '/account/notifications' : '/vendor-dashboard'} />
+            <NotificationBell />
           </div>
           <div className="p-4 lg:p-8">{children}</div>
         </div>

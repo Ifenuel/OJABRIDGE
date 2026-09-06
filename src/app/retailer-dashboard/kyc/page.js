@@ -8,7 +8,7 @@ const VERIFICATION_STATES = {
   not_started: { label: 'Not Started', color: 'bg-gray-100 text-gray-600', icon: '📋', description: 'Complete all steps below to start the verification process.' },
   submitted: { label: 'Submitted', color: 'bg-amber-100 text-amber-700', icon: '📤', description: 'Your information has been submitted for review. Our team typically reviews within 1-3 business days.' },
   under_review: { label: 'Under Review', color: 'bg-amber-100 text-amber-700', icon: '⏳', description: 'Your information is being reviewed by our team. This typically takes 1-3 business days.' },
-  verified: { label: 'Verified', color: 'bg-green-100 text-green-700', icon: '✅', description: 'Your identity and business have been verified. You can now publish products and receive orders.' },
+  verified: { label: 'Verified', color: 'bg-green-100 text-green-700', icon: '✅', description: 'Your identity and business have been verified. You can now source products and fulfill orders.' },
   rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700', icon: '❌', description: 'Please review the feedback below and resubmit your information.' },
   suspended: { label: 'Suspended', color: 'bg-red-100 text-red-700', icon: '🚫', description: 'Your verification has been suspended. Please contact support for assistance.' },
 };
@@ -46,23 +46,21 @@ const NIGERIAN_BANKS = [
   'Wagnet Microfinance Bank', 'Wow Momo', 'Zedvance',
 ];
 
-// BVN validation: must be exactly 11 digits
 function validateBvn(value) {
-  if (!value) return null; // optional
-  const cleaned = value.replace(/\s/g, '');
+  const cleaned = (value || '').replace(/\s/g, '');
+  if (!cleaned) return 'BVN is required';
   if (!/^\d{11}$/.test(cleaned)) return 'BVN must be exactly 11 digits';
   return null;
 }
 
-// NIN validation: must be exactly 11 digits
 function validateNin(value) {
-  if (!value) return null; // optional
-  const cleaned = value.replace(/\s/g, '');
+  const cleaned = (value || '').replace(/\s/g, '');
+  if (!cleaned) return 'NIN is required';
   if (!/^\d{11}$/.test(cleaned)) return 'NIN must be exactly 11 digits';
   return null;
 }
 
-export default function VendorKycPage() {
+export default function RetailerKycPage() {
   const { user } = useAuth();
   const fileInputRef = useRef(null);
   const [kycData, setKycData] = useState(null);
@@ -70,11 +68,8 @@ export default function VendorKycPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // Personal info
   const [fullName, setFullName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
-
-  // Identity verification
   const [bvn, setBvn] = useState('');
   const [nin, setNin] = useState('');
   const [idType, setIdType] = useState('');
@@ -82,27 +77,21 @@ export default function VendorKycPage() {
   const [idFile, setIdFile] = useState(null);
   const [idFileUrl, setIdFileUrl] = useState(null);
   const [idFileUploading, setIdFileUploading] = useState(false);
-
-  // Validation errors
   const [errors, setErrors] = useState({});
 
-  // Bank account
   const [bankName, setBankName] = useState('');
   const [bankSearch, setBankSearch] = useState('');
   const [showBankDropdown, setShowBankDropdown] = useState(false);
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
 
-  // Business info
   const [businessName, setBusinessName] = useState('');
   const [rcNumber, setRcNumber] = useState('');
   const [businessType, setBusinessType] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
 
-  // Load KYC data from API
   useEffect(() => { fetchKycData(); }, []);
 
-  // Close bank dropdown on outside click
   useEffect(() => {
     const handleClick = (e) => {
       if (!e.target.closest('.bank-dropdown')) setShowBankDropdown(false);
@@ -123,9 +112,11 @@ export default function VendorKycPage() {
         if (data.kyc.bankName) setBankName(data.kyc.bankName);
         if (data.kyc.idType) setIdType(data.kyc.idType);
         if (data.kyc.dateOfBirth) setDateOfBirth(data.kyc.dateOfBirth);
-        if (data.kyc.bankAccountNumber) setAccountNumber('');
-        if (data.kyc.accountName) setAccountName('');
+        if (data.kyc.accountName) setAccountName(data.kyc.accountName);
         if (data.kyc.idDocumentUrl) setIdFileUrl(data.kyc.idDocumentUrl);
+        if (data.kyc.fullName) setFullName(data.kyc.fullName);
+        if (data.kyc.businessType) setBusinessType(data.kyc.businessType);
+        if (data.kyc.businessAddress) setBusinessAddress(data.kyc.businessAddress);
       }
     } catch (err) {
       console.error('Failed to fetch KYC data:', err);
@@ -135,34 +126,28 @@ export default function VendorKycPage() {
 
   const status = VERIFICATION_STATES[kycData?.status || 'not_started'] || VERIFICATION_STATES.not_started;
 
-  // Calculate completion
-  const stepsCompleted = [
-    fullName && dateOfBirth,
-    bvn || nin || (idType && idNumber),
-    bankName && accountNumber && accountName,
-    businessName && rcNumber,
-  ].filter(Boolean).length;
+  const step1Done = fullName && dateOfBirth;
+  const step2Done = (bvn && bvn.replace(/\s/g, '').length === 11) && (nin && nin.replace(/\s/g, '').length === 11);
+  const step3Done = bankName && accountNumber && accountName;
+  const step4Done = businessName && rcNumber;
+  const stepsCompleted = [step1Done, step2Done, step3Done, step4Done].filter(Boolean).length;
 
-  // Validate fields
   const validateField = (field, value) => {
     const newErrors = { ...errors };
     if (field === 'bvn') {
       const err = validateBvn(value);
-      if (err) newErrors.bvn = err; else delete newErrors.bvn;
+      if (err && value) newErrors.bvn = err; else delete newErrors.bvn;
     }
     if (field === 'nin') {
       const err = validateNin(value);
-      if (err) newErrors.nin = err; else delete newErrors.nin;
+      if (err && value) newErrors.nin = err; else delete newErrors.nin;
     }
     setErrors(newErrors);
   };
 
-  // Handle file selection
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Validate file
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
     if (!allowedTypes.includes(file.type)) {
       setErrors(prev => ({ ...prev, idFile: 'Only JPG, PNG, WebP, or PDF files are allowed' }));
@@ -172,11 +157,9 @@ export default function VendorKycPage() {
       setErrors(prev => ({ ...prev, idFile: 'File size must be under 5MB' }));
       return;
     }
-
     setErrors(prev => { const e = { ...prev }; delete e.idFile; return e; });
     setIdFile(file);
     setIdFileUploading(true);
-
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -196,7 +179,6 @@ export default function VendorKycPage() {
   };
 
   const handleSubmitForReview = async () => {
-    // Validate before submit
     const newErrors = {};
     const bvnErr = validateBvn(bvn);
     const ninErr = validateNin(nin);
@@ -209,7 +191,6 @@ export default function VendorKycPage() {
     if (!accountName) newErrors.accountName = 'Account name is required';
     if (!businessName) newErrors.businessName = 'Business name is required';
     if (!rcNumber) newErrors.rcNumber = 'RC number is required';
-    if (!bvn && !nin) newErrors.identity = 'At least one of BVN or NIN is required';
     
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -254,23 +235,22 @@ export default function VendorKycPage() {
     setSubmitting(false);
   };
 
-  const canSubmit = fullName && dateOfBirth && (bvn || nin) && bankName && accountNumber && accountName && businessName && rcNumber;
+  const canSubmit = fullName && dateOfBirth && bvn && nin && bvn.replace(/\s/g, '').length === 11 && nin.replace(/\s/g, '').length === 11 && bankName && accountNumber && accountName && businessName && rcNumber;
+  const showIdentityCaution = !bvn || !nin;
 
   return (
     <DashboardLayout role="retailer">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-ob-navy">KYC & Business Verification</h1>
-        <p className="text-gray-500 text-sm mt-1">Complete identity and business verification to start selling on OjaBridge.</p>
+        <p className="text-gray-500 text-sm mt-1">Complete identity and business verification to start sourcing products on OjaBridge.</p>
       </div>
 
-      {/* Status Message */}
       {message && (
         <div className={`p-4 rounded-lg mb-6 ${message.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
           {message.text}
         </div>
       )}
 
-      {/* Overall Status Banner */}
       <div className={`p-6 rounded-2xl mb-8 ${kycData?.status === 'verified' ? 'bg-green-50 border border-green-200' : kycData?.status === 'submitted' || kycData?.status === 'under_review' ? 'bg-amber-50 border border-amber-200' : kycData?.status === 'rejected' || kycData?.status === 'suspended' ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
         <div className="flex items-start gap-4">
           <span className="text-3xl">{status.icon}</span>
@@ -290,10 +270,10 @@ export default function VendorKycPage() {
               <div className="mt-3">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>Completion Progress</span>
-                  <span>{stepsCompleted}/4 steps</span>
+                  <span className={stepsCompleted === 4 ? 'text-green-600 font-semibold' : ''}>{stepsCompleted}/4 steps completed</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-ob-purple h-2 rounded-full transition-all duration-500" style={{ width: `${(stepsCompleted / 4) * 100}%` }} />
+                  <div className={`h-2 rounded-full transition-all duration-500 ${stepsCompleted === 4 ? 'bg-green-500' : 'bg-ob-purple'}`} style={{ width: `${(stepsCompleted / 4) * 100}%` }} />
                 </div>
               </div>
             )}
@@ -301,13 +281,12 @@ export default function VendorKycPage() {
         </div>
       </div>
 
-      {/* Step Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Personal Info', done: fullName && dateOfBirth, icon: '👤' },
-          { label: 'Identity (BVN/NIN)', done: bvn || nin || (idType && idNumber), icon: '🪪' },
-          { label: 'Bank Account', done: bankName && accountNumber && accountName, icon: '🏦' },
-          { label: 'Business (KYB)', done: businessName && rcNumber, icon: '🏢' },
+          { label: 'Personal Info', done: step1Done, icon: '👤' },
+          { label: 'Identity (BVN & NIN)', done: step2Done, icon: '🪪' },
+          { label: 'Bank Account', done: step3Done, icon: '🏦' },
+          { label: 'Business (KYB)', done: step4Done, icon: '🏢' },
         ].map((item, i) => (
           <div key={i} className="bg-white p-4 rounded-xl border border-gray-100">
             <div className="flex items-center gap-2 mb-2">
@@ -321,14 +300,12 @@ export default function VendorKycPage() {
         ))}
       </div>
 
-      {/* Verification Steps */}
       <div className="space-y-6 max-w-2xl">
-
-        {/* Step 1: Personal Information */}
+        {/* Step 1 */}
         <div className="bg-white p-6 rounded-xl border border-gray-100">
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-8 h-8 ${fullName && dateOfBirth ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
-              {fullName && dateOfBirth ? '✓' : '1'}
+            <div className={`w-8 h-8 ${step1Done ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
+              {step1Done ? '✓' : '1'}
             </div>
             <div>
               <h3 className="font-bold text-ob-navy">Personal Information</h3>
@@ -351,34 +328,34 @@ export default function VendorKycPage() {
           </div>
         </div>
 
-        {/* Step 2: Identity Verification — BVN, NIN, Government ID */}
+        {/* Step 2 */}
         <div className="bg-white p-6 rounded-xl border border-gray-100">
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-8 h-8 ${bvn || nin || (idType && idNumber) ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
-              {bvn || nin || (idType && idNumber) ? '✓' : '2'}
+            <div className={`w-8 h-8 ${step2Done ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
+              {step2Done ? '✓' : '2'}
             </div>
             <div>
               <h3 className="font-bold text-ob-navy">Identity Verification</h3>
-              <p className="text-xs text-gray-400">BVN, NIN and/or Government-issued ID required</p>
+              <p className="text-xs text-gray-400">Both BVN and NIN are required</p>
             </div>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-xs text-amber-700">
-            ⚠️ At least one of BVN or NIN is required. This information is used for identity verification and fraud prevention. It is kept confidential and never shared with other users.
-          </div>
-
-          {errors.identity && <p className="text-xs text-red-500 mb-3">{errors.identity}</p>}
+          {showIdentityCaution && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-xs text-amber-700">
+              ⚠️ Both BVN and NIN are required for identity verification. This information is used for fraud prevention and is kept strictly confidential.
+            </div>
+          )}
 
           <div className="grid sm:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">BVN (Bank Verification Number)</label>
+              <label className="block text-xs text-gray-500 mb-1">BVN (Bank Verification Number) *</label>
               <input type="text" value={bvn} onChange={e => { setBvn(e.target.value); validateField('bvn', e.target.value); }} maxLength={11}
                 className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.bvn ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="11-digit BVN" />
               <p className="text-[10px] text-gray-400 mt-1">Dial *565*0# to check your BVN</p>
               {errors.bvn && <p className="text-xs text-red-500 mt-1">{errors.bvn}</p>}
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">NIN (National Identification Number)</label>
+              <label className="block text-xs text-gray-500 mb-1">NIN (National Identification Number) *</label>
               <input type="text" value={nin} onChange={e => { setNin(e.target.value); validateField('nin', e.target.value); }} maxLength={11}
                 className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.nin ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="11-digit NIN" />
               <p className="text-[10px] text-gray-400 mt-1">Dial *346# to check your NIN</p>
@@ -403,13 +380,10 @@ export default function VendorKycPage() {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="ID number" />
               </div>
             </div>
-
-            {/* Upload ID — Real file input */}
             <div>
               <label className="block text-xs text-gray-500 mb-1">Upload ID Document *</label>
               <input type="file" ref={fileInputRef} accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleFileSelect}
-                className="hidden" id="id-upload" />
-              
+                className="hidden" id="id-upload-retailer" />
               {idFileUrl ? (
                 <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -423,7 +397,7 @@ export default function VendorKycPage() {
                     className="text-red-500 hover:text-red-700 text-xs font-medium">Remove</button>
                 </div>
               ) : (
-                <label htmlFor="id-upload" className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-ob-purple transition-colors cursor-pointer">
+                <label htmlFor="id-upload-retailer" className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-ob-purple transition-colors cursor-pointer">
                   {idFileUploading ? (
                     <>
                       <div className="animate-spin h-8 w-8 border-2 border-ob-purple border-t-transparent rounded-full mb-2" />
@@ -446,8 +420,8 @@ export default function VendorKycPage() {
         {/* Step 3: Bank Account */}
         <div className="bg-white p-6 rounded-xl border border-gray-100">
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-8 h-8 ${bankName && accountNumber && accountName ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
-              {bankName && accountNumber && accountName ? '✓' : '3'}
+            <div className={`w-8 h-8 ${step3Done ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
+              {step3Done ? '✓' : '3'}
             </div>
             <div>
               <h3 className="font-bold text-ob-navy">Bank Account</h3>
@@ -474,14 +448,8 @@ export default function VendorKycPage() {
                         {bank}
                       </button>
                     ))}
-                    {NIGERIAN_BANKS.filter(b => !bankSearch || b.toLowerCase().includes(bankSearch.toLowerCase())).length === 0 && (
-                      <div className="px-4 py-3 text-sm text-gray-400 text-center">No banks found matching &quot;{bankSearch}&quot;</div>
-                    )}
                   </div>
                 </div>
-              )}
-              {bankName && (
-                <button type="button" onClick={() => { setBankName(''); setBankSearch(''); }} className="absolute right-8 top-7 text-gray-400 hover:text-red-500 text-xs">Clear</button>
               )}
               {errors.bankName && <p className="text-xs text-red-500 mt-1">{errors.bankName}</p>}
             </div>
@@ -503,16 +471,13 @@ export default function VendorKycPage() {
         {/* Step 4: Business Information (KYB) */}
         <div className="bg-white p-6 rounded-xl border border-gray-100">
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-8 h-8 ${businessName && rcNumber ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
-              {businessName && rcNumber ? '✓' : '4'}
+            <div className={`w-8 h-8 ${step4Done ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
+              {step4Done ? '✓' : '4'}
             </div>
             <div>
               <h3 className="font-bold text-ob-navy">Business Information (KYB)</h3>
               <p className="text-xs text-gray-400">Business registration details</p>
             </div>
-          </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-xs text-amber-700">
-            ⚠️ RC Number (Corporate Affairs Commission registration) is mandatory. Vendors cannot publish products without a valid RC Number.
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
