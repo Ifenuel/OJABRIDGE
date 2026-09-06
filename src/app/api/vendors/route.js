@@ -15,6 +15,7 @@ export async function GET(request) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
     const search = searchParams.get('search');
     const kycStatus = searchParams.get('kyc_status');
+    const role = searchParams.get('role');
     const offset = (page - 1) * limit;
 
     if (!isDatabaseConnected()) {
@@ -37,6 +38,12 @@ export async function GET(request) {
     if (kycStatus) {
       conditions.push(`v.kyc_status = $${paramIndex}`);
       params.push(kycStatus);
+      paramIndex++;
+    }
+
+    if (role) {
+      conditions.push(`u.role = $${paramIndex}`);
+      params.push(role);
       paramIndex++;
     }
 
