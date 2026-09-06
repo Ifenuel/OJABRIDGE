@@ -160,6 +160,17 @@ export default function ChatWidget() {
           message: messageText,
           conversationId,
           image: imageToSend,
+          // Send user info from localStorage so AI knows who they are
+          clientUser: (() => {
+            try {
+              const stored = localStorage.getItem('ojabridge_session');
+              if (stored) {
+                const u = JSON.parse(stored);
+                return { id: u.id, name: u.name, role: u.role, email: u.email };
+              }
+            } catch {}
+            return null;
+          })(),
           // Send last 5 messages as context for follow-up detection
           conversationContext: messages.slice(-5).map(m => ({
             role: m.role,

@@ -165,7 +165,7 @@ function getSmartFallback(message, userName, userRole, context = []) {
   if (/who are you|what are you|your name/i.test(msg)) {
     return `I am your OjaBridge AI support assistant! 😊 I am here to help you with anything on the platform — shopping, orders, payments, vendor setup, KYC, disputes, and more.\n\nHow can I help you today?`;
   }
-  if (/dont you know|do you know|what.*my name|tell me.*name|remember.*name|what.*remember/i.test(msg)) {
+  if (/my\s*name|your\s+name|name\s*\?|who\s+am\s+i|call\s+me|know\s+me|remember\s+me|what.*name|tell.*name|remember.*name|dont.*know.*name|do.*know.*name|whats.*my|what's.*my|am\s+i/i.test(msg)) {
     if (userName) {
       return `Of course I know you, ${userName}! 😊 You are logged in and I can see your account.\n\nHow can I help you today? Whether it is about your orders, account, payments, or anything else on OjaBridge — I am here for you! 💪`;
     }
@@ -188,10 +188,27 @@ function getSmartFallback(message, userName, userRole, context = []) {
   }
 
   // === NAME INTRODUCTION ===
-  const nameMatch = msg.match(/^my name is\s+([a-z]+)/i);
-  if (nameMatch && nameMatch[1].length > 1 && !/(sick|ill|tired|fine|good|bad|new|old|busy|ok)/i.test(nameMatch[1])) {
+  // Match: "my name is Emmanuel", "Emmanuel" (single word after AI asked for name), "call me X"
+  const nameMatch = msg.match(/^(?:my name is|im|i'm|call me|i am)\s+([a-z]+)/i);
+  if (nameMatch && nameMatch[1].length > 1 && !/(sick|ill|tired|fine|good|bad|new|old|busy|ok|here|looking|trying|want|need|have|the|a|an|not|but|and|for|with|this|that|yes|no)/i.test(nameMatch[1])) {
     const capName = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
+    if (userName) {
+      // User already has a name from login — acknowledge both
+      return `Nice to meet you, ${capName}! 😊 But I already know you as ${userName} from your account!\n\nHow can I help you on OjaBridge today? 💪`;
+    }
     return `Nice to meet you, ${capName}! 😊\n\nHow can I help you on OjaBridge? Whether you want to shop, become a vendor, source products as a retailer, or have a question about the platform — I am here for you! 💪`;
+  }
+
+  // Single word that looks like a name (after AI asked for name)
+  if (/^[a-z]{2,15}$/i.test(msg) && !/(hi|hey|yes|no|ok|help|shop|pay|order|kyc|ship|test|buy|sell|what|how|why|when|who|where|cool|nice|great|good|bad|fine|lol|thanks|thank|please|sure|bye|hello|error|fail|problem|issue)/i.test(msg)) {
+    // Check if last AI message asked for their name
+    if (/tell me your name|could you tell me|what is your name|your name/i.test(lastAiMsg)) {
+      const capName = msg.charAt(0).toUpperCase() + msg.slice(1);
+      if (userName) {
+        return `Thank you, ${capName}! 😊 I actually already know you as ${userName} from your account.\n\nIs there anything I can help you with on OjaBridge? 💪`;
+      }
+      return `Nice to meet you, ${capName}! 😊\n\nHow can I help you on OjaBridge today? 💪`;
+    }
   }
 
   // === SICK (not a name) ===
@@ -412,12 +429,12 @@ export async function POST(request) {
 
     // SERVER-SIDE AUTH — Never trust frontend role
     const authUser = await getUserFromRequest(request);
-    const userRole = authUser?.role || null;
-    const userName = authUser?.name?.split(' ')[0] || null;
-    const userId = authUser?.id || null;
+    let userRole = authUser?.role || null;
+    let userName = authUser?.name?.split(' ')[0] || null;
+    let userId = authUser?.id || null;
 
     const body = await request.json();
-    let { message, conversationId, image, conversationContext } = body;
+    let { message, conversationId, image, conversationContext, clientUser } = body;
     message = sanitizeInput(message);
 
     if (!message && !image) {
@@ -427,6 +444,14 @@ export async function POST(request) {
     // EMOTION DETECTION
     const emotion = detectEmotion(message || '');
     const emotionPrefix = getEmotionPrefix(emotion);
+
+    // If JWT auth failed, use client-provided user info (from localStorage)
+    // This is safe because the client already authenticated during login
+    if (!userId && clientUser?.id) {
+      userId = clientUser.id;
+      userRole = clientUser.role || null;
+      userName = clientUser.name?.split(' ')[0] || null;
+    }
 
     // DATABASE: Get or create conversation
     let convId = conversationId;
