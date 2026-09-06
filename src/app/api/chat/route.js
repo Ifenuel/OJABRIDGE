@@ -20,6 +20,7 @@ async function ensureChatTables() {
       conversation_id UUID REFERENCES chat_conversations(id) ON DELETE CASCADE,
       role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
       content TEXT NOT NULL,
+      image_url TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`);
     await dbRaw(`CREATE INDEX IF NOT EXISTS idx_chat_messages_conv ON chat_messages(conversation_id, created_at)`);
@@ -32,95 +33,106 @@ async function ensureChatTables() {
 }
 
 /**
- * Smart fallback responses for common greetings and questions
- * These work even when OpenAI is unavailable
+ * Detect user emotion from message text
+ */
+function detectEmotion(message) {
+  const msg = message.toLowerCase();
+  if (/frustrated|angry|annoyed|terrible|worst|hate|furious|disgusted|scammed|stolen|fraud|ridiculous|unacceptable|waste|useless/i.test(msg)) return 'frustrated';
+  if (/confused|confusing|don.t understand|not sure|unclear|what do you mean|how do i|i don.t get|lost/i.test(msg)) return 'confused';
+  if (/worried|concerned|nervous|scared|afraid|anxious|panic|urgent|help me|emergency/i.test(msg)) return 'worried';
+  if (/happy|great|awesome|love|amazing|perfect|excellent|fantastic|wonderful|best|thank|thanks/i.test(msg)) return 'happy';
+  if (/sad|disappointed|unfortunate|sorry|unhappy|bad|poor|let down/i.test(msg)) return 'sad';
+  return null;
+}
+
+/**
+ * Get emotion-aware prefix for AI response
+ */
+function getEmotionPrefix(emotion) {
+  switch (emotion) {
+    case 'frustrated': return "I completely understand your frustration, and I sincerely apologize for the inconvenience. Let me help you resolve this right away.\n\n";
+    case 'confused': return "No worries at all — let me clarify that for you in a simple way!\n\n";
+    case 'worried': return "I understand your concern, and I want to help put your mind at ease. Let me walk you through this step by step.\n\n";
+    case 'happy': return "That is wonderful to hear! 😊 I am so glad you are having a great experience!\n\n";
+    case 'sad': return "I am sorry to hear that. 😔 Let me see how I can help make things better for you.\n\n";
+    default: return "";
+  }
+}
+
+/**
+ * Smart fallback responses
  */
 function getSmartFallback(message) {
   const msg = message.toLowerCase().trim();
   
-  // Greetings
   if (/^(hi|hello|hey|howdy|good\s*(morning|afternoon|evening)|yo|sup|greetings)/i.test(msg)) {
     const greetings = [
       "Hello there! 👋 Welcome to OjaBridge! I am your AI assistant and I am super excited to help you today! 😊\n\nWhat is your name? And how can I assist you with OjaBridge?",
-      "Hey! 👋 Great to see you here! Welcome to OjaBridge! 🎉\n\nI am here to help with anything you need — whether it is about shopping, selling, payments, or anything else on the platform!\n\nWhat can I help you with today? 😊",
-      "Hi there! 😊 Welcome to OjaBridge — Nigeria's trusted marketplace!\n\nI am your friendly AI assistant. Feel free to ask me anything about the platform!\n\nWhat brings you here today? 🛍️",
+      "Hey! 👋 Great to see you here! Welcome to OjaBridge! 🎉\n\nI am here to help with anything you need — whether it is about shopping, selling, payments, or anything else!\n\nWhat can I help you with today? 😊",
+      "Hi there! 😊 Welcome to OjaBridge — Nigeria's trusted marketplace!\n\nI am your friendly AI assistant. Feel free to ask me anything!\n\nWhat brings you here today? 🛍️",
     ];
     return greetings[Math.floor(Math.random() * greetings.length)];
   }
 
-  // Name response
   if (/^(my name is|i'm |i am |call me )/i.test(msg)) {
-    const name = msg.replace(/^(my name is|i'm |i am |call me )/i, '').trim();
-    const firstName = name.split(' ')[0];
-    return `Nice to meet you, ${firstName}! 😊 Great name!\n\nNow, how can I help you on OjaBridge? Are you looking to:\n\n🛍️ **Shop** for products?\n🏪 **Become a vendor** and start selling?\n📦 **Source products** as a retailer?\n❓ Or do you have a **question** about the platform?\n\nJust let me know! 💪`;
+    const name = msg.replace(/^(my name is|i'm |i am |call me )/i, '').trim().split(' ')[0];
+    const capName = name.charAt(0).toUpperCase() + name.slice(1);
+    return `Nice to meet you, ${capName}! 😊 Great name!\n\nNow, how can I help you on OjaBridge? Are you looking to:\n\n🛍️ **Shop** for products?\n🏪 **Become a vendor** and start selling?\n📦 **Source products** as a retailer?\n❓ Or do you have a **question** about the platform?\n\nJust let me know! 💪`;
   }
 
-  // How are you
-  if (/how are you|how('s| is) it going|how do you do|what('s| is) up/i.test(msg)) {
-    return "I am doing great, thank you for asking! 😊 I am always happy and ready to help!\n\nNow, how can I assist you with OjaBridge today? Are you looking to shop, sell, or do you have any questions about the platform? 💪";
+  if (/how are you|how('s| is) it going/i.test(msg)) {
+    return "I am doing great, thank you for asking! 😊 I am always happy and ready to help!\n\nHow can I assist you with OjaBridge today? 💪";
   }
 
-  // What is ojabridge
-  if (/what is ojabridge|what('s| is) ojabridge|tell me about ojabridge|about ojabridge/i.test(msg)) {
-    return "Great question! ✨\n\n**OjaBridge** is Nigeria's trusted e-commerce marketplace — think of it as the bridge between sellers and buyers! 🌉\n\nThe name comes from \"Oja\" (market in Yoruba) + \"Bridge\" — we connect:\n\n🛒 **Customers** — who browse and buy products\n🏪 **Vendors** — who list and sell products\n📦 **Retailers** — who source products at wholesale prices\n\nAll payments are secure through Paystack, and every vendor is verified before they can sell. It is safe, transparent, and built for Nigeria! 🇳🇬\n\nWould you like to know more about anything specific? 😊";
+  if (/what is ojabridge|tell me about ojabridge/i.test(msg)) {
+    return "Great question! ✨\n\n**OjaBridge** is Nigeria's trusted e-commerce marketplace — the bridge between sellers and buyers! 🌉\n\nThe name comes from \"Oja\" (market in Yoruba) + \"Bridge\" — we connect:\n\n🛒 **Customers** — who browse and buy\n🏪 **Vendors** — who list and sell\n📦 **Retailers** — who source wholesale products\n\nAll payments are secure through Paystack, and every vendor is verified. Safe, transparent, and built for Nigeria! 🇳🇬\n\nWant to know more? 😊";
   }
 
-  // Register / Sign up
   if (/register|sign up|create account|new account|join/i.test(msg)) {
-    return "Awesome, welcome aboard! 🎉\n\nSigning up on OjaBridge is super easy! Here is how:\n\n1️⃣ Go to **ojabridge.vercel.app/register**\n2️⃣ Choose your role — Customer, Vendor, or Retailer\n3️⃣ Fill in your details (name, email, phone, password)\n4️⃣ Verify your email with the code we send you\n5️⃣ You are all set! 🎉\n\n**Tip:** If you want to sell products, choose **Vendor**. If you want to source wholesale products, choose **Retailer**. If you just want to buy, choose **Customer**!\n\nNeed help with anything else? 😊";
+    return "Awesome, welcome aboard! 🎉\n\nSigning up is super easy:\n\n1️⃣ Go to **ojabridge.vercel.app/register**\n2️⃣ Choose your role — Customer, Vendor, or Retailer\n3️⃣ Fill in your details\n4️⃣ Verify your email with the code we send\n5️⃣ Done! 🎉\n\n**Tip:** Choose **Vendor** to sell, **Retailer** to source wholesale, **Customer** to shop!\n\nNeed help? 😊";
   }
 
-  // Login
-  if (/login|log in|sign in|already have account|existing account/i.test(msg)) {
-    return "No problem! Here is how to log in:\n\n1️⃣ Go to **ojabridge.vercel.app/login**\n2️⃣ Enter your email and password\n3️⃣ If your email is not verified, enter the verification code we send you\n4️⃣ You are in! 🎉\n\n**Forgot your password?** Click \"Forgot Password\" on the login page and follow the steps.\n\nNeed help with anything else? 😊";
+  if (/login|log in|sign in|forgot.*password/i.test(msg)) {
+    return "Here is how to log in:\n\n1️⃣ Go to **ojabridge.vercel.app/login**\n2️⃣ Enter your email and password\n3️⃣ If not verified, enter the verification code\n4️⃣ You are in! 🎉\n\n**Forgot password?** Click \"Forgot Password\" on the login page.\n\nNeed anything else? 😊";
   }
 
-  // Payment / Pay
-  if (/payment|pay|checkout|buy|purchase|how much|price/i.test(msg)) {
-    return "Great question about payments! 💳\n\nHere is how payments work on OjaBridge:\n\n1️⃣ Add products to your cart\n2️⃣ Go to checkout\n3️⃣ Pay securely via **Paystack** (card, bank transfer, or USSD)\n4️⃣ Your payment is confirmed instantly!\n\n**Security:** Your money is held safely by OjaBridge until you confirm delivery. If anything goes wrong, you are protected by our **Buyer Protection** policy! 🛡️\n\nPlatform commission is 10% — this is deducted before the vendor gets paid.\n\nAny other questions about payments? 😊";
+  if (/payment|pay|checkout|buy|purchase|price/i.test(msg)) {
+    return "Here is how payments work! 💳\n\n1️⃣ Add products to cart\n2️⃣ Go to checkout\n3️⃣ Pay via **Paystack** (card, bank transfer, USSD)\n4️⃣ Payment confirmed instantly!\n\nYour money is held safely until you confirm delivery. Protected by **Buyer Protection**! 🛡️\n\nAny questions? 😊";
   }
 
-  // Shipping / Delivery
-  if (/shipping|delivery|deliver|track|when will|how long/i.test(msg)) {
-    return "Here is everything about shipping! 🚚\n\n**Delivery times:**\n• Lagos: 1-3 business days\n• Other states: 3-7 business days\n\n**How to track:**\n1️⃣ Go to your dashboard → My Orders\n2️⃣ Click on the order\n3️⃣ You will see the tracking status\n\n**Shipping rates** are set by each vendor, so they vary by store.\n\nNeed help with a specific order? 😊";
+  if (/shipping|delivery|deliver|track|how long/i.test(msg)) {
+    return "Shipping info! 🚚\n\n**Delivery times:**\n• Lagos: 1-3 business days\n• Other states: 3-7 business days\n\n**Track your order:**\nDashboard → My Orders → Click the order\n\nRates are set by each vendor. Need help? 😊";
   }
 
-  // KYC / Verification
-  if (/kyc|verification|verify|verify.*vendor|verify.*retailer|bvn|nin|identity/i.test(msg) && !/login/i.test(msg)) {
-    return "KYC verification is important for vendors and retailers! 📋\n\nHere is what you need:\n\n**Step 1:** Personal Info — Full name, date of birth\n**Step 2:** Identity — Both **BVN** (dial *565*0#) and **NIN** (dial *346#)\n**Step 3:** Bank Account — Select your bank, account number, account name\n**Step 4:** Business Info — Business name and RC number (from CAC)\n\nAfter you submit, our admin team reviews within **1-3 business days**. You will get a notification and email once approved! ✅\n\nNeed help with any specific step? 😊";
+  if (/kyc|verification|verify|bvn|nin/i.test(msg) && !/login/i.test(msg)) {
+    return "KYC verification steps! 📋\n\n1️⃣ **Personal Info** — Full name, date of birth\n2️⃣ **Identity** — BVN (*565*0#) and NIN (*346#)\n3️⃣ **Bank Account** — Bank name, account number, account name\n4️⃣ **Business** — Business name, RC number\n\nAdmin reviews within **1-3 business days**! ✅\n\nNeed help with any step? 😊";
   }
 
-  // Vendor / Sell
-  if (/vendor|sell|sell.*product|start.*sell|become.*vendor|store/i.test(msg)) {
-    return "Want to become a vendor? That is awesome! 🏪💪\n\nHere is how to get started:\n\n1️⃣ **Register** at ojabridge.vercel.app/register → Choose \"Vendor\"\n2️⃣ **Complete KYC** — BVN, NIN, bank account, RC number\n3️⃣ **Wait for approval** — Our team reviews within 1-3 days\n4️⃣ **Set up your store** — Name, description, logo\n5️⃣ **Add products** — Upload images, set prices, add descriptions\n6️⃣ **Start selling!** 🎉\n\nYou will receive payouts after each completed order (minus 10% platform commission).\n\nReady to start? Visit ojabridge.vercel.app/register now! 😊";
+  if (/vendor|sell|become.*vendor|store/i.test(msg)) {
+    return "Become a vendor! 🏪💪\n\n1️⃣ Register → Choose \"Vendor\"\n2️⃣ Complete KYC (BVN, NIN, bank, RC)\n3️⃣ Wait for approval (1-3 days)\n4️⃣ Set up your store\n5️⃣ Add products with images\n6️⃣ Start selling! 🎉\n\nReady? Visit ojabridge.vercel.app/register! 😊";
   }
 
-  // Refund
   if (/refund|money back|return|cancel.*order/i.test(msg)) {
-    return "We have got you covered with our refund policy! 💰\n\n**You can get a full refund if:**\n• Your order is not delivered within the estimated time\n• The item significantly differs from the description\n\n**Partial refund may apply for:**\n• Minor issues with the product\n\n**How to request:**\n1️⃣ Go to your dashboard → Disputes\n2️⃣ Create a dispute and select the order\n3️⃣ Describe the issue\n4️⃣ Our team resolves within 3-5 business days\n\nRefunds go back to your original payment method within 5-10 business days. 🔄\n\nNeed help with a specific refund? 😊";
+    return "Refund policy! 💰\n\n**Full refund if:**\n• Order not delivered on time\n• Item differs from description\n\n**How to request:**\nDashboard → Disputes → Create Dispute → Select order\n\nResolved within 3-5 business days. Refund in 5-10 days. 🔄\n\nNeed help? 😊";
   }
 
-  // Dispute / Complaint
-  if (/dispute|complaint|issue|problem|not.*working|broken/i.test(msg)) {
-    return "Sorry to hear you are having an issue! 😔 We are here to help!\n\n**To create a dispute:**\n1️⃣ Go to your dashboard → Disputes\n2️⃣ Click \"Create Dispute\"\n3️⃣ Select the order and describe the issue\n4️⃣ Our admin team will review and resolve within 3-5 business days\n\n**For urgent issues**, you can also email us directly at **awoyoemmanuel12@gmail.com** and we will get back to you quickly! 📧\n\nWhat specific issue are you facing? I can guide you through the steps! 😊";
+  if (/dispute|complaint|issue|problem|not.*working|broken|error/i.test(msg)) {
+    return "Sorry about that! 😔 Let me help!\n\n**Create a dispute:**\n1️⃣ Dashboard → Disputes\n2️⃣ Click \"Create Dispute\"\n3️⃣ Select order + describe issue\n4️⃣ Resolved in 3-5 business days\n\n**Urgent?** Email **awoyoemmanuel12@gmail.com** 📧\n\nWhat issue are you facing? 😊";
   }
 
-  // Thanks / Thank you
-  if (/thank|thanks|thx|appreciate|helpful/i.test(msg)) {
-    return "You are very welcome! 😊🎉\n\nIt was my pleasure helping you! If you ever have more questions about OjaBridge, I am always here.\n\nHappy shopping/selling! 💪🛍️";
+  if (/thank|thanks|thx|appreciate/i.test(msg)) {
+    return "You are very welcome! 😊🎉\n\nIt was my pleasure helping you! Come back anytime you need help with OjaBridge! 💪🛍️";
   }
 
-  // Bye / Goodbye
-  if (/^(bye|goodbye|see you|later|cya|take care)/i.test(msg)) {
-    return "Goodbye! 👋😊 It was great chatting with you!\n\nCome back anytime you need help with OjaBridge. We are always here for you! 💪\n\nHave a wonderful day! ✨";
+  if (/^(bye|goodbye|see you|later|take care)/i.test(msg)) {
+    return "Goodbye! 👋😊 It was great chatting with you!\n\nCome back anytime! Have a wonderful day! ✨";
   }
 
-  // Help
-  if (/^(help|what can you do|what do you know|capabilities|features)/i.test(msg) && msg.length < 30) {
-    return "I am happy to help! 😊 Here is what I can do:\n\n🛍️ **Shopping** — Help you find products, place orders, track deliveries\n🏪 **Selling** — Guide you through becoming a vendor\n📋 **KYC** — Help with verification process\n💳 **Payments** — Explain how payments and refunds work\n🚚 **Shipping** — Delivery times and tracking\n📦 **Disputes** — How to create and resolve disputes\n❓ **General** — Any question about OjaBridge!\n\nJust ask me anything! 💪";
+  if (/^(help|what can you do|capabilities)/i.test(msg) && msg.length < 30) {
+    return "I can help with! 😊\n\n🛍️ **Shopping** — Find products, orders, tracking\n🏪 **Selling** — Become a vendor\n📋 **KYC** — Verification help\n💳 **Payments** — How it works\n🚚 **Shipping** — Delivery info\n📸 **Screenshots** — Send me images of issues!\n❓ **Anything** about OjaBridge!\n\nJust ask! 💪";
   }
 
-  return null; // No fallback match — will use OpenAI
+  return null;
 }
 
 export async function POST(request) {
@@ -128,13 +140,15 @@ export async function POST(request) {
     await ensureChatTables();
 
     const body = await request.json();
-    const { message, conversationId } = body;
+    const { message, conversationId, image } = body;
 
-    if (!message || !message.trim()) {
+    if (!message && !image) {
       return NextResponse.json({ success: false, error: 'Message is required' }, { status: 400 });
     }
 
-    const trimmedMessage = message.trim();
+    const trimmedMessage = (message || '').trim();
+    const emotion = detectEmotion(trimmedMessage);
+    const emotionPrefix = getEmotionPrefix(emotion);
 
     let convId = conversationId;
     let history = [];
@@ -158,25 +172,38 @@ export async function POST(request) {
         await dbInsert('chat_messages', {
           conversation_id: convId,
           role: 'user',
-          content: trimmedMessage,
+          content: trimmedMessage || (image ? '[Image attached]' : ''),
+          image_url: image || null,
           created_at: new Date().toISOString(),
         });
       }
     }
 
-    // Try smart fallback first for common patterns
-    const fallbackReply = getSmartFallback(trimmedMessage);
+    // Smart fallback for common patterns (only if no image)
+    const fallbackReply = !image ? getSmartFallback(trimmedMessage) : null;
 
     // Try OpenAI
     const apiKey = process.env.OPENAI_API_KEY;
-    let aiReply = fallbackReply;
+    let aiReply = fallbackReply ? emotionPrefix + fallbackReply : null;
 
-    if (!fallbackReply && apiKey) {
+    if (!aiReply && apiKey) {
       try {
+        // Build message content — support both text and images
+        let userContent;
+        if (image) {
+          // Image message — use OpenAI Vision
+          userContent = [
+            { type: 'text', text: trimmedMessage || 'Please analyze this image and tell me what you see. If it is a screenshot of an error, explain what went wrong and how to fix it. If it is related to OjaBridge, provide helpful guidance.' },
+            { type: 'image_url', image_url: { url: image, detail: 'low' } },
+          ];
+        } else {
+          userContent = trimmedMessage;
+        }
+
         const messages = [
-          { role: 'system', content: OJABRIDGE_KB },
+          { role: 'system', content: OJABRIDGE_KB + (emotion ? `\n\nThe user seems ${emotion}. Please respond with extra empathy and patience.` : '') },
           ...history,
-          { role: 'user', content: trimmedMessage },
+          { role: 'user', content: userContent },
         ];
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -186,7 +213,7 @@ export async function POST(request) {
             'Authorization': `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: image ? 'gpt-4o-mini' : 'gpt-4o-mini',
             messages,
             max_tokens: 800,
             temperature: 0.7,
@@ -195,22 +222,28 @@ export async function POST(request) {
 
         if (response.ok) {
           const data = await response.json();
-          aiReply = data.choices?.[0]?.message?.content;
+          const rawReply = data.choices?.[0]?.message?.content;
+          if (rawReply) {
+            aiReply = emotionPrefix + rawReply;
+          }
         } else {
-          console.error('OpenAI error:', response.status);
-          // Fall through to generic response below
+          const errData = await response.json().catch(() => ({}));
+          console.error('OpenAI error:', response.status, errData.error?.message || '');
         }
       } catch (err) {
         console.error('OpenAI fetch error:', err.message);
       }
     }
 
-    // Final fallback if nothing worked
+    // Final fallback
     if (!aiReply) {
-      aiReply = "Thank you for your message! 😊\n\nI am having a small technical hiccup right now, but I do not want to leave you waiting!\n\nHere is what I can tell you:\n• **For general questions:** Visit ojabridge.vercel.app/faq\n• **For support:** Email us at awoyoemmanuel12@gmail.com\n• **To register:** Go to ojabridge.vercel.app/register\n\nIs there anything specific I can help you with? 💪";
+      if (image) {
+        aiReply = "I received your image! 📸 Unfortunately, I am having a small technical issue analyzing it right now.\n\nHere is what I suggest:\n• **Email the screenshot** to awoyoemmanuel12@gmail.com — our team will help immediately\n• **Describe the issue** in text and I will do my best to help!\n\nWhat is happening? I am here to help! 😊";
+      } else {
+        aiReply = "Thank you for your message! 😊\n\nI am having a small hiccup right now, but I do not want to leave you waiting!\n\n• **General questions:** Visit ojabridge.vercel.app/faq\n• **Support:** Email awoyoemmanuel12@gmail.com\n• **Register:** Go to ojabridge.vercel.app/register\n\nIs there anything specific I can help with? 💪";
+      }
     }
 
-    // Save AI response
     if (isDatabaseConnected() && convId) {
       await dbInsert('chat_messages', {
         conversation_id: convId,
@@ -229,7 +262,7 @@ export async function POST(request) {
     console.error('Chat API error:', error.message || error);
     return NextResponse.json({ 
       success: false, 
-      error: 'Oops! Something went wrong on our end. 😔 Please try again, or email us at awoyoemmanuel12@gmail.com — we will get back to you quickly!' 
+      error: "Oops! Something went wrong on our end 😔 Please try again or email us at awoyoemmanuel12@gmail.com — we will help you right away!" 
     }, { status: 500 });
   }
 }
