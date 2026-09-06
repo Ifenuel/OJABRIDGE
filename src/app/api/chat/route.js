@@ -125,9 +125,12 @@ const SAFE_LINKS = {
   retailerDashboard: 'https://ojabridge.vercel.app/retailer-dashboard',
 };
 
-function getSmartFallback(message, userName, userRole) {
+function getSmartFallback(message, userName, userRole, context = []) {
   const msg = message.toLowerCase().trim();
   const greeting = userName ? `Hello ${userName}!` : "Hello!";
+
+  // Get the last AI message for context-aware follow-ups
+  const lastAiMsg = context.filter(m => m.role === 'assistant').pop()?.content?.toLowerCase() || '';
 
   // === SECURITY: Prompt Injection ===
   if (detectPromptInjection(msg)) {
@@ -149,6 +152,39 @@ function getSmartFallback(message, userName, userRole) {
   // === OFF-TOPIC ===
   if (/\b(president|government|election|politics|religion|football|soccer|nba|epl|weather|music|song|movie|netflix|tiktok|instagram|twitter|crypto|bitcoin|stock|forex)\b/i.test(msg) && !/ojabridge|marketplace|shop|vendor|order|payment/i.test(msg)) {
     return "I am here to help with all things OjaBridge! 😊 Is there anything about the platform I can help you with? Whether it is shopping, selling, payments, or anything else — I am happy to assist!";
+  }
+
+  // === FOLLOW-UP: YES / NO / OK / SHORT REPLIES ===
+  // Check if last AI message asked a question — respond contextually
+  if (/^(yes|yeah|yep|yup|ok|okay|sure|definitely|please|go ahead|tell me|show me)$/i.test(msg)) {
+    if (/kyc|verification|verify|bvn|nin|identity/i.test(lastAiMsg)) {
+      return `Absolutely! Let me walk you through it step by step. 😊\n\nHere is what you need for KYC verification:\n\nStep 1 — Personal Info\nFull legal name and date of birth\n\nStep 2 — Identity\nBVN (dial *565*0# on your phone)\nNIN (dial *346# or check NIMC app)\nBoth are required\n\nStep 3 — Bank Account\nYour bank name, account number, and account name\n\nStep 4 — Business Info\nBusiness name and RC number from CAC\n\nAfter you submit, admin reviews within 1-3 business days. Which step are you on? I can help with any specific part! 💪`;
+    }
+    if (/order|delivery|ship/i.test(lastAiMsg)) {
+      return `Great! You can check your order status anytime from your dashboard:\n\n${SAFE_LINKS.orders}\n\nEach order shows its current status. If anything looks wrong, you can open a dispute from there. Need help with anything specific? 😊`;
+    }
+    if (/dispute|complaint|report/i.test(lastAiMsg)) {
+      return `Perfect! Here is how to create a dispute:\n\n1. Go to ${SAFE_LINKS.disputes}\n2. Click "Open New Dispute"\n3. Select the order with the issue\n4. Choose a reason and describe what happened\n5. Submit — our team reviews within 3-5 business days\n\nIf you need faster help, email us at ${SUPPORT_EMAIL}. We are here for you! 💪`;
+    }
+    if (/register|sign.?up|create.*account/i.test(lastAiMsg)) {
+      return `Awesome! Head to ${SAFE_LINKS.register} to get started. 🎉\n\nRemember to verify your email after signing up — check your inbox for the code. Let me know if you get stuck on any step! 😊`;
+    }
+    if (/payment|pay|checkout/i.test(lastAiMsg)) {
+      return `Great! When you are ready to pay, you will see Paystack at checkout. You can use card, bank transfer, or USSD. Your money is held safely until you confirm delivery. 🛡️\n\nNeed help with anything else? 😊`;
+    }
+    if (/refund/i.test(lastAiMsg)) {
+      return `I will help you with that! Go to ${SAFE_LINKS.disputes} and create a dispute for the order you need a refund for. Describe the issue and our team will review it.\n\nIf it is urgent, email us at ${SUPPORT_EMAIL} with your order details. We will make sure you are taken care of! 💪`;
+    }
+    // Generic yes — ask what they need
+    return `Of course! What would you like help with? 😊\n\nI can assist with shopping, orders, payments, vendor setup, KYC, shipping, disputes — anything on OjaBridge!`;
+  }
+
+  if (/^(no|nah|nope|not.?really|nothing|nvm|never.?mind)$/i.test(msg)) {
+    if (/kyc|verification|verify|bvn|nin/i.test(lastAiMsg)) {
+      return `No problem at all! Take your time. When you are ready to complete your KYC, just come back and I will walk you through it. 😊\n\nIf you have any other questions about OjaBridge, I am always here to help! 💪`;
+    }
+    // Generic no
+    return `No worries! Is there anything else I can help you with on OjaBridge? 😊\n\nI am here whenever you need me!`;
   }
 
   // === GIBBERISH / TYPOS ===
@@ -203,9 +239,12 @@ function getSmartFallback(message, userName, userRole) {
     return `Here is how payments work on OjaBridge! 💳\n\n1. Browse products and add them to your cart\n2. Go to checkout\n3. Pay via Paystack — you can use card, bank transfer, or USSD\n4. Payment is confirmed instantly!\n\nYour money is held safely until you confirm delivery. This is part of our Buyer Protection policy — you are always covered! 🛡️\n\nAny questions about payments? 😊`;
   }
 
-  // === DISPUTES / COMPLAINTS ===
+  // === DISPUTES / COMPLAINTS / PROBLEMS ===
   if (/dispute|complaint|issue|problem|not\s*working|broken|error|bug|glitch/i.test(msg)) {
-    return `I am sorry you are facing an issue. Let me help you get this sorted! 😊\n\nHere is what you can do:\n\n1. Create a Dispute — Describe your issue and our team will resolve it:\n   ${SAFE_LINKS.disputes}\n\n2. Check our FAQ — Common issues are answered there:\n   ${SAFE_LINKS.faq}\n\n3. Email Support — For personal assistance:\n   ${SUPPORT_EMAIL}\n\nTell us exactly what happened and we will help you right away. 💪`;
+    // Check if it sounds like a real complaint (has emotional or specific language)
+    const isEmotional = /frustrated|angry|annoyed|terrible|worst|unfair|ridiculous|fed up|sick of/i.test(msg);
+    const prefix = isEmotional ? "I completely understand your frustration, and I am truly sorry you are dealing with this. You deserve better. " : "I am sorry you are facing an issue. ";
+    return `${prefix}Let me help you get this sorted! 😊\n\nHere is what you can do:\n\n1. Create a Dispute — Describe your issue and our team will review it:\n   ${SAFE_LINKS.disputes}\n\n2. Email Support — For personal assistance:\n   ${SUPPORT_EMAIL}\n\nTell us exactly what happened and we will help you right away. We take every issue seriously. 💪`;
   }
 
   // === REPORT A VENDOR/SELLER ===
@@ -223,24 +262,34 @@ function getSmartFallback(message, userName, userRole) {
     return `I completely understand your concern about the payment. Let me help you get this resolved! 😊\n\nHere is how refunds work on OjaBridge:\n\nFull refund if:\n- Your order was not delivered within the estimated time\n- The item significantly differs from the description\n\nHow to request a refund:\n1. Go to your dashboard, then Disputes: ${SAFE_LINKS.disputes}\n2. Click "Open New Dispute"\n3. Select the order and describe the issue\n4. Our team resolves within 3-5 business days\n5. Refund processed to your original payment method within 5-10 business days\n\nFor urgent payment issues, email us directly:\n${SUPPORT_EMAIL}\n\nWe will make sure you are taken care of. 💪`;
   }
 
-  // === LOST / STOLEN / SCAMMED ===
-  if (/\b(lost|stolen|scammed|fraud|cheat|fake|not.*real|not.*legit|rip\s*off)\b/i.test(msg)) {
-    return `I am so sorry to hear this. This is taken very seriously on OjaBridge. 😔\n\nHere is what to do immediately:\n\n1. Create a Dispute right away:\n   ${SAFE_LINKS.disputes}\n   Describe exactly what happened — include dates, amounts, and any evidence.\n\n2. Email our support team for priority handling:\n   ${SUPPORT_EMAIL}\n   Subject: Urgent — Fraud/Scam Report\n\n3. Do not send any more money to anyone until this is resolved.\n\nWe protect our buyers through our Buyer Protection policy. Your funds are held safely until delivery is confirmed. We will investigate and help you get this sorted. 💪`;
+  // === LOST / STOLEN / SCAMMED / CHEATED ===
+  if (/\b(lost|stolen|scammed|fraud|cheat|fake|not.*real|not.*legit|rip\s*off|cheated)\b/i.test(msg)) {
+    return `I am so sorry to hear this. I understand how upsetting this must be, and I want to help you get this resolved immediately. 😔\n\nHere is what to do right away:\n\n1. Create a Dispute immediately:\n   ${SAFE_LINKS.disputes}\n   Describe exactly what happened — include dates, amounts, and any evidence.\n\n2. Email our support team for priority handling:\n   ${SUPPORT_EMAIL}\n   Subject: Urgent — Fraud/Scam Report\n\n3. Do not send any more money to anyone until this is resolved.\n\nWe protect our buyers through our Buyer Protection policy. Your funds are held safely until delivery is confirmed. We will investigate and help you get this sorted. 💪`;
   }
 
   // === VENDOR ===
   if (/vendor|sell|become.*vendor|start.*sell|store|set.*up.*store/i.test(msg)) {
-    return QUICK_RESPONSES.kycHelp;
+    return `Becoming a vendor on OjaBridge is straightforward! Here is the journey:\n\n1. Register at ${SAFE_LINKS.register} and choose "Vendor"\n2. Complete your KYC verification (BVN, NIN, bank, RC number)\n3. Wait for admin approval (1-3 business days)\n4. Set up your store — name, description, logo\n5. Add your products with images\n6. Start receiving orders and making sales! 🎉\n\nThe most important step is getting your KYC right. Which part would you like help with? 😊`;
   }
 
-  // === KYC ===
+  // === KYC FAILURE / ERROR (must come before generic KYC) ===
+  if (/kyc|verification|verify|bvn|nin|identity|verif/i.test(msg) && /fail|error|reject|denied|wrong|invalid|problem|issue|not.*work|stuck|can't|cannot|unable|didn't.*work|doesn't.*work/i.test(msg) && !/login/i.test(msg)) {
+    return `I am sorry your verification did not go through. I know how frustrating that can be — let me help you get it sorted! 😔\n\nHere are the most common reasons verification fails and how to fix them:\n\n**BVN Issues:**\n- Make sure your BVN matches the name you registered with on OjaBridge\n- Double-check you entered all 11 digits correctly\n- Dial *565*0# to confirm your BVN if unsure\n\n**NIN Issues:**\n- Ensure your NIN matches your registered name\n- Check all 11 digits are correct\n- Dial *346# to confirm your NIN\n\n**Bank Account Issues:**\n- Account name must match your registered name exactly\n- Make sure the account number is correct for your chosen bank\n\n**General:**\n- All names must match across BVN, NIN, and bank account\n- Try re-submitting with the corrected details\n\nIf it still does not work after checking these, please email us at ${SUPPORT_EMAIL} with a screenshot of the error and we will investigate for you. 💪\n\nWould you like me to walk you through any specific step?`;
+  }
+
+  // === KYC (generic — asking about the process) ===
   if (/kyc|verification|verify|bvn|nin|identity|verif/i.test(msg) && !/login/i.test(msg)) {
-    return QUICK_RESPONSES.kycHelp;
+    return `KYC verification is required before you can start selling or sourcing on OjaBridge. Here is what you need:\n\nStep 1 — Personal Info: Full name and date of birth\nStep 2 — Identity: BVN (dial *565*0#) AND NIN (dial *346#) — both required\nStep 3 — Bank Account: Bank name, account number, account name\nStep 4 — Business: Business name and RC number from CAC\n\nAfter submission, admin reviews within 1-3 business days. You will be notified once approved.\n\nWhich step do you need help with? I can walk you through any part of it! 😊`;
+  }
+
+  // === ORDER FAILURE / NOT WORKING ===
+  if (/order.*(fail|error|not.*work|broken|problem|issue|stuck)/i.test(msg)) {
+    return `I am sorry your order is having issues. Let me help you figure out what is going on. 😔\n\nHere is what you can do:\n\n1. Check your order status first:\n   ${SAFE_LINKS.orders}\n\n2. If something looks wrong, open a dispute:\n   ${SAFE_LINKS.disputes}\n\n3. For immediate help, email us at:\n   ${SUPPORT_EMAIL}\n\nInclude your order number and a description of the issue. We will resolve it quickly! 💪`;
   }
 
   // === ORDER STATUS ===
   if (/order.*(status|track|where|when)|track.*order|where.*order|when.*deliver|where.*my.*order/i.test(msg)) {
-    return QUICK_RESPONSES.orderStatus;
+    return `You can check your order status anytime from your dashboard:\n\n${SAFE_LINKS.orders}\n\nEach order shows its current status — from Processing through Shipped to Delivered.\n\nIf something looks wrong with your order, you can open a dispute from there. Need help with anything specific? 😊`;
   }
 
   // === CANCEL ORDER ===
@@ -376,7 +425,7 @@ export async function POST(request) {
     const userId = authUser?.id || null;
 
     const body = await request.json();
-    let { message, conversationId, image } = body;
+    let { message, conversationId, image, conversationContext } = body;
     message = sanitizeInput(message);
 
     if (!message && !image) {
@@ -453,7 +502,7 @@ export async function POST(request) {
     }
 
     // TRY SMART FALLBACK FIRST
-    const fallbackReply = !image ? getSmartFallback(message, userName, userRole) : null;
+    const fallbackReply = !image ? getSmartFallback(message, userName, userRole, conversationContext || []) : null;
     const apiKey = process.env.OPENAI_API_KEY;
     let aiReply = fallbackReply ? emotionPrefix + fallbackReply : null;
 
