@@ -3,7 +3,15 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
-import { exportCsv, formatDate, formatCurrency } from '@/lib/csvExport';
+import { exportData, filterByDateRange, formatDate, formatCurrency } from '@/lib/csvExport';
+import ExportButton from '@/components/ExportButton';
+
+const dateRangeOptions = [
+  { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '30d', label: 'Last 30 Days', start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '90d', label: 'Last 90 Days', start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+  { key: '12m', label: 'Last 12 Months', start: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
+];
 
 export default function VendorAnalyticsPage() {
   const { user } = useAuth();
@@ -86,35 +94,41 @@ export default function VendorAnalyticsPage() {
               {p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : p === '90d' ? '90 Days' : '12 Months'}
             </button>
           ))}
-          <button onClick={() => exportCsv({
-            title: `Vendor Analytics Report (${period})`,
-            filename: 'ojabridge_vendor_analytics',
-            summary: [
-              { label: 'Period', value: period === '7d' ? 'Last 7 Days' : period === '30d' ? 'Last 30 Days' : period === '90d' ? 'Last 90 Days' : 'Last 12 Months' },
-              { label: 'Total Revenue', value: formatCurrency(totalRevenue) },
-              { label: 'Commission Paid', value: formatCurrency(commission) },
-              { label: 'Net Earnings', value: formatCurrency(netEarnings) },
-              { label: 'Total Orders', value: periodOrders.length },
-              { label: 'Paid Orders', value: paidOrders.length },
-            ],
-            columns: [
-              { key: 'order_number', label: 'Order Number' },
-              { key: 'total', label: 'Amount', format: v => formatCurrency(v) },
-              { key: 'payment_status', label: 'Payment' },
-              { key: 'status', label: 'Status' },
-              { key: 'created_at', label: 'Date', format: v => formatDate(v) },
-            ],
-            rows: periodOrders.map(o => ({
-              order_number: o.order_number,
-              total: o.total,
-              payment_status: o.payment_status,
-              status: o.status,
-              created_at: o.created_at,
-            })),
-          })} className="flex items-center gap-2 px-4 py-2 bg-ob-purple text-white rounded-lg text-xs font-medium hover:bg-ob-purple-dark transition-all">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Export CSV
-          </button>
+          <ExportButton
+            dateRangeOptions={dateRangeOptions}
+            onExport={({ format, dateRange }) => {
+              const exportOrders = dateRange ? filterByDateRange(periodOrders, dateRange.start, dateRange.end, 'created_at') : periodOrders;
+              const exportPaid = exportOrders.filter(o => o.payment_status === 'paid');
+              const exportRevenue = exportPaid.reduce((s, o) => s + Number(o.total || 0), 0);
+              exportData({
+                format,
+                title: 'Vendor Analytics Report',
+                filename: 'ojabridge_vendor_analytics',
+                dateRange,
+                summary: [
+                  { label: 'Total Revenue', value: formatCurrency(exportRevenue) },
+                  { label: 'Commission Paid', value: formatCurrency(Math.round(exportRevenue * 0.10)) },
+                  { label: 'Net Earnings', value: formatCurrency(exportRevenue * 0.90) },
+                  { label: 'Total Orders', value: exportOrders.length },
+                  { label: 'Paid Orders', value: exportPaid.length },
+                ],
+                columns: [
+                  { key: 'order_number', label: 'Order Number' },
+                  { key: 'total', label: 'Amount', format: v => formatCurrency(v) },
+                  { key: 'payment_status', label: 'Payment' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'created_at', label: 'Date', format: v => formatDate(v) },
+                ],
+                rows: exportOrders.map(o => ({
+                  order_number: o.order_number,
+                  total: o.total,
+                  payment_status: o.payment_status,
+                  status: o.status,
+                  created_at: o.created_at,
+                })),
+              });
+            }}
+          />
         </div>
       </div>
 
