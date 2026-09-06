@@ -6,7 +6,10 @@ function renderMessage(text) {
   if (!text) return null;
   const lines = text.split('\n');
   return lines.map((line, i) => {
-    let processed = line.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-ob-navy">$1</strong>');
+    let processed = line
+      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-ob-navy">$1</strong>')
+      // Convert URLs to clickable links
+      .replace(/(https?:\/\/[^\s<&]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-ob-purple underline hover:text-ob-purple-dark">$1</a>');
     if (/^\s*[•\-*]\s/.test(line) && !line.trim().startsWith('**')) {
       processed = processed.replace(/^(\s*)[•\-*]\s/, '$1');
       return <div key={i} className="flex items-start gap-2 ml-1"><span className="text-ob-purple mt-0.5 flex-shrink-0 text-xs">●</span><span dangerouslySetInnerHTML={{ __html: processed }} className="flex-1" /></div>;

@@ -374,12 +374,12 @@ export async function POST(request) {
     let userDataContext = '';
 
     if (userId && isDatabaseConnected()) {
-      if (/where.*my.*order|my.*order|order.*status|track.*order/i.test(lowerMsg)) {
+      if (/order|delivery|shipping|track|parcel|package|bought|purchased|cart/i.test(lowerMsg) && !/become.*vendor|how.*to|register|sign.*up|what.*is/i.test(lowerMsg)) {
         const orders = await getUserOrders(userId, userRole);
         if (orders.length > 0) {
           userDataContext = `\n\n[USER'S ORDER DATA — Use this to give specific help]\n${orders.map(o => `Order ${o.order_number}: Status=${o.status}, Total=₦${o.total}, Date=${new Date(o.created_at).toLocaleDateString()}`).join('\n')}`;
         } else {
-          userDataContext = '\n\n[USER DATA: This user has no orders yet.]';
+          userDataContext = '\n\n[USER DATA: This user has no orders yet. Tell them they have no orders and suggest browsing the shop.]';
         }
       }
 
