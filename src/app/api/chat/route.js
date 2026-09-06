@@ -282,7 +282,6 @@ async function getUserDisputes(userId) {
 async function getVendorPayouts(userId) {
   if (!isDatabaseConnected()) return [];
   try {
-    // First get vendor profile
     const { data: vendors } = await dbQuery('vendors', { filter: { user_id: userId } });
     if (!vendors || vendors.length === 0) return [];
     const vendorId = vendors[0].id;
@@ -296,6 +295,82 @@ async function getVendorPayouts(userId) {
       amount: p.amount,
       status: p.status,
       created_at: p.created_at,
+    }));
+  } catch { return []; }
+}
+
+/** Get user's KYC/verification status */
+async function getUserKycStatus(userId, role) {
+  if (!isDatabaseConnected()) return null;
+  try {
+    if (role === 'vendor' || role === 'retailer') {
+      const { data } = await dbQuery('vendors', { filter: { user_id: userId } });
+      if (data && data[0]) {
+        return {
+          status: data[0].kyc_status || data[0].verification_status || 'not_submitted',
+          submitted_at: data[0].kyc_submitted_at || data[0].created_at,
+          business_name: data[0].business_name,
+        };
+      }
+    }
+    return null;
+  } catch { return null; }
+}
+
+/** Get user's products (vendor only) */
+async function getUserProducts(userId) {
+  if (!isDatabaseConnected()) return [];
+  try {
+    const { data: vendors } = await dbQuery('vendors', { filter: { user_id: userId } });
+    if (!vendors || vendors.length === 0) return [];
+    const vendorId = vendors[0].id;
+    const { data } = await dbQuery('products', {
+      filter: { vendor_id: vendorId },
+      order: { column: 'created_at', ascending: false },
+      limit: 5,
+    });
+    return (data || []).map(p => ({
+      name: p.name,
+      status: p.status,
+      price: p.price,
+    }));
+  } catch { return []; }
+}
+
+/** Get user's notifications */
+async function getUserNotifications(userId) {
+  if (!isDatabaseConnected()) return [];
+  try {
+    const { data } = await dbQuery('notifications', {
+      filter: { user_id: userId },
+      order: { column: 'created_at', ascending: false },
+      limit: 5,
+    });
+    return (data || []).map(n => ({
+      title: n.title,
+      message: n.message,
+      read: n.read,
+      created_at: n.created_at,
+    }));
+  } catch { return []; }
+}
+
+/** Get user's reviews (vendor only) */
+async function getUserReviews(userId) {
+  if (!isDatabaseConnected()) return [];
+  try {
+    const { data: vendors } = await dbQuery('vendors', { filter: { user_id: userId } });
+    if (!vendors || vendors.length === 0) return [];
+    const vendorId = vendors[0].id;
+    const { data } = await dbQuery('reviews', {
+      filter: { vendor_id: vendorId },
+      order: { column: 'created_at', ascending: false },
+      limit: 5,
+    });
+    return (data || []).map(r => ({
+      rating: r.rating,
+      comment: r.comment,
+      created_at: r.created_at,
     }));
   } catch { return []; }
 }
@@ -369,36 +444,72 @@ export async function POST(request) {
       }
     }
 
-    // CHECK FOR USER DATA REQUESTS
+    // FETCH ALL RELEVANT USER DATA — whenever they ask about anything personal
     const lowerMsg = (message || '').toLowerCase();
     let userDataContext = '';
 
-    if (userId && isDatabaseConnected()) {
-      if (/order|delivery|shipping|track|parcel|package|bought|purchased|cart/i.test(lowerMsg) && !/become.*vendor|how.*to|register|sign.*up|what.*is/i.test(lowerMsg)) {
-        const orders = await getUserOrders(userId, userRole);
-        if (orders.length > 0) {
-          userDataContext = `\n\n[USER'S ORDER DATA — Use this to give specific help]\n${orders.map(o => `Order ${o.order_number}: Status=${o.status}, Total=₦${o.total}, Date=${new Date(o.created_at).toLocaleDateString()}`).join('\n')}`;
+    // Detect if user is asking about their own stuff (orders, account, status, etc.)
+    const isPersonalQuery = /my|me|mine|account|order|dispute|payout|wallet|balance|product|review|notification|kyc|verify|profile|setting|address|favorite|password|security|earn|money|bank|status|history|recent/i.test(lowerMsg) &&
+      !/become.*vendor|how.*to.*become|register|sign.*up|what.*is.*ojabridge|how.*does.*it.*work/i.test(lowerMsg);
+
+    if (userId && isDatabaseConnected() && isPersonalQuery) {
+      const parts = [];
+
+      // Always fetch orders (most common question)
+      const orders = await getUserOrders(userId, userRole);
+      if (orders.length > 0) {
+        parts.push(`[USER'S ORDERS]\n${orders.map(o => `Order ${o.order_number}: Status=${o.status}, Total=₦${o.total}, Date=${new Date(o.created_at).toLocaleDateString()}`).join('\n')}`);
+      } else {
+        parts.push('[USER DATA: No orders yet.]');
+      }
+
+      // Always fetch disputes
+      const disputes = await getUserDisputes(userId);
+      if (disputes.length > 0) {
+        parts.push(`[USER'S DISPUTES]\n${disputes.map(d => `Dispute: Reason=${d.reason}, Status=${d.status}, Date=${new Date(d.created_at).toLocaleDateString()}`).join('\n')}`);
+      } else {
+        parts.push('[USER DATA: No disputes.]');
+      }
+
+      // Fetch KYC status for vendors/retailers
+      if (userRole === 'vendor' || userRole === 'retailer') {
+        const kyc = await getUserKycStatus(userId, userRole);
+        if (kyc) {
+          parts.push(`[USER'S KYC STATUS]\nStatus: ${kyc.status}\nBusiness: ${kyc.business_name || 'Not set'}\nSubmitted: ${kyc.submitted_at ? new Date(kyc.submitted_at).toLocaleDateString() : 'Not submitted'}`);
         } else {
-          userDataContext = '\n\n[USER DATA: This user has no orders yet. Tell them they have no orders and suggest browsing the shop.]';
+          parts.push('[USER DATA: No KYC profile found.]');
         }
       }
 
-      if (/dispute|complaint|report/i.test(lowerMsg)) {
-        const disputes = await getUserDisputes(userId);
-        if (disputes.length > 0) {
-          userDataContext = `\n\n[USER'S DISPUTE DATA]\n${disputes.map(d => `Dispute: Reason=${d.reason}, Status=${d.status}, Date=${new Date(d.created_at).toLocaleDateString()}`).join('\n')}`;
-        } else {
-          userDataContext = '\n\n[USER DATA: This user has no open disputes.]';
-        }
-      }
-
-      if (/payout|withdraw|wallet|earn|balance/i.test(lowerMsg) && userRole === 'vendor') {
+      // Fetch payouts for vendors
+      if (userRole === 'vendor') {
         const payouts = await getVendorPayouts(userId);
         if (payouts.length > 0) {
-          userDataContext = `\n\n[USER'S PAYOUT DATA]\n${payouts.map(p => `Payout: Amount=₦${p.amount}, Status=${p.status}, Date=${new Date(p.created_at).toLocaleDateString()}`).join('\n')}`;
+          parts.push(`[USER'S PAYOUTS]\n${payouts.map(p => `Payout: Amount=₦${p.amount}, Status=${p.status}, Date=${new Date(p.created_at).toLocaleDateString()}`).join('\n')}`);
         } else {
-          userDataContext = '\n\n[USER DATA: This vendor has no payout records yet.]';
+          parts.push('[USER DATA: No payouts yet.]');
         }
+
+        const products = await getUserProducts(userId);
+        if (products.length > 0) {
+          parts.push(`[USER'S PRODUCTS]\n${products.map(p => `${p.name}: Status=${p.status}, Price=₦${p.price}`).join('\n')}`);
+        }
+
+        const reviews = await getUserReviews(userId);
+        if (reviews.length > 0) {
+          parts.push(`[USER'S REVIEWS]\n${reviews.map(r => `Rating: ${r.rating}/5 — "${r.comment || 'No comment'}"`).join('\n')}`);
+        }
+      }
+
+      // Fetch notifications
+      const notifs = await getUserNotifications(userId);
+      if (notifs.length > 0) {
+        const unread = notifs.filter(n => !n.read).length;
+        parts.push(`[USER'S NOTIFICATIONS]\n${unread} unread out of ${notifs.length} total\nLatest: ${notifs[0]?.title || 'N/A'} — ${notifs[0]?.message || ''}`);
+      }
+
+      if (parts.length > 0) {
+        userDataContext = '\n\n' + parts.join('\n\n');
       }
     }
 
