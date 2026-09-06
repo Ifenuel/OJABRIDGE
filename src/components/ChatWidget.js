@@ -73,9 +73,18 @@ export default function ChatWidget() {
   const [attachedImage, setAttachedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [userName, setUserName] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Detect mobile on mount and resize
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -203,32 +212,25 @@ export default function ChatWidget() {
       {/* Chat Window — Mobile-first responsive */}
       {open && (
         <>
-          {/* Mobile: full-screen overlay */}
-          <div className="fixed inset-0 z-50 bg-black/30 sm:hidden" onClick={() => setOpen(false)} />
+          {/* Mobile backdrop */}
+          {isMobile && <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setOpen(false)} />}
 
           <div
-            className="fixed z-50 bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
-            style={{
-              bottom: 0,
-              left: 0,
-              right: 0,
+            className="fixed z-50 bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+            style={isMobile ? {
+              bottom: 0, left: 0, right: 0,
               height: 'min(70vh, 520px)',
               maxHeight: '520px',
+              borderRadius: '1rem 1rem 0 0',
+            } : {
+              bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))',
+              right: 'max(1.5rem, env(safe-area-inset-right, 1.5rem))',
+              width: '380px',
+              height: '520px',
+              maxHeight: '600px',
+              borderRadius: '1rem',
             }}
           >
-            {/* Desktop override: position bottom-right with rounded corners */}
-            <style>{`
-              @media (min-width: 640px) {
-                .chat-window-desktop {
-                  bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem)) !important;
-                  left: auto !important;
-                  right: max(1.5rem, env(safe-area-inset-right, 1.5rem)) !important;
-                  width: 380px !important;
-                  border-radius: 1rem !important;
-                }
-              }
-            `}</style>
-
             {/* Header */}
             <div className="bg-ob-navy px-4 py-3 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
