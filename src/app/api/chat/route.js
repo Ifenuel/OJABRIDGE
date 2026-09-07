@@ -46,14 +46,12 @@ function detectPromptInjection(message) {
     /ignore\s+(your|all|previous|above)\s+(instructions|rules|prompts|guidelines)/i,
     /you\s+are\s+now\s+(an?\s+)?admin/i,
     /pretend\s+you\s+are/i,
-    /act\s+as\s+if/i,
     /bypass\s+(your|all|the)\s+(rules|instructions|safety)/i,
     /system\s+prompt/i,
     /developer\s+mode/i,
     /reveal\s+your\s+(instructions|prompt|rules|system)/i,
     /show\s+me\s+your\s+(system|instructions|prompt|rules)/i,
     /override\s+(your|all)\s+(instructions|rules)/i,
-    /new\s+instructions?:/i,
     /forget\s+(your|all|previous)\s+(instructions|rules)/i,
     /i\s+am\s+the\s+(admin|administrator|developer|owner)/i,
     /give\s+me\s+(all|every|the)\s+(users?|customers?|passwords?|data|admin)/i,
@@ -71,9 +69,7 @@ function detectInappropriate(message) {
 
 function sanitizeInput(message) {
   if (!message) return '';
-  return message
-    .trim()
-    .substring(0, 2000)
+  return message.trim().substring(0, 2000)
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<[^>]+>/g, '')
     .replace(/javascript:/gi, '')
@@ -92,20 +88,21 @@ function detectEmotion(message) {
 
 function getEmotionPrefix(emotion) {
   switch (emotion) {
-    case 'frustrated': return "I completely understand your frustration, and I am truly sorry you are going through this. You deserve better, and I want to help you resolve this right away.\n\n";
-    case 'confused': return "No worries at all — let me break this down for you clearly so it makes sense!\n\n";
-    case 'worried': return "I understand your concern, and I want to help put your mind at ease. Let me walk you through this.\n\n";
-    case 'happy': return "That is wonderful to hear! I am so glad! 😊\n\n";
-    case 'sad': return "I am sorry to hear that. Let me see how I can help make things right for you.\n\n";
+    case 'frustrated': return "I completely understand your frustration, and I am truly sorry you are going through this. Let me help you resolve this right away.\n\n";
+    case 'confused': return "No worries at all — let me break this down for you clearly!\n\n";
+    case 'worried': return "I understand your concern. Let me walk you through this.\n\n";
+    case 'happy': return "That is wonderful to hear! 😊\n\n";
+    case 'sad': return "I am sorry to hear that. Let me help make things right.\n\n";
     default: return "";
   }
 }
 
 // ============================================
-// SMART FALLBACK — Minimal, lets OpenAI handle the rest
+// SMART FALLBACK — Rule-based intelligence
+// Handles any OjaBridge question using topic + intent detection
 // ============================================
 const SUPPORT_EMAIL = 'awoyoemmanuel12@gmail.com';
-const SAFE_LINKS = {
+const LINKS = {
   faq: 'https://ojabridge.vercel.app/faq',
   disputes: 'https://ojabridge.vercel.app/account/disputes',
   orders: 'https://ojabridge.vercel.app/account/orders',
@@ -116,132 +113,362 @@ const SAFE_LINKS = {
   howItWorks: 'https://ojabridge.vercel.app/how-it-works',
   vendorDashboard: 'https://ojabridge.vercel.app/vendor-dashboard',
   retailerDashboard: 'https://ojabridge.vercel.app/retailer-dashboard',
+  kyc: 'https://ojabridge.vercel.app/vendor-dashboard/kyc',
+  store: 'https://ojabridge.vercel.app/vendor-dashboard/store',
+  products: 'https://ojabridge.vercel.app/vendor-dashboard/products',
+  payouts: 'https://ojabridge.vercel.app/vendor-dashboard/payouts',
+  settings: 'https://ojabridge.vercel.app/vendor-dashboard/settings',
 };
 
-function getSmartFallback(message, userName, userRole, context = []) {
-  const msg = message.toLowerCase().trim();
-  const greeting = userName ? `Hello ${userName}!` : "Hello!";
+/**
+ * Detect the TOPIC and INTENT of a message.
+ * This is a rule-based system that classifies any OjaBridge-related question.
+ * Returns { topic, intent } or null if not OjaBridge-related.
+ */
+function classifyMessage(msg) {
+  const m = msg.toLowerCase().trim();
 
-  const lastUserMsg = context.filter(m => m.role === 'user').pop()?.content?.toLowerCase() || '';
-  const lastAiMsg = context.filter(m => m.role === 'assistant').pop()?.content?.toLowerCase() || '';
-
-  // === SECURITY: Prompt Injection ===
-  if (detectPromptInjection(msg)) {
-    return "I am the OjaBridge AI assistant and I am here to help with platform-related questions. Is there something about OjaBridge I can help you with? 😊";
-  }
-
-  // === SECURITY: Inappropriate Content ===
-  const inappropriate = detectInappropriate(msg);
-  if (inappropriate === 'sexual') {
-    return "I am an AI assistant for OjaBridge and I am here to help with marketplace-related questions. Is there something about the platform I can help you with? 😊";
-  }
-  if (inappropriate === 'threat') {
-    return `I take safety very seriously. If you are experiencing an issue, please email our support team at ${SUPPORT_EMAIL} and they will help you right away. I am here to assist with OjaBridge platform questions. 😊`;
-  }
-  if (inappropriate === 'insult') {
-    return "I am sorry if something has frustrated you. I am here to help with OjaBridge and I want to make your experience better. Could you tell me what specific issue you are facing so I can assist you? 😊";
-  }
+  // === SECURITY ===
+  if (detectPromptInjection(m)) return { topic: 'security', intent: 'injection' };
+  const inappropriate = detectInappropriate(m);
+  if (inappropriate) return { topic: 'security', intent: inappropriate };
 
   // === OFF-TOPIC ===
-  if (/\b(president|government|election|politics|religion|football|soccer|nba|epl|weather|music|song|movie|netflix|tiktok|instagram|twitter|crypto|bitcoin|stock|forex)\b/i.test(msg) && !/ojabridge|marketplace|shop|vendor|order|payment/i.test(msg)) {
-    return "I am here to help with all things OjaBridge! 😊 Is there anything about the platform I can help you with? Whether it is shopping, selling, payments, or anything else — I am happy to assist!";
-  }
-
-  // === SHORT REPLIES → OpenAI handles with context ===
-  if (/^(yes|yeah|yep|yup|ok|okay|sure|definitely|please|go ahead|tell me|show me|no|nah|nope|not.?really|nothing|nvm|never.?mind)$/i.test(msg)) {
-    return null;
-  }
-
-  // === NAME QUESTIONS — use real user data ===
-  if (/who are you|what are you|your name/i.test(msg)) {
-    return `I am your OjaBridge AI support assistant! 😊 I am here to help you with anything on the platform — shopping, orders, payments, vendor setup, KYC, disputes, and more.\n\nHow can I help you today?`;
-  }
-  if (/my\s*name|name\s*\?|who\s+am\s+i|call\s+me|know\s+me|remember\s+me|what.*name|tell.*name|remember.*name|dont.*know.*name|do.*know.*name|whats.*my|what's.*my|am\s+i/i.test(msg)) {
-    if (userName) {
-      return `Of course I know you, ${userName}! 😊 You are logged in and I can see your account.\n\nHow can I help you today? Whether it is about your orders, account, payments, or anything else on OjaBridge — I am here for you! 💪`;
-    }
-    return `I can see you are logged in, but I do not have your name in our current conversation. Could you tell me your name so I can assist you better? 😊`;
-  }
-
-  // === CASUAL → OpenAI handles naturally ===
-  if (/^(lol|haha|hehe|ok then|alright|cool|nice|great|awesome|wow|omg|smh|brb|gtg|nvm|np|ty|thx|tysm)$/i.test(msg)) {
-    return null;
-  }
-
-  // === GIBBERISH / VERY SHORT ===
-  if (msg.length < 3 && !/^(hi|yo|ok|no|yes|hey|sup|bye|lol|brb|omg)$/i.test(msg)) {
-    return `It looks like that might have been a typo! 😊 I am the OjaBridge AI assistant — I can help you with shopping, selling, payments, KYC, and anything else on the platform. How can I help you today?`;
+  if (/\b(president|government|election|politics|religion|football|soccer|nba|epl|weather|music|song|movie|netflix|tiktok|instagram|twitter|crypto|bitcoin|stock|forex)\b/i.test(m) && !/ojabridge|marketplace|shop|vendor|order|payment/i.test(m)) {
+    return { topic: 'off-topic', intent: 'redirect' };
   }
 
   // === GREETINGS ===
-  if (/^(hi|hello|hey|howdy|good\s*(morning|afternoon|evening)|yo|sup|greetings|hiya|wassup|whats\s*up)/i.test(msg)) {
-    return `${greeting} 👋\n\nWelcome to OjaBridge! I am your AI support assistant and I am here to help you with anything on the platform.\n\nWhat can I help you with today? 😊`;
-  }
-
-  // === NAME INTRODUCTION ===
-  const nameMatch = msg.match(/^(?:my name is|im|i'm|call me|i am)\s+([a-z]+)/i);
-  if (nameMatch && nameMatch[1].length > 1 && !/(sick|ill|tired|fine|good|bad|new|old|busy|ok|here|looking|trying|want|need|have|the|a|an|not|but|and|for|with|this|that|yes|no)/i.test(nameMatch[1])) {
-    const capName = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
-    if (userName) {
-      return `Nice to meet you, ${capName}! 😊 But I already know you as ${userName} from your account!\n\nHow can I help you on OjaBridge today? 💪`;
-    }
-    return `Nice to meet you, ${capName}! 😊\n\nHow can I help you on OjaBridge? Whether you want to shop, become a vendor, source products as a retailer, or have a question about the platform — I am here for you! 💪`;
-  }
-
-  // === SICK (not a name) ===
-  if (/^i('m|\s+am)\s+(sick|ill|not\s+feeling|unwell|in\s+pain|tired|exhausted)/i.test(msg)) {
-    return `I am sorry to hear you are not feeling well! I hope you get better soon. 😔\n\nWhile I am an AI assistant for OjaBridge and cannot provide medical advice, I can help you with anything related to the platform while you rest.\n\nIs there something specific about OjaBridge I can help you with? Or if you need a break, you can always email us at ${SUPPORT_EMAIL} and we will get back to you when you are ready. 💪\n\nTake care of yourself! 🙏`;
-  }
-
-  // === HOW ARE YOU ===
-  if (/^how are you|^how('s|\s+is)\s+it\s+going|^what('s|\s+is)\s+up/i.test(msg)) {
-    return "I am doing great, thank you for asking! 😊 I am always happy and ready to help!\n\nHow can I assist you with OjaBridge today? 💪";
-  }
-
-  // === WHAT IS OJABRIDGE ===
-  if (/^(what|tell me|about)\s+(is|about)\s+ojabridge/i.test(msg) || (/ojabridge/i.test(msg) && msg.length < 30)) {
-    return `Great question! ✨\n\nOjaBridge is Nigeria's trusted e-commerce marketplace — the bridge between sellers and buyers! 🌉\n\nThe name comes from "Oja" (market in Yoruba) + "Bridge" — we connect:\n\nCustomers who browse and buy\nVendors who list and sell products\nRetailers who source wholesale products\n\nAll payments are secure through Paystack, every vendor is verified, and buyers are protected. Safe, transparent, and built for Nigeria! 🇳🇬\n\nWant to know more about a specific feature? 😊`;
-  }
-
-  // === REGISTER ===
-  if (/^(how\s+do\s+i\s+)?(register|sign\s*up|create\s+account|new\s+account|join)/i.test(msg)) {
-    return `Signing up is super easy! 🎉\n\nHere is how:\n\n1. Go to ${SAFE_LINKS.register}\n2. Choose your role — Customer, Vendor, or Retailer\n3. Fill in your details (name, email, phone, password)\n4. Verify your email with the code we send\n5. You are in! 🎉\n\nTip: Choose Vendor to sell, Retailer to source wholesale, Customer to shop!\n\nNeed help with any step? 😊`;
-  }
-
-  // === LOGIN ===
-  if (/^(how\s+do\s+i\s+)?(login|log\s*in|sign\s*in)/i.test(msg)) {
-    return `Here is how to log in:\n\n1. Go to ${SAFE_LINKS.login}\n2. Enter your email and password\n3. If not verified, enter the verification code sent to your email\n4. You are in! 🎉\n\nForgot password? Click "Forgot Password" on the login page.\n\nNeed anything else? 😊`;
-  }
-
-  // === FORGOT PASSWORD ===
-  if (/forgot.*password|reset.*password|change.*password|can't.*login|cannot.*login|unable.*login/i.test(msg)) {
-    return `No worries! Here is how to reset your password:\n\n1. Go to ${SAFE_LINKS.login}\n2. Click "Forgot Password"\n3. Enter your email address\n4. Check your inbox for the reset code\n5. Create a new password\n\nIf you still have trouble, email us at ${SUPPORT_EMAIL} and we will help you get back in! 😊`;
+  if (/^(hi|hello|hey|howdy|good\s*(morning|afternoon|evening)|yo|sup|greetings|hiya|wassup|whats?\s*up)/i.test(m)) {
+    return { topic: 'greeting', intent: 'greet' };
   }
 
   // === THANKS ===
-  if (/thank|thanks|thx|appreciate|helpful/i.test(msg)) {
-    return "You are very welcome! 😊\n\nIt was my pleasure helping you! Come back anytime you need help with OjaBridge. I am always here for you! 💪";
-  }
+  if (/^(thank|thanks|thx|appreciate|helpful)/i.test(m)) return { topic: 'thanks', intent: 'gratitude' };
 
   // === BYE ===
-  if (/^(bye|goodbye|see you|later|take care)/i.test(msg)) {
-    return "Goodbye! 👋😊 It was great chatting with you!\n\nCome back anytime you need help with OjaBridge. Have a wonderful day! ✨";
+  if (/^(bye|goodbye|see you|later|take care)/i.test(m)) return { topic: 'bye', intent: 'farewell' };
+
+  // === NAME ===
+  if (/who are you|what are you|your name/i.test(m)) return { topic: 'identity', intent: 'who-are-you' };
+  if (/my\s*name|name\s*\?|who\s+am\s+i|call\s+me|know\s+me|remember\s+me|what.*name|tell.*name|whats.*my|what's.*my/i.test(m)) return { topic: 'identity', intent: 'my-name' };
+
+  // === FOLLOW-UPS ===
+  if (/^(yes|yeah|yep|yup|ok|okay|sure|definitely|please|go ahead|tell me|show me)$/i.test(m)) return { topic: 'followup', intent: 'yes' };
+  if (/^(no|nah|nope|not.?really|nothing|nvm|never.?mind)$/i.test(m)) return { topic: 'followup', intent: 'no' };
+
+  // === CASUAL ===
+  if (/^(lol|haha|hehe|ok then|alright|cool|nice|great|awesome|wow|omg|smh|brb|gtg|nvm|np|ty|thx|tysm)$/i.test(m)) return { topic: 'casual', intent: 'acknowledge' };
+
+  // === SICK ===
+  if (/^i('m|\s+am)\s+(sick|ill|not\s+feeling|unwell|in\s+pain|tired|exhausted)/i.test(m)) return { topic: 'sick', intent: 'health' };
+
+  // === HOW ARE YOU ===
+  if (/^how are you|^how('s|\s+is)\s+it\s+going|^what('s|\s+is)\s+up/i.test(m)) return { topic: 'smalltalk', intent: 'how-are-you' };
+
+  // === OJABRIDGE ===
+  if (/^(what|tell me|about)\s+(is|about)\s+ojabridge/i.test(m) || (/ojabridge/i.test(m) && m.length < 30)) return { topic: 'about', intent: 'what-is-ojabridge' };
+
+  // === TOPIC DETECTION — Multiple topics can match, pick the strongest ===
+  const topics = [];
+
+  // BANK / PAYOUT (check BEFORE payment — payout/bank is more specific)
+  if (/(payout|withdraw|wallet|earn.*money|balance|settlement|bank.*account|bank.*name|bank.*number)/i.test(m)) {
+    topics.push({ topic: 'banking', score: 5 });
   }
 
-  // === HELP ===
-  if (/^(help|what can you do|capabilities)/i.test(msg) && msg.length < 30) {
-    return `I can help you with:\n\nShopping — Find products, place orders, track deliveries\nVendors — How to become a vendor, KYC, product listing\nRetailers — Sourcing products, bulk orders\nPayments — How Paystack payments work\nShipping — Delivery times and tracking\nDisputes — Report issues, get refunds\nKYC — Verification help for vendors and retailers\nYou can also send me screenshots of any issues!\n\nJust ask me anything about OjaBridge! 💪`;
+  // REFUND (check BEFORE payment — refund is more specific)
+  if (/(refund|return.*money|money.*back|get.*back.*money|cancel.*order.*refund)/i.test(m)) {
+    topics.push({ topic: 'refund', score: 5 });
   }
 
-  // === ALL OTHER TOPICS → OpenAI handles with full conversation context ===
-  // This includes: KYC, orders, complaints, disputes, refunds, payments, vendors,
-  // shipping, payouts, broken English, Pidgin — everything.
-  // OpenAI understands intent and conversation flow natively.
+  // PAYMENT
+  if (/(pay|payment|checkout|buy|purchase|price|cost|cart|paystack|card|bank\s*transfer|ussd)/i.test(m)) {
+    topics.push({ topic: 'payment', score: 3 });
+    if (/(how|way|process|explain|help|what|where|method|can\s+i|do\s+i|step)/i.test(m)) topics[topics.length-1].score += 2;
+  }
+
+  // ORDER STATUS (check before delivery complaint for general order queries)
+  if (/(order|orders|bought|purchased)/i.test(m)) {
+    const hasOrderKeyword = /(where|track|status|check|update|progress|my|mine|show|view|see|list|how|help|what)/i.test(m);
+    topics.push({ topic: 'order', score: hasOrderKeyword ? 5 : 3 });
+  }
+
+  // VENDOR NOT DELIVERING (highest score — specific complaint)
+  if (/vendor.*not.*(deliver|send|ship|respond|reply)|vendor.*never|vendor.*ignore|vendor.*no\s+dey|order.*not.*(deliver|come|reach|arrive)|order.*no.*reach|order.*delay|order.*late|wetin.*happen.*order|e.*no.*dey.*move|nothing.*happen|vendor.*take.*money|scam/i.test(m)) {
+    topics.push({ topic: 'delivery-complaint', score: 10 });
+  }
+
+  // KYC / VERIFICATION
+  if (/(kyc|kyb|verif|bvn|nin|identity|document|submit.*verif|verify.*account|verif.*status|pending.*verif)/i.test(m)) {
+    topics.push({ topic: 'kyc', score: 3 });
+    if (/(how|step|help|guide|process|what|need|required|where|when)/i.test(m)) topics[topics.length-1].score += 2;
+  }
+
+  // DISPUTE (more specific than general order)
+  if (/(dispute|complaint|report.*vendor|report.*seller|issue.*order|problem.*order|wrong.*item|damaged)/i.test(m)) {
+    topics.push({ topic: 'dispute', score: 4 });
+    if (/(how|open|create|file|submit|make|where|step|help)/i.test(m)) topics[topics.length-1].score += 2;
+  }
+
+  // VENDOR SETUP
+  if (/(become.*vendor|how.*sell|start.*sell|vendor.*register|register.*vendor|sell.*on|vendor.*account|set.*up.*store|add.*product|list.*product|upload.*product|product.*image|product.*photo)/i.test(m)) {
+    topics.push({ topic: 'vendor-setup', score: 3 });
+  }
+
+  // RETAILER
+  if (/(become.*retailer|how.*source|retailer.*register|register.*retailer|source.*product|wholesale|bulk.*order)/i.test(m)) {
+    topics.push({ topic: 'retailer-setup', score: 3 });
+  }
+
+  // DELIVERY / SHIPPING
+  if (/(deliver|shipping|ship|dispatch|delivery|courier|track.*package|tracking)/i.test(m)) {
+    topics.push({ topic: 'delivery', score: 2 });
+    if (/(time|how\s+long|when|rate|cost|fee|lagos|state)/i.test(m)) topics[topics.length-1].score += 2;
+  }
+
+  // REGISTRATION
+  if (/(register|sign\s*up|create.*account|new.*account|join|create.*profile)/i.test(m)) {
+    topics.push({ topic: 'registration', score: 3 });
+  }
+
+  // LOGIN
+  if (/(login|log\s*in|sign\s*in|password|forgot.*password|reset.*password|can't.*login|cannot.*login)/i.test(m)) {
+    topics.push({ topic: 'login', score: 3 });
+  }
+
+  // NOTIFICATION
+  if (/(notification|alert|message|inbox|bell|notify)/i.test(m)) {
+    topics.push({ topic: 'notification', score: 2 });
+  }
+
+  // SETTINGS / ACCOUNT
+  if (/(setting|account|profile|password|email|phone|address|update.*info|change.*info|edit.*profile)/i.test(m)) {
+    topics.push({ topic: 'settings', score: 2 });
+  }
+
+  // CATEGORIES / SHOP
+  if (/(categor|shop|browse|search|find.*product|what.*sell|product.*available)/i.test(m)) {
+    topics.push({ topic: 'shop', score: 2 });
+  }
+
+  // CONTACT / SUPPORT
+  if (/(contact|support|help.*me|reach.*you|speak.*someone|talk.*someone|customer.*service|customer.*care|phone.*number)/i.test(m)) {
+    topics.push({ topic: 'contact', score: 2 });
+  }
+
+  // STORE
+  if (/(store|shop.*name|brand|logo|store.*setup|setup.*store|store.*setting)/i.test(m)) {
+    topics.push({ topic: 'store', score: 2 });
+  }
+
+  // IMAGE / UPLOAD
+  if (/(image|photo|picture|screenshot|upload|gallery|camera|file)/i.test(m)) {
+    topics.push({ topic: 'upload', score: 2 });
+  }
+
+  // REVIEW
+  if (/(review|rating|star|feedback|comment.*product)/i.test(m)) {
+    topics.push({ topic: 'review', score: 2 });
+  }
+
+  // HOW IT WORKS
+  if (/(how.*it.*work|how.*does.*work|how.*ojabridge.*work|how.*platform.*work|explain.*platform|process.*work)/i.test(m)) {
+    topics.push({ topic: 'how-it-works', score: 3 });
+  }
+
+  // HELP
+  if (/^(help|what can you do|capabilities|features)/i.test(m) && m.length < 30) {
+    topics.push({ topic: 'help', intent: 'capabilities', score: 2 });
+  }
+
+  // Pick the highest-scoring topic
+  if (topics.length > 0) {
+    topics.sort((a, b) => b.score - a.score);
+    return topics[0];
+  }
+
+  // No topic detected
   return null;
 }
 
+/**
+ * Generate a helpful response for any topic + intent combination
+ * This is NOT hardcoded responses — it generates contextual answers
+ */
+function generateResponse(topic, intent, userName, userRole) {
+  const name = userName ? ` ${userName}` : '';
+
+  switch (topic) {
+    // === SECURITY ===
+    case 'security':
+      if (intent === 'injection') return "I am the OjaBridge AI assistant and I am here to help with platform-related questions. Is there something about OjaBridge I can help you with? 😊";
+      if (intent === 'sexual') return "I am an AI assistant for OjaBridge and I am here to help with marketplace-related questions. Is there something about the platform I can help you with? 😊";
+      if (intent === 'threat') return `I take safety very seriously. If you are experiencing an issue, please email our support team at ${SUPPORT_EMAIL} and they will help you right away.`;
+      if (intent === 'insult') return "I am sorry if something has frustrated you. I want to help make your experience better. Could you tell me what specific issue you are facing so I can assist you? 😊";
+      return "I am here to help with OjaBridge platform questions. 😊";
+
+    case 'off-topic':
+      return "I am here to help with all things OjaBridge! 😊 Is there anything about the platform I can assist you with?";
+
+    case 'greeting':
+      return `${userName ? `Hello ${userName}!` : 'Hello!'} 👋\n\nWelcome to OjaBridge! I am your AI support assistant and I can help you with shopping, orders, payments, vendor setup, KYC, disputes, and anything else on the platform.\n\nWhat can I help you with today? 😊`;
+
+    case 'thanks':
+      return "You are very welcome! 😊 Come back anytime you need help with OjaBridge. I am always here for you! 💪";
+
+    case 'bye':
+      return "Goodbye! 👋😊 It was great chatting with you! Come back anytime you need help with OjaBridge. Have a wonderful day! ✨";
+
+    case 'identity':
+      if (intent === 'who-are-you') return "I am your OjaBridge AI support assistant! 😊 I am here to help you with anything on the platform — shopping, orders, payments, vendor setup, KYC, disputes, and more.\n\nHow can I help you today?";
+      if (intent === 'my-name' && userName) return `Of course I know you, ${userName}! 😊 You are logged in and I can see your account.\n\nHow can I help you today? 💪`;
+      if (intent === 'my-name') return "I can see you are logged in, but I do not have your name in our current conversation. Could you tell me your name so I can assist you better? 😊";
+      return "I am your OjaBridge AI support assistant! 😊";
+
+    case 'followup':
+      return "Of course! Could you tell me a bit more about what you need help with? 😊";
+
+    case 'casual':
+      return `Glad you think so! 😊 Is there anything else I can help you with on OjaBridge? 💪`;
+
+    case 'sick':
+      return `I am sorry to hear you are not feeling well! I hope you get better soon. 😔\n\nWhile I am an AI assistant for OjaBridge and cannot provide medical advice, I can help you with anything related to the platform while you rest.\n\nYou can always email us at ${SUPPORT_EMAIL} and we will get back to you when you are ready. 💪\n\nTake care of yourself! 🙏`;
+
+    case 'smalltalk':
+      return "I am doing great, thank you for asking! 😊 How can I assist you with OjaBridge today? 💪";
+
+    case 'about':
+      return `Great question! ✨\n\nOjaBridge is Nigeria's trusted e-commerce marketplace — the bridge between sellers and buyers! 🌉\n\nThe name comes from "Oja" (market in Yoruba) + "Bridge" — we connect:\n\nCustomers who browse and buy\nVendors who list and sell products\nRetailers who source wholesale products\n\nAll payments are secure through Paystack, every vendor is verified, and buyers are protected. Safe, transparent, and built for Nigeria! 🇳🇬\n\nWant to know more about a specific feature? 😊`;
+
+    // === OJABRIDGE TOPICS — Generate contextual responses ===
+
+    case 'payment':
+      return `Here is how payments work on OjaBridge! 💳\n\n1. Browse products at ${LINKS.shop} and add them to your cart\n2. Go to checkout\n3. Pay via Paystack — you can use card, bank transfer, or USSD\n4. Payment is confirmed instantly!\n\nYour money is held safely until you confirm delivery. This is our Buyer Protection policy — you are always covered! 🛡️\n\nThe platform charges a 10% commission on successful transactions. Vendor payouts happen after delivery confirmation.\n\nAny specific questions about payments? 😊`;
+
+    case 'order':
+      return `You can check your order status anytime from your dashboard:\n\n${LINKS.orders}\n\nEach order shows its current status — from Processing through Shipped to Delivered.\n\nIf something looks wrong with your order, you can open a dispute from there, and our team will look into it right away.\n\nNeed help with anything specific about your order? 😊`;
+
+    case 'delivery-complaint':
+      return `I am really sorry you are experiencing this. You deserve to receive what you paid for, and we take delivery issues very seriously.\n\nHere is what I recommend:\n\n1. Check your order status first — visit your dashboard at ${LINKS.orders} to see the current status.\n\n2. Create a Dispute — If the order shows a problem, open a dispute:\n   Go to ${LINKS.disputes}\n   Select the order and describe exactly what happened.\n\n3. Contact Support — For faster resolution, email us at ${SUPPORT_EMAIL}\n   Include your order number, vendor name, and a description of the issue.\n\nWe will investigate and make sure this gets resolved for you. 💪`;
+
+    case 'kyc':
+      return `KYC/KYB verification is required before you can start selling or sourcing on OjaBridge.\n\nHere are the steps:\n\nStep 1 — Personal Information: Full legal name and date of birth\n\nStep 2 — Identity Verification:\n• BVN (dial *565*0# on your phone to get it)\n• NIN (dial *346# on your NIMC app to get it)\n• Both BVN and NIN are required\n\nStep 3 — Bank Account: Bank name, account number, and account name (must match your registered name)\n\nStep 4 — Business Information: Business name and RC number from CAC (Corporate Affairs Commission)\n\nAfter submission, admin reviews within 1-3 business days. You will be notified once approved.\n\nNeed help with any step? 😊`;
+
+    case 'dispute':
+      return `Here is how to create a dispute on OjaBridge:\n\n1. Go to ${LINKS.disputes}\n2. Click "Open New Dispute"\n3. Select the order you have an issue with\n4. Choose a reason (product not received, damaged, wrong item, etc.)\n5. Describe the issue in detail\n6. Submit\n\nOur team reviews disputes within 3-5 business days. You will be notified of the resolution.\n\nIf you need immediate help, email us at ${SUPPORT_EMAIL} with your order details. 😊`;
+
+    case 'vendor-setup':
+      return `Great choice! Here is how to become a vendor on OjaBridge:\n\n1. Register at ${LINKS.register} — choose "Vendor" as your role\n2. Verify your email with the code we send\n3. Complete your KYC/KYB verification:\n   • Personal info (name, date of birth)\n   • Identity (BVN and NIN — both required)\n   • Bank account details\n   • Business info (business name, RC number from CAC)\n4. Admin reviews within 1-3 business days\n5. Once approved, set up your store and add products\n\nStart selling and earning! 🚀\n\nNeed help with any step? 😊`;
+
+    case 'retailer-setup':
+      return `Here is how to become a retailer on OjaBridge:\n\n1. Register at ${LINKS.register} — choose "Retailer" as your role\n2. Verify your email\n3. Complete KYC/KYB (same steps as vendor)\n4. Browse wholesale products from verified vendors\n5. Place bulk orders and source products\n\nStart sourcing and selling! 🚀\n\nNeed help with any step? 😊`;
+
+    case 'banking':
+      return `Here is how payouts work on OjaBridge:\n\nOnce your order is delivered and confirmed by the customer, the payment goes to your wallet. You can then request a withdrawal to your linked bank account.\n\nThe process is:\n1. Customer confirms delivery\n2. Payment moves to your wallet (after 10% platform commission)\n3. You request a withdrawal\n4. Funds arrive in your bank account within 1-3 business days\n\nMake sure your KYC is fully verified and your bank details are correct in your Store Settings.\n\nIf you have issues, email us at ${SUPPORT_EMAIL} 😊`;
+
+    case 'refund':
+      return `Here is how refunds work on OjaBridge:\n\n• Full refund if order not delivered on time\n• Full refund if item significantly differs from description\n• Refund processed in 5-10 business days to original payment method\n\nTo request a refund, open a dispute at ${LINKS.disputes} and describe the issue. Our team will review and process it.\n\nFor immediate help, email us at ${SUPPORT_EMAIL} 😊`;
+
+    case 'delivery':
+      return `Here is how delivery works on OjaBridge:\n\nLagos: 1-3 business days\nOther states: 3-7 business days\n\nShipping rates are set by each vendor. You will receive tracking information once your order is shipped.\n\nIf your order is delayed or not delivered on time, you can open a dispute from your dashboard or email us at ${SUPPORT_EMAIL}.\n\nNeed help with a specific order? 😊`;
+
+    case 'registration':
+      return `Signing up on OjaBridge is super easy! 🎉\n\n1. Go to ${LINKS.register}\n2. Choose your role — Customer, Vendor, or Retailer\n3. Fill in your details (name, email, phone, password)\n4. Verify your email with the code we send\n5. You are in! 🎉\n\nTip: Choose Vendor to sell, Retailer to source wholesale, Customer to shop!\n\nNeed help with any step? 😊`;
+
+    case 'login':
+      if (/forgot.*password|reset.*password|change.*password/i.test(userName || '')) {
+        return `No worries! Here is how to reset your password:\n\n1. Go to ${LINKS.login}\n2. Click "Forgot Password"\n3. Enter your email address\n4. Check your inbox for the reset code\n5. Create a new password\n\nIf you still have trouble, email us at ${SUPPORT_EMAIL} 😊`;
+      }
+      return `Here is how to log in:\n\n1. Go to ${LINKS.login}\n2. Enter your email and password\n3. If not verified, enter the verification code sent to your email\n4. You are in! 🎉\n\nForgot password? Click "Forgot Password" on the login page.\n\nNeed anything else? 😊`;
+
+    case 'notification':
+      return `You can view your notifications from your dashboard. Notifications include:\n\n• Order updates (confirmed, shipped, delivered)\n• Dispute updates (status changes, resolutions)\n• Account updates (KYC approval, settings changes)\n• Platform announcements\n\nIf you are not receiving notifications, check your email settings or email us at ${SUPPORT_EMAIL} 😊`;
+
+    case 'settings':
+      return `You can manage your account settings from your dashboard:\n\n• Update your profile information\n• Change your password\n• Manage delivery addresses (customers)\n• Update store settings (vendors)\n• View and update KYC status\n\nGo to your dashboard and look for the Settings or Profile section. Need help with a specific setting? 😊`;
+
+    case 'shop':
+      return `You can browse products on OjaBridge at ${LINKS.shop}\n\nProducts are organized by categories to help you find what you need. You can also search for specific products using the search bar.\n\nWant to know about a specific category? 😊`;
+
+    case 'contact':
+      return `You can reach our support team through:\n\nEmail: ${SUPPORT_EMAIL}\nContact page: ${LINKS.contact}\nFAQ: ${LINKS.faq}\n\nWe typically respond within 24 hours. For urgent issues, please include your order number and a clear description of the problem.\n\nI am also here to help with any OjaBridge questions! 😊`;
+
+    case 'store':
+      return `To set up your store on OjaBridge:\n\n1. Go to your Vendor Dashboard → Store Settings\n2. Add your store name and description\n3. Upload your store logo\n4. Set your shipping rates and policies\n5. Save your settings\n\nYour store information will be visible to customers when they browse your products.\n\nNeed help with any step? 😊`;
+
+    case 'upload':
+      return `You can upload images directly from your phone or laptop when:\n\n• Adding products (Vendor Dashboard → Products → Add Product)\n• Submitting KYC documents\n• Creating disputes (attach evidence)\n\nJust click the image icon or upload button and select the file from your device.\n\nNeed help with a specific upload? 😊`;
+
+    case 'review':
+      return `You can leave reviews for products you have purchased on OjaBridge:\n\n1. Go to your Orders dashboard\n2. Find the delivered order\n3. Click "Write a Review"\n4. Rate the product and share your experience\n\nYour review helps other customers make informed decisions and helps vendors improve their service.\n\nNeed help with anything else? 😊`;
+
+    case 'how-it-works':
+      return `Here is how OjaBridge works:\n\n1. Customers browse and buy products from verified vendors\n2. Payments are processed securely through Paystack\n3. Money is held safely until delivery is confirmed\n4. Vendors prepare and ship the order\n5. Customer receives and confirms delivery\n6. Vendor gets paid after confirmation\n\nIf there is any issue, customers can open a dispute and our team will resolve it.\n\nWant to know more about a specific part? 😊`;
+
+    case 'help':
+      return `I can help you with:\n\n• Shopping — Find products, place orders, track deliveries\n• Vendors — How to become a vendor, KYC, product listing\n• Retailers — Sourcing products, bulk orders\n• Payments — How Paystack payments work\n• Shipping — Delivery times and tracking\n• Disputes — Report issues, get refunds\n• KYC — Verification help for vendors and retailers\n• Account — Settings, password, profile\n\nYou can also send me screenshots of any issues!\n\nJust ask me anything about OjaBridge! 💪`;
+
+    // === DEFAULT — Unknown topic but user asked something ===
+    default:
+      return `Hey${name}! 😊 I want to make sure I understand what you need.\n\nCould you tell me a bit more about what you are looking for? For example:\n\n• Are you having trouble with an order?\n• Do you need help with your account or KYC?\n• Are you looking for products to buy?\n• Do you want to become a vendor or retailer?\n• Or is there something else on your mind?\n\nI am here to help with anything on OjaBridge! Just tell me what is going on and I will do my best to assist you. 💪\n\nIf it is urgent, you can also email us at ${SUPPORT_EMAIL} and we will get back to you quickly!`;
+  }
+}
+
+function getSmartFallback(message, userName, userRole, context = []) {
+  const msg = message.toLowerCase().trim();
+  const lastAiMsg = context.filter(m => m.role === 'assistant').pop()?.content?.toLowerCase() || '';
+
+  // Classify the message
+  const classification = classifyMessage(msg);
+
+  if (classification) {
+    // Handle follow-ups with context from last AI message
+    if (classification.topic === 'followup') {
+      if (/kyc|verification|verify|bvn|nin|identity/i.test(lastAiMsg)) {
+        return generateResponse('kyc', 'help', userName, userRole);
+      }
+      if (/order|delivery|ship|track/i.test(lastAiMsg)) {
+        return generateResponse('order', 'status', userName, userRole);
+      }
+      if (/dispute|complaint|report/i.test(lastAiMsg)) {
+        return generateResponse('dispute', 'create', userName, userRole);
+      }
+      if (/register|sign.?up|create.*account/i.test(lastAiMsg)) {
+        return generateResponse('registration', 'steps', userName, userRole);
+      }
+      if (/pay|payment|checkout/i.test(lastAiMsg)) {
+        return generateResponse('payment', 'how', userName, userRole);
+      }
+      return generateResponse(classification.topic, classification.intent, userName, userRole);
+    }
+
+    // Handle "no" follow-ups with context
+    if (classification.topic === 'followup' && classification.intent === 'no') {
+      if (/kyc|verification|verify/i.test(lastAiMsg)) {
+        return "No problem! Take your time. Come back whenever you are ready to complete your verification. I am always here to help! 😊";
+      }
+      return "No worries! I am here whenever you need help with OjaBridge. Just ask me anything! 😊";
+    }
+
+    // Generate response for detected topic
+    return generateResponse(classification.topic, classification.intent, userName, userRole);
+  }
+
+  // No topic detected — it might be a conversational message
+  // or an OjaBridge question we didn't classify
+  const hasOjaBridgeContext = /ojabridge|vendor|customer|order|pay|ship|deliver|product|account|kyc|dispute|register|login|sell|buy/i.test(msg);
+  if (hasOjaBridgeContext) {
+    // OjaBridge-related but couldn't classify — give helpful catch-all
+    return `Hey${userName ? ' ' + userName : ''}! 😊 I understand you are asking about something on OjaBridge. Could you tell me a bit more specifically what you need?\n\nFor example:\n• Are you looking for help with an order or payment?\n• Do you need help with your account or KYC?\n• Are you setting up as a vendor or retailer?\n• Something else on the platform?\n\nThe more details you share, the better I can help! 😊`;
+  }
+
+  // Truly unknown — friendly catch-all
+  return `Hey${userName ? ' ' + userName : ''}! 😊 I want to make sure I understand what you need.\n\nCould you tell me a bit more about what you are looking for?\n\nI am here to help with anything on OjaBridge — shopping, orders, payments, vendor setup, KYC, disputes, and more! Just tell me what is going on and I will do my best to assist you. 💪\n\nIf it is urgent, you can also email us at ${SUPPORT_EMAIL} and we will get back to you quickly!`;
+}
+
 // ============================================
-// USER DATA TOOLS (Server-side, role-aware, ownership-verified)
+// USER DATA TOOLS
 // ============================================
 
 async function getUserOrders(userId) {
@@ -253,11 +480,7 @@ async function getUserOrders(userId) {
       limit: 10,
     });
     return (data || []).map(o => ({
-      id: o.id,
-      order_number: o.order_number,
-      status: o.status,
-      total: o.total,
-      created_at: o.created_at,
+      id: o.id, order_number: o.order_number, status: o.status, total: o.total, created_at: o.created_at,
     }));
   } catch { return []; }
 }
@@ -271,10 +494,7 @@ async function getUserDisputes(userId) {
       limit: 5,
     });
     return (data || []).map(d => ({
-      id: d.id,
-      reason: d.reason,
-      status: d.status,
-      created_at: d.created_at,
+      id: d.id, reason: d.reason, status: d.status, created_at: d.created_at,
     }));
   } catch { return []; }
 }
@@ -283,18 +503,14 @@ async function getVendorPayouts(userId) {
   if (!isDatabaseConnected()) return [];
   try {
     const { data: vendors } = await dbQuery('vendors', { filter: { user_id: userId } });
-    if (!vendors || vendors.length === 0) return [];
-    const vendorId = vendors[0].id;
+    if (!vendors?.length) return [];
     const { data } = await dbQuery('payouts', {
-      filter: { vendor_id: vendorId },
+      filter: { vendor_id: vendors[0].id },
       order: { column: 'created_at', ascending: false },
       limit: 5,
     });
     return (data || []).map(p => ({
-      id: p.id,
-      amount: p.amount,
-      status: p.status,
-      created_at: p.created_at,
+      id: p.id, amount: p.amount, status: p.status, created_at: p.created_at,
     }));
   } catch { return []; }
 }
@@ -304,7 +520,7 @@ async function getUserKycStatus(userId, role) {
   try {
     if (role === 'vendor' || role === 'retailer') {
       const { data } = await dbQuery('vendors', { filter: { user_id: userId } });
-      if (data && data[0]) {
+      if (data?.[0]) {
         return {
           status: data[0].kyc_status || data[0].verification_status || 'not_submitted',
           submitted_at: data[0].kyc_submitted_at || data[0].created_at,
@@ -320,18 +536,13 @@ async function getUserProducts(userId) {
   if (!isDatabaseConnected()) return [];
   try {
     const { data: vendors } = await dbQuery('vendors', { filter: { user_id: userId } });
-    if (!vendors || vendors.length === 0) return [];
-    const vendorId = vendors[0].id;
+    if (!vendors?.length) return [];
     const { data } = await dbQuery('products', {
-      filter: { vendor_id: vendorId },
+      filter: { vendor_id: vendors[0].id },
       order: { column: 'created_at', ascending: false },
       limit: 10,
     });
-    return (data || []).map(p => ({
-      name: p.name,
-      status: p.status,
-      price: p.price,
-    }));
+    return (data || []).map(p => ({ name: p.name, status: p.status, price: p.price }));
   } catch { return []; }
 }
 
@@ -344,10 +555,7 @@ async function getUserNotifications(userId) {
       limit: 5,
     });
     return (data || []).map(n => ({
-      title: n.title,
-      message: n.message,
-      read: n.read,
-      created_at: n.created_at,
+      title: n.title, message: n.message, read: n.read, created_at: n.created_at,
     }));
   } catch { return []; }
 }
@@ -356,27 +564,18 @@ async function getUserReviews(userId) {
   if (!isDatabaseConnected()) return [];
   try {
     const { data: vendors } = await dbQuery('vendors', { filter: { user_id: userId } });
-    if (!vendors || vendors.length === 0) return [];
-    const vendorId = vendors[0].id;
+    if (!vendors?.length) return [];
     const { data } = await dbQuery('reviews', {
-      filter: { vendor_id: vendorId },
+      filter: { vendor_id: vendors[0].id },
       order: { column: 'created_at', ascending: false },
       limit: 5,
     });
-    return (data || []).map(r => ({
-      rating: r.rating,
-      comment: r.comment,
-      created_at: r.created_at,
-    }));
+    return (data || []).map(r => ({ rating: r.rating, comment: r.comment, created_at: r.created_at }));
   } catch { return []; }
 }
 
-// ============================================
-// HELPER: Fetch ALL user data for personalized responses
-// ============================================
-async function fetchAllUserData(userId, userRole, lowerMsg) {
+async function fetchAllUserData(userId, userRole) {
   if (!userId || !isDatabaseConnected()) return '';
-  
   const parts = [];
 
   const orders = await getUserOrders(userId);
@@ -392,21 +591,19 @@ async function fetchAllUserData(userId, userRole, lowerMsg) {
   if (userRole === 'vendor' || userRole === 'retailer') {
     const kyc = await getUserKycStatus(userId, userRole);
     if (kyc) {
-      parts.push(`[USER'S KYC STATUS]\nStatus: ${kyc.status}\nBusiness: ${kyc.business_name || 'Not set'}\nSubmitted: ${kyc.submitted_at ? new Date(kyc.submitted_at).toLocaleDateString() : 'Not submitted'}`);
+      parts.push(`[USER'S KYC STATUS]\nStatus: ${kyc.status}\nBusiness: ${kyc.business_name || 'Not set'}`);
     }
   }
 
   if (userRole === 'vendor') {
     const payouts = await getVendorPayouts(userId);
     if (payouts.length > 0) {
-      parts.push(`[USER'S PAYOUTS]\n${payouts.map(p => `Payout: Amount=N${p.amount}, Status=${p.status}, Date=${new Date(p.created_at).toLocaleDateString()}`).join('\n')}`);
+      parts.push(`[USER'S PAYOUTS]\n${payouts.map(p => `Payout: Amount=N${p.amount}, Status=${p.status}`).join('\n')}`);
     }
-
     const products = await getUserProducts(userId);
     if (products.length > 0) {
       parts.push(`[USER'S PRODUCTS]\n${products.map(p => `${p.name}: Status=${p.status}, Price=N${p.price}`).join('\n')}`);
     }
-
     const reviews = await getUserReviews(userId);
     if (reviews.length > 0) {
       parts.push(`[USER'S REVIEWS]\n${reviews.map(r => `Rating: ${r.rating}/5 — "${r.comment || 'No comment'}"`).join('\n')}`);
@@ -416,7 +613,7 @@ async function fetchAllUserData(userId, userRole, lowerMsg) {
   const notifs = await getUserNotifications(userId);
   if (notifs.length > 0) {
     const unread = notifs.filter(n => !n.read).length;
-    parts.push(`[USER'S NOTIFICATIONS]\n${unread} unread out of ${notifs.length} total\nLatest: ${notifs[0]?.title || 'N/A'} — ${notifs[0]?.message || ''}`);
+    parts.push(`[USER'S NOTIFICATIONS]\n${unread} unread out of ${notifs.length} total\nLatest: ${notifs[0]?.title || 'N/A'}`);
   }
 
   return parts.length > 0 ? '\n\n' + parts.join('\n\n') : '';
@@ -441,7 +638,7 @@ export async function POST(request) {
     requests.push(now);
     rateLimit.set(ip, requests);
 
-    // SERVER-SIDE AUTH — Never trust frontend role
+    // SERVER-SIDE AUTH
     const authUser = await getUserFromRequest(request);
     let userRole = authUser?.role || null;
     let userName = authUser?.name?.split(' ')[0] || null;
@@ -455,42 +652,33 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'Message is required' }, { status: 400 });
     }
 
-    // EMOTION DETECTION
+    // EMOTION
     const emotion = detectEmotion(message || '');
     const emotionPrefix = getEmotionPrefix(emotion);
 
-    // Fallback: use client-provided user info from localStorage
+    // CLIENT USER FALLBACK
     if (!userId && clientUser?.id) {
       userId = clientUser.id;
       userRole = clientUser.role || null;
       userName = clientUser.name?.split(' ')[0] || null;
     }
 
-    // Validate name — skip fake/app names
-    if (userName && /^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(userName)) {
-      userName = null;
-    }
-    // Fetch real name from database
+    // NAME VALIDATION
+    if (userName && /^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(userName)) userName = null;
     if (!userName && userId && isDatabaseConnected()) {
       try {
         const { data: userData } = await dbQuery('users', { filter: { id: userId }, limit: 1 });
-        if (userData && userData[0]?.name && !/^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(userData[0].name)) {
+        if (userData?.[0]?.name && !/^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(userData[0].name)) {
           userName = userData[0].name.split(' ')[0];
         }
       } catch {}
     }
-    // Email prefix fallback
-    if (!userName && authUser?.email) {
-      userName = authUser.email.split('@')[0];
-    }
-    if (!userName && clientUser?.email) {
-      userName = clientUser.email.split('@')[0];
-    }
+    if (!userName && authUser?.email) userName = authUser.email.split('@')[0];
+    if (!userName && clientUser?.email) userName = clientUser.email.split('@')[0];
 
-    // DATABASE: Get or create conversation
+    // CONVERSATION
     let convId = conversationId;
     let history = [];
-
     if (isDatabaseConnected()) {
       if (convId) {
         const { data: msgs } = await dbQuery('chat_messages', {
@@ -500,35 +688,28 @@ export async function POST(request) {
         });
         history = (msgs || []).map(m => ({ role: m.role, content: m.content }));
       } else {
-        // Create new conversation
         const { data: conv } = await dbInsert('chat_conversations', {
-          user_id: userId,
-          user_role: userRole,
-          created_at: new Date().toISOString(),
+          user_id: userId, user_role: userRole, created_at: new Date().toISOString(),
         });
         if (conv) convId = conv.id;
       }
-
-      // Save user message
       if (convId) {
         await dbInsert('chat_messages', {
-          conversation_id: convId,
-          role: 'user',
+          conversation_id: convId, role: 'user',
           content: message || (image ? '[Image attached]' : ''),
-          image_url: image || null,
-          created_at: new Date().toISOString(),
+          image_url: image || null, created_at: new Date().toISOString(),
         });
       }
     }
 
-    // DETECT PERSONAL QUERY — fetch all user data when they ask about their stuff
+    // FETCH USER DATA
     const lowerMsg = (message || '').toLowerCase();
     const isPersonalQuery = /my|me|mine|account|order|dispute|payout|wallet|balance|product|review|notification|kyc|verify|profile|setting|address|favorite|password|security|earn|money|bank|status|history|recent/i.test(lowerMsg) &&
       !/become.*vendor|how.*to.*become|register|sign.*up|what.*is.*ojabridge|how.*does.*it.*work/i.test(lowerMsg);
 
     let userDataContext = '';
     if (userId && isDatabaseConnected() && isPersonalQuery) {
-      userDataContext = await fetchAllUserData(userId, userRole, lowerMsg);
+      userDataContext = await fetchAllUserData(userId, userRole);
     }
 
     // TRY SMART FALLBACK FIRST
@@ -536,13 +717,13 @@ export async function POST(request) {
     const apiKey = process.env.OPENAI_API_KEY;
     let aiReply = fallbackReply ? emotionPrefix + fallbackReply : null;
 
-    // IF NO FALLBACK, CALL OPENAI
+    // CALL OPENAI if no fallback matched
     if (!aiReply && apiKey) {
       try {
         let userContent;
         if (image) {
           userContent = [
-            { type: 'text', text: message || 'Please analyze this image. If it shows an error on OjaBridge, explain what went wrong and how to fix it. If it shows a page, help the user navigate. Always relate it back to OjaBridge.' },
+            { type: 'text', text: message || 'Please analyze this image. If it shows an error on OjaBridge, explain what went wrong and how to fix it.' },
             { type: 'image_url', image_url: { url: image, detail: 'low' } },
           ];
         } else {
@@ -550,8 +731,6 @@ export async function POST(request) {
         }
 
         const systemPrompt = buildSystemPrompt({ userRole, userName }) + userDataContext;
-
-        // Build messages array with conversation history for context
         const messages = [
           { role: 'system', content: systemPrompt },
           ...history.slice(-15),
@@ -560,16 +739,8 @@ export async function POST(request) {
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages,
-            max_tokens: 800,
-            temperature: 0.7,
-          }),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 800, temperature: 0.7 }),
         });
 
         if (response.ok) {
@@ -581,23 +752,25 @@ export async function POST(request) {
           console.error('OpenAI API error:', response.status, errData.error?.message || 'Unknown');
         }
       } catch (err) {
-        console.error('OpenAI error:', err.message);
+        console.error('OpenAI connection error:', err.message);
       }
     }
 
-    // CONVERSATIONAL FALLBACK — when OpenAI fails, still be helpful
+    // LAST RESORT — contextual fallback (never generic wall of options)
     if (!aiReply) {
-      const name = userName ? ` ${userName}` : '';
-      aiReply = `Hey${name}! 😊 I am having a tiny technical hiccup connecting to my knowledge base right now, but I am still here to help!\n\nCould you tell me a bit more about what you need? For example:\n\nAre you having trouble with an order?\nDo you need help with your account or KYC?\nAre you looking for products to buy?\nDo you want to become a vendor or retailer?\nOr is there something else on your mind?\n\nIf it is urgent, you can also email us at ${SUPPORT_EMAIL} and we will get back to you quickly! 💪`;
+      const classification = classifyMessage(lowerMsg);
+      if (classification) {
+        aiReply = emotionPrefix + generateResponse(classification.topic, classification.intent, userName, userRole);
+      } else {
+        const name = userName ? ` ${userName}` : '';
+        aiReply = `Hey${name}! 😊 I want to make sure I understand what you need.\n\nCould you tell me a bit more about what you are looking for?\n\nI am here to help with anything on OjaBridge — shopping, orders, payments, vendor setup, KYC, disputes, and more! Just tell me what is going on and I will do my best to assist you. 💪\n\nIf it is urgent, you can also email us at ${SUPPORT_EMAIL} and we will get back to you quickly!`;
+      }
     }
 
-    // STORE ASSISTANT RESPONSE
+    // STORE RESPONSE
     if (isDatabaseConnected() && convId) {
       await dbInsert('chat_messages', {
-        conversation_id: convId,
-        role: 'assistant',
-        content: aiReply,
-        created_at: new Date().toISOString(),
+        conversation_id: convId, role: 'assistant', content: aiReply, created_at: new Date().toISOString(),
       });
     }
 
@@ -618,50 +791,39 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get('conversationId');
 
-    // If no conversationId, return user's latest conversation
     if (!conversationId) {
       if (!isDatabaseConnected()) return NextResponse.json({ success: true, messages: [] });
-
       const authUser = await getUserFromRequest(request);
       let userId = authUser?.id || null;
-
-      // Fallback to client user info
       if (!userId) {
         try {
           const clientUserStr = searchParams.get('clientUserId');
           if (clientUserStr) userId = clientUserStr;
         } catch {}
       }
-
       if (!userId) return NextResponse.json({ success: true, messages: [] });
 
-      // Find latest conversation for this user
       const { data: convs } = await dbQuery('chat_conversations', {
         filter: { user_id: userId },
         order: { column: 'updated_at', ascending: false },
         limit: 1,
       });
+      if (!convs?.length) return NextResponse.json({ success: true, messages: [] });
 
-      if (!convs || convs.length === 0) return NextResponse.json({ success: true, messages: [] });
-      const latestConv = convs[0];
-
-      // Load messages for this conversation
       const { data: messages } = await dbQuery('chat_messages', {
-        filter: { conversation_id: latestConv.id },
+        filter: { conversation_id: convs[0].id },
         order: { column: 'created_at', ascending: true },
         limit: 50,
       });
-
-      return NextResponse.json({ success: true, messages: messages || [], conversationId: latestConv.id });
+      return NextResponse.json({ success: true, messages: messages || [], conversationId: convs[0].id });
     }
 
     if (!isDatabaseConnected()) return NextResponse.json({ success: true, messages: [], dbConnected: false });
 
-    // OWNERSHIP CHECK
     const authUser = await getUserFromRequest(request);
     if (authUser) {
       const { data: conv } = await dbQuery('chat_conversations', { filter: { id: conversationId } });
-      if (conv && conv[0] && conv[0].user_id && conv[0].user_id !== authUser.id && authUser.role !== 'admin') {
+      if (conv?.[0]?.user_id && conv[0].user_id !== authUser.id && authUser.role !== 'admin') {
         return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
       }
     }
