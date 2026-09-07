@@ -29,31 +29,33 @@ export default function ChatWidget() {
   const [unread, setUnread] = useState(1);
   const [userName, setUserName] = useState(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [vvHeight, setVvHeight] = useState(0);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Detect iOS keyboard via visualViewport
+  // Detect iOS keyboard via visualViewport — store actual height
   useEffect(() => {
     if (!open) return;
     const vv = window.visualViewport;
     if (!vv) return;
 
-    const checkKeyboard = () => {
-      // If visual viewport height is significantly less than screen, keyboard is open
+    const update = () => {
       const screenH = window.screen?.height || window.innerHeight;
       const ratio = vv.height / screenH;
-      setKeyboardOpen(ratio < 0.7);
+      const isKb = ratio < 0.7;
+      setKeyboardOpen(isKb);
+      setVvHeight(vv.height);
     };
 
-    checkKeyboard();
-    vv.addEventListener('resize', checkKeyboard);
-    vv.addEventListener('scroll', checkKeyboard);
-    window.addEventListener('resize', checkKeyboard);
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
 
     return () => {
-      vv.removeEventListener('resize', checkKeyboard);
-      vv.removeEventListener('scroll', checkKeyboard);
-      window.removeEventListener('resize', checkKeyboard);
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
     };
   }, [open]);
 
@@ -150,14 +152,16 @@ export default function ChatWidget() {
 
   // Chat height: when keyboard is open on mobile, take nearly full visible area
   // When keyboard is closed, take ~65% of screen on mobile, fixed size on desktop
+  // Keyboard-open: use actual visualViewport height (already shrunk by keyboard)
+  // Take 60% of visible area so page behind is still partially visible
+  const kbHeight = vvHeight > 0 ? Math.min(Math.floor(vvHeight * 0.6), 380) : 400;
   const chatStyle = keyboardOpen ? {
-    // Keyboard open: take full visible viewport, anchored to bottom
     position: 'fixed',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '100dvh',
-    maxHeight: '100dvh',
+    height: `${kbHeight}px`,
+    maxHeight: `${kbHeight}px`,
     borderRadius: 0,
     paddingBottom: 'env(safe-area-inset-bottom, 0px)',
   } : {};
@@ -195,8 +199,8 @@ export default function ChatWidget() {
 
             className={chatClass}
             style={keyboardOpen ? chatStyle : {
-              height: 'min(65vh, 520px)',
-              maxHeight: 'min(65vh, 520px)',
+              height: 'min(65vh, 480px)',
+              maxHeight: 'min(65vh, 480px)',
             }}
           >
             {/* Header */}
