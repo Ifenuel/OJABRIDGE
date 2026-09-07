@@ -28,9 +28,34 @@ export default function ChatWidget() {
   const [conversationId, setConversationId] = useState(null);
   const [unread, setUnread] = useState(1);
   const [userName, setUserName] = useState(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const chatRef = useRef(null);
+
+  // Detect iOS keyboard via visualViewport
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const checkKeyboard = () => {
+      // If visual viewport height is significantly less than screen, keyboard is open
+      const screenH = window.screen?.height || window.innerHeight;
+      const ratio = vv.height / screenH;
+      setKeyboardOpen(ratio < 0.7);
+    };
+
+    checkKeyboard();
+    vv.addEventListener('resize', checkKeyboard);
+    vv.addEventListener('scroll', checkKeyboard);
+    window.addEventListener('resize', checkKeyboard);
+
+    return () => {
+      vv.removeEventListener('resize', checkKeyboard);
+      vv.removeEventListener('scroll', checkKeyboard);
+      window.removeEventListener('resize', checkKeyboard);
+    };
+  }, [open]);
 
   // Get user info from localStorage
   const getUserInfo = useCallback(() => {
@@ -48,7 +73,6 @@ export default function ChatWidget() {
     return null;
   }, []);
 
-  // Set username on mount
   useEffect(() => {
     if (open) {
       const info = getUserInfo();
@@ -56,17 +80,14 @@ export default function ChatWidget() {
     }
   }, [open, getUserInfo]);
 
-  // Load conversation history when opening
+  // Load conversation history
   useEffect(() => {
     if (open && messages.length === 0) {
       const loadHistory = async () => {
         try {
           const info = getUserInfo();
           if (!info?.id) {
-            setMessages([{
-              id: 'welcome', role: 'assistant',
-              content: "Hello! 👋 Welcome to OjaBridge!\n\nI am your AI support assistant. I can help you with shopping, orders, payments, vendor setup, KYC, disputes, and anything else on the platform.\n\nHow can I help you today? 😊",
-            }]);
+            setMessages([{ id: 'welcome', role: 'assistant', content: "Hello! 👋 Welcome to OjaBridge!\n\nI am your AI support assistant. I can help you with shopping, orders, payments, vendor setup, KYC, disputes, and anything else on the platform.\n\nHow can I help you today? 😊" }]);
             setUnread(0);
             return;
           }
@@ -77,17 +98,11 @@ export default function ChatWidget() {
             setConversationId(data.conversationId);
           } else {
             const greeting = info.name ? `Hello ${info.name}! 👋` : "Hello! 👋";
-            setMessages([{
-              id: 'welcome', role: 'assistant',
-              content: `${greeting} Welcome to OjaBridge!\n\nI am your AI support assistant. I can help you with shopping, orders, payments, vendor setup, KYC, disputes, and anything else on the platform.\n\nHow can I help you today? 😊`,
-            }]);
+            setMessages([{ id: 'welcome', role: 'assistant', content: `${greeting} Welcome to OjaBridge!\n\nI am your AI support assistant. How can I help you today? 😊` }]);
           }
           setUnread(0);
         } catch {
-          setMessages([{
-            id: 'welcome', role: 'assistant',
-            content: "Hello! 👋 Welcome to OjaBridge!\n\nI am your AI support assistant. How can I help you today? 😊",
-          }]);
+          setMessages([{ id: 'welcome', role: 'assistant', content: "Hello! 👋 Welcome to OjaBridge!\n\nI am your AI support assistant. How can I help you today? 😊" }]);
           setUnread(0);
         }
       };
@@ -115,10 +130,7 @@ export default function ChatWidget() {
           message: messageText,
           conversationId,
           clientUser: getUserInfo(),
-          conversationContext: messages.slice(-5).map(m => ({
-            role: m.role,
-            content: typeof m.content === 'string' ? m.content.substring(0, 200) : '',
-          })),
+          conversationContext: messages.slice(-5).map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content.substring(0, 200) : '' })),
         }),
       });
       const data = await res.json();
@@ -135,6 +147,24 @@ export default function ChatWidget() {
   };
 
   const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+
+  // Chat height: when keyboard is open on mobile, take nearly full visible area
+  // When keyboard is closed, take ~65% of screen on mobile, fixed size on desktop
+  const chatStyle = keyboardOpen ? {
+    // Keyboard open: take full visible viewport, anchored to bottom
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '100dvh',
+    maxHeight: '100dvh',
+    borderRadius: 0,
+    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+  } : {};
+
+  const chatClass = keyboardOpen
+    ? 'fixed z-[9999] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden'
+    : 'fixed z-[9999] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:rounded-t-2xl sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl';
 
   return (
     <>
@@ -157,34 +187,30 @@ export default function ChatWidget() {
       {/* Chat Window */}
       {open && (
         <>
-          {/* Backdrop — mobile only */}
-          <div className="fixed inset-0 z-[9998] bg-black/40 sm:hidden" onClick={() => setOpen(false)} />
+          {/* Backdrop — mobile only, hidden when keyboard is open */}
+          {!keyboardOpen && <div className="fixed inset-0 z-[9998] bg-black/30 sm:hidden" onClick={() => setOpen(false)} />}
 
-          {/* Chat container — uses dvh for proper keyboard handling on mobile */}
-          <div ref={chatRef}
-            className="fixed z-[9999] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden
-              max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:rounded-t-2xl
-              sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl"
-            style={{
-              // Use dynamic viewport height on mobile — adapts when keyboard opens
-              height: 'min(70dvh, 560px)',
-              maxHeight: '70dvh',
-              // iOS safe area
-              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          {/* Chat container */}
+          <div
+
+            className={chatClass}
+            style={keyboardOpen ? chatStyle : {
+              height: 'min(65vh, 520px)',
+              maxHeight: 'min(65vh, 520px)',
             }}
           >
             {/* Header */}
-            <div className="bg-ob-navy px-4 py-2.5 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 bg-ob-purple rounded-full flex items-center justify-center relative">
-                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-ob-navy px-3 py-2 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-ob-purple rounded-full flex items-center justify-center relative">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                   <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full border border-ob-navy" />
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold text-xs">OjaBridge Support</h3>
-                  <p className="text-green-400 text-[9px]">Online · AI Assistant</p>
+                  <h3 className="text-white font-semibold text-xs leading-tight">OjaBridge Support</h3>
+                  <p className="text-green-400 text-[9px] leading-tight">Online · AI Assistant</p>
                 </div>
               </div>
               <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white transition-colors p-1">
@@ -195,10 +221,10 @@ export default function ChatWidget() {
             </div>
 
             {/* Messages — scrollable, takes remaining space */}
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2.5 bg-gray-50 min-h-0">
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 bg-gray-50 min-h-0">
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${msg.role === 'user' ? 'bg-ob-purple text-white rounded-br-md' : 'bg-white text-gray-700 border border-gray-100 shadow-sm rounded-bl-md'}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-3 py-1.5 text-sm leading-relaxed ${msg.role === 'user' ? 'bg-ob-purple text-white rounded-br-md' : 'bg-white text-gray-700 border border-gray-100 shadow-sm rounded-bl-md'}`}>
                     {msg.role === 'assistant'
                       ? <div className="space-y-0.5">{renderMessage(msg.content)}</div>
                       : <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -208,8 +234,8 @@ export default function ChatWidget() {
               ))}
               {loading && (
                 <div className="flex justify-start">
-                  <div className="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-bl-md px-4 py-2.5">
-                    <div className="flex items-center gap-1.5">
+                  <div className="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-bl-md px-3 py-2">
+                    <div className="flex items-center gap-1">
                       <div className="w-1.5 h-1.5 bg-ob-purple rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                       <div className="w-1.5 h-1.5 bg-ob-purple rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                       <div className="w-1.5 h-1.5 bg-ob-purple rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -220,18 +246,18 @@ export default function ChatWidget() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Area — stays above keyboard, never covered */}
-            <div className="px-3 py-2 border-t border-gray-100 bg-white flex-shrink-0">
+            {/* Input Area — stays at bottom, never covered by keyboard */}
+            <div className="px-3 py-2 border-t border-gray-100 bg-white flex-shrink-0" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))' }}>
               <div className="flex items-end gap-2">
                 <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
                   placeholder="Type your question..."
                   rows={1}
-                  className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-ob-purple focus:ring-1 focus:ring-ob-purple/20 outline-none max-h-20"
-                  style={{ minHeight: '38px' }}
+                  className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-ob-purple focus:ring-1 focus:ring-ob-purple/20 outline-none max-h-16"
+                  style={{ minHeight: '36px' }}
                 />
                 <button onClick={sendMessage}
                   disabled={!input.trim() || loading}
-                  className="w-9 h-9 bg-ob-purple hover:bg-ob-purple-dark text-white rounded-xl flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                  className="w-8 h-8 bg-ob-purple hover:bg-ob-purple-dark text-white rounded-xl flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
