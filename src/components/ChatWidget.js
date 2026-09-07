@@ -272,24 +272,11 @@ export default function ChatWidget() {
       {/* Chat Window */}
       {open && (
         <>
-          {/* Mobile backdrop */}
-          {isMobile && <div className="fixed inset-0 z-[9998] bg-black/40" onClick={() => setOpen(false)} />}
+          {/* Mobile backdrop — hidden on desktop via CSS */}
+          <div className="fixed inset-0 z-[9998] bg-black/40 sm:hidden" onClick={() => setOpen(false)} />
 
           <div ref={chatRef}
-            className="fixed z-[9999] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
-            style={isMobile ? {
-              bottom: 0, left: 0, right: 0,
-              height: '60vh',
-              maxHeight: '60vh',
-              borderRadius: '1rem 1rem 0 0',
-            } : {
-              bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))',
-              right: 'max(1.5rem, env(safe-area-inset-right, 1.5rem))',
-              width: '380px',
-              height: '520px',
-              maxHeight: '600px',
-              borderRadius: '1rem',
-            }}
+            className="fixed z-[9999] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:h-[60vh] max-sm:rounded-t-2xl sm:bottom-6 sm:right-6 sm:w-[380px] sm:h-[520px] sm:max-h-[600px] sm:rounded-2xl"
           >
             {/* Header — compact */}
             <div className="bg-ob-navy px-4 py-2.5 flex items-center justify-between flex-shrink-0">
@@ -372,7 +359,7 @@ export default function ChatWidget() {
               />
               <div className="flex items-end gap-1.5 relative">
                 <button onClick={() => {
-                  if (isMobile) {
+                  if (window.innerWidth < 640) {
                     emojiInputRef.current?.focus();
                   } else {
                     setShowEmoji(!showEmoji);
