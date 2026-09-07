@@ -21,25 +21,36 @@ export async function GET(request) {
       return NextResponse.json({ success: true, conversations: [], messages: [], dbConnected: false });
     }
 
-    // If conversationId provided, return messages
+    // Ensure tables exist
+    try {
+      await dbRaw(`CREATE TABLE IF NOT EXISTS chat_conversations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        user_role VARCHAR(20),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )`);
+      await dbRaw(`CREATE TABLE IF NOT EXISTS chat_messages (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        conversation_id UUID REFERENCES chat_conversations(id) ON DELETE CASCADE,
+        role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+        content TEXT NOT NULL,
+        image_url TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )`);
+    } catch {}
+
+    // If conversationId provided, return messages with user info
     if (conversationId) {
-      // Ensure tables exist
-      try {
-        await dbRaw(`CREATE TABLE IF NOT EXISTS chat_conversations (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-          created_at TIMESTAMPTZ DEFAULT NOW(),
-          updated_at TIMESTAMPTZ DEFAULT NOW()
-        )`);
-        await dbRaw(`CREATE TABLE IF NOT EXISTS chat_messages (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          conversation_id UUID REFERENCES chat_conversations(id) ON DELETE CASCADE,
-          role VARCHAR(20) NOT NULL,
-          content TEXT NOT NULL,
-          image_url TEXT,
-          created_at TIMESTAMPTZ DEFAULT NOW()
-        )`);
-      } catch {}
+      // Get conversation details
+      const { data: conv } = await dbQuery('chat_conversations', { filter: { id: conversationId } });
+      let userInfo = null;
+      if (conv?.[0]?.user_id) {
+        const { data: userData } = await dbQuery('users', { filter: { id: conv[0].user_id }, limit: 1 });
+        if (userData?.[0]) {
+          userInfo = { name: userData[0].name, email: userData[0].email, role: userData[0].role };
+        }
+      }
 
       const { data: messages, error } = await dbQuery('chat_messages', {
         filter: { conversation_id: conversationId },
@@ -47,35 +58,20 @@ export async function GET(request) {
         limit: 100,
       });
       if (error) return NextResponse.json({ success: false, error }, { status: 500 });
-      return NextResponse.json({ success: true, messages: messages || [] });
+      return NextResponse.json({ success: true, messages: messages || [], user: userInfo, conversation: conv?.[0] || null });
     }
 
-    // List all conversations with message count
-    try {
-      await dbRaw(`CREATE TABLE IF NOT EXISTS chat_conversations (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      )`);
-      await dbRaw(`CREATE TABLE IF NOT EXISTS chat_messages (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        conversation_id UUID REFERENCES chat_conversations(id) ON DELETE CASCADE,
-        role VARCHAR(20) NOT NULL,
-        content TEXT NOT NULL,
-        image_url TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      )`);
-    } catch {}
-
+    // List all conversations with user info and message count
     const { data: conversations, error } = await dbRaw(`
       SELECT 
-        c.id, c.created_at, c.updated_at,
+        c.id, c.user_id, c.user_role, c.created_at, c.updated_at,
         COUNT(m.id)::int as message_count,
-        MAX(m.created_at) as last_message_at
+        MAX(m.created_at) as last_message_at,
+        u.name as user_name, u.email as user_email, u.role as user_actual_role
       FROM chat_conversations c
       LEFT JOIN chat_messages m ON c.id = m.conversation_id
-      GROUP BY c.id
+      LEFT JOIN users u ON c.user_id = u.id
+      GROUP BY c.id, c.user_id, c.user_role, c.created_at, c.updated_at, u.name, u.email, u.role
       ORDER BY last_message_at DESC NULLS LAST, c.created_at DESC
       LIMIT 100
     `);
