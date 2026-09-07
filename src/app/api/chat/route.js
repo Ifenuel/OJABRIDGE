@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbQuery, dbInsert, dbUpdate, dbRaw, isDatabaseConnected } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
-import { buildSystemPrompt, QUICK_RESPONSES } from '@/lib/ai-knowledge';
+import { buildSystemPrompt } from '@/lib/ai-knowledge';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,19 +30,17 @@ async function ensureChatTables() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`);
     await dbRaw(`CREATE INDEX IF NOT EXISTS idx_chat_messages_conv ON chat_messages(conversation_id, created_at)`);
-    await dbRaw(`CREATE INDEX IF NOT EXISTS idx_chat_conv_user ON chat_conversations(user_id, created_at DESC)`);
+    await dbRaw(`CREATE INDEX IF NOT EXISTS idx_chat_conv_user ON chat_messages(conversation_id, created_at DESC)`);
     tablesCreated = true;
   } catch (error) {
     tablesCreated = true;
   }
 }
 
-
 // ============================================
 // SECURITY UTILITIES
 // ============================================
 
-/** Detect prompt injection attempts */
 function detectPromptInjection(message) {
   const patterns = [
     /ignore\s+(your|all|previous|above)\s+(instructions|rules|prompts|guidelines)/i,
@@ -63,7 +61,6 @@ function detectPromptInjection(message) {
   return patterns.some(p => p.test(message));
 }
 
-/** Detect inappropriate content */
 function detectInappropriate(message) {
   const msg = message.toLowerCase();
   if (/\b(sex|porn|nude|naked|sexy|dirty|nsfw|hookup|erotic|xxx)\b/i.test(msg)) return 'sexual';
@@ -72,7 +69,6 @@ function detectInappropriate(message) {
   return null;
 }
 
-/** Sanitize user input */
 function sanitizeInput(message) {
   if (!message) return '';
   return message
@@ -84,7 +80,6 @@ function sanitizeInput(message) {
     .replace(/on\w+\s*=/gi, '');
 }
 
-/** Detect user emotion */
 function detectEmotion(message) {
   const msg = message.toLowerCase();
   if (/frustrated|angry|annoyed|terrible|worst|hate|furious|scammed|fraud|ridiculous|sick|ill|unwell|not feeling|pain/i.test(msg)) return 'frustrated';
@@ -107,19 +102,17 @@ function getEmotionPrefix(emotion) {
 }
 
 // ============================================
-// SMART FALLBACK RESPONSES
+// SMART FALLBACK — Minimal, lets OpenAI handle the rest
 // ============================================
 const SUPPORT_EMAIL = 'awoyoemmanuel12@gmail.com';
 const SAFE_LINKS = {
   faq: 'https://ojabridge.vercel.app/faq',
-  support: 'https://ojabridge.vercel.app/support',
   disputes: 'https://ojabridge.vercel.app/account/disputes',
   orders: 'https://ojabridge.vercel.app/account/orders',
   register: 'https://ojabridge.vercel.app/register',
   login: 'https://ojabridge.vercel.app/login',
   shop: 'https://ojabridge.vercel.app/shop',
   contact: 'https://ojabridge.vercel.app/contact',
-  about: 'https://ojabridge.vercel.app/about',
   howItWorks: 'https://ojabridge.vercel.app/how-it-works',
   vendorDashboard: 'https://ojabridge.vercel.app/vendor-dashboard',
   retailerDashboard: 'https://ojabridge.vercel.app/retailer-dashboard',
@@ -129,7 +122,6 @@ function getSmartFallback(message, userName, userRole, context = []) {
   const msg = message.toLowerCase().trim();
   const greeting = userName ? `Hello ${userName}!` : "Hello!";
 
-  // Get the last few messages for context
   const lastUserMsg = context.filter(m => m.role === 'user').pop()?.content?.toLowerCase() || '';
   const lastAiMsg = context.filter(m => m.role === 'assistant').pop()?.content?.toLowerCase() || '';
 
@@ -155,29 +147,28 @@ function getSmartFallback(message, userName, userRole, context = []) {
     return "I am here to help with all things OjaBridge! 😊 Is there anything about the platform I can help you with? Whether it is shopping, selling, payments, or anything else — I am happy to assist!";
   }
 
-  // === CONVERSATIONAL MESSAGES → DEFER TO OPENAI WITH FULL CONTEXT ===
-  // Short replies, follow-ups, questions about name/identity, casual chat
+  // === SHORT REPLIES → OpenAI handles with context ===
   if (/^(yes|yeah|yep|yup|ok|okay|sure|definitely|please|go ahead|tell me|show me|no|nah|nope|not.?really|nothing|nvm|never.?mind)$/i.test(msg)) {
-    return null; // OpenAI handles with full conversation history
+    return null;
   }
 
-  // Questions about name/identity — use real user data
+  // === NAME QUESTIONS — use real user data ===
   if (/who are you|what are you|your name/i.test(msg)) {
     return `I am your OjaBridge AI support assistant! 😊 I am here to help you with anything on the platform — shopping, orders, payments, vendor setup, KYC, disputes, and more.\n\nHow can I help you today?`;
   }
-  if (/my\s*name|your\s+name|name\s*\?|who\s+am\s+i|call\s+me|know\s+me|remember\s+me|what.*name|tell.*name|remember.*name|dont.*know.*name|do.*know.*name|whats.*my|what's.*my|am\s+i/i.test(msg)) {
+  if (/my\s*name|name\s*\?|who\s+am\s+i|call\s+me|know\s+me|remember\s+me|what.*name|tell.*name|remember.*name|dont.*know.*name|do.*know.*name|whats.*my|what's.*my|am\s+i/i.test(msg)) {
     if (userName) {
       return `Of course I know you, ${userName}! 😊 You are logged in and I can see your account.\n\nHow can I help you today? Whether it is about your orders, account, payments, or anything else on OjaBridge — I am here for you! 💪`;
     }
     return `I can see you are logged in, but I do not have your name in our current conversation. Could you tell me your name so I can assist you better? 😊`;
   }
 
-  // Casual conversation — let OpenAI handle naturally
+  // === CASUAL → OpenAI handles naturally ===
   if (/^(lol|haha|hehe|ok then|alright|cool|nice|great|awesome|wow|omg|smh|brb|gtg|nvm|np|ty|thx|tysm)$/i.test(msg)) {
-    return null; // OpenAI handles naturally
+    return null;
   }
 
-  // === GIBBERISH / TYPOS ===
+  // === GIBBERISH / VERY SHORT ===
   if (msg.length < 3 && !/^(hi|yo|ok|no|yes|hey|sup|bye|lol|brb|omg)$/i.test(msg)) {
     return `It looks like that might have been a typo! 😊 I am the OjaBridge AI assistant — I can help you with shopping, selling, payments, KYC, and anything else on the platform. How can I help you today?`;
   }
@@ -188,27 +179,13 @@ function getSmartFallback(message, userName, userRole, context = []) {
   }
 
   // === NAME INTRODUCTION ===
-  // Match: "my name is Emmanuel", "Emmanuel" (single word after AI asked for name), "call me X"
   const nameMatch = msg.match(/^(?:my name is|im|i'm|call me|i am)\s+([a-z]+)/i);
   if (nameMatch && nameMatch[1].length > 1 && !/(sick|ill|tired|fine|good|bad|new|old|busy|ok|here|looking|trying|want|need|have|the|a|an|not|but|and|for|with|this|that|yes|no)/i.test(nameMatch[1])) {
     const capName = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1);
     if (userName) {
-      // User already has a name from login — acknowledge both
       return `Nice to meet you, ${capName}! 😊 But I already know you as ${userName} from your account!\n\nHow can I help you on OjaBridge today? 💪`;
     }
     return `Nice to meet you, ${capName}! 😊\n\nHow can I help you on OjaBridge? Whether you want to shop, become a vendor, source products as a retailer, or have a question about the platform — I am here for you! 💪`;
-  }
-
-  // Single word that looks like a name (after AI asked for name)
-  if (/^[a-z]{2,15}$/i.test(msg) && !/(hi|hey|yes|no|ok|help|shop|pay|order|kyc|ship|test|buy|sell|what|how|why|when|who|where|cool|nice|great|good|bad|fine|lol|thanks|thank|please|sure|bye|hello|error|fail|problem|issue)/i.test(msg)) {
-    // Check if last AI message asked for their name
-    if (/tell me your name|could you tell me|what is your name|your name/i.test(lastAiMsg)) {
-      const capName = msg.charAt(0).toUpperCase() + msg.slice(1);
-      if (userName) {
-        return `Thank you, ${capName}! 😊 I actually already know you as ${userName} from your account.\n\nIs there anything I can help you with on OjaBridge? 💪`;
-      }
-      return `Nice to meet you, ${capName}! 😊\n\nHow can I help you on OjaBridge today? 💪`;
-    }
   }
 
   // === SICK (not a name) ===
@@ -222,7 +199,7 @@ function getSmartFallback(message, userName, userRole, context = []) {
   }
 
   // === WHAT IS OJABRIDGE ===
-  if (/^(what|tell me|about)\s+(is|about)\s+ojabridge/i.test(msg) || /ojabridge/i.test(msg) && msg.length < 30) {
+  if (/^(what|tell me|about)\s+(is|about)\s+ojabridge/i.test(msg) || (/ojabridge/i.test(msg) && msg.length < 30)) {
     return `Great question! ✨\n\nOjaBridge is Nigeria's trusted e-commerce marketplace — the bridge between sellers and buyers! 🌉\n\nThe name comes from "Oja" (market in Yoruba) + "Bridge" — we connect:\n\nCustomers who browse and buy\nVendors who list and sell products\nRetailers who source wholesale products\n\nAll payments are secure through Paystack, every vendor is verified, and buyers are protected. Safe, transparent, and built for Nigeria! 🇳🇬\n\nWant to know more about a specific feature? 😊`;
   }
 
@@ -241,16 +218,6 @@ function getSmartFallback(message, userName, userRole, context = []) {
     return `No worries! Here is how to reset your password:\n\n1. Go to ${SAFE_LINKS.login}\n2. Click "Forgot Password"\n3. Enter your email address\n4. Check your inbox for the reset code\n5. Create a new password\n\nIf you still have trouble, email us at ${SUPPORT_EMAIL} and we will help you get back in! 😊`;
   }
 
-  // === PAYMENT ===
-  if (/^(how\s+do\s+(i\s+)?)?(pay|payment|checkout|buy|purchase|price|cost)/i.test(msg) || /how.*(pay|buy|purchase)/i.test(msg)) {
-    return `Here is how payments work on OjaBridge! 💳\n\n1. Browse products and add them to your cart\n2. Go to checkout\n3. Pay via Paystack — you can use card, bank transfer, or USSD\n4. Payment is confirmed instantly!\n\nYour money is held safely until you confirm delivery. This is part of our Buyer Protection policy — you are always covered! 🛡️\n\nAny questions about payments? 😊`;
-  }
-
-  // === ALL OTHER TOPICS → DEFER TO OPENAI WITH FULL CONVERSATION HISTORY ===
-  // KYC, orders, complaints, disputes, refunds, payments, vendors, shipping, etc.
-  // OpenAI handles these naturally with conversation context for proper flow
-  return null; // Let OpenAI handle with full conversation history
-
   // === THANKS ===
   if (/thank|thanks|thx|appreciate|helpful/i.test(msg)) {
     return "You are very welcome! 😊\n\nIt was my pleasure helping you! Come back anytime you need help with OjaBridge. I am always here for you! 💪";
@@ -263,25 +230,27 @@ function getSmartFallback(message, userName, userRole, context = []) {
 
   // === HELP ===
   if (/^(help|what can you do|capabilities)/i.test(msg) && msg.length < 30) {
-    return `I can help you with:\n\n🛍️ Shopping — Find products, place orders, track deliveries\n🏪 Vendors — How to become a vendor, KYC, product listing\n📦 Retailers — Sourcing products, bulk orders\n💳 Payments — How Paystack payments work\n🚚 Shipping — Delivery times and tracking\n💰 Disputes — Report issues, get refunds\n📋 KYC — Verification help for vendors and retailers\n📸 You can also send me screenshots of any issues!\n\nJust ask me anything about OjaBridge! 💪`;
+    return `I can help you with:\n\nShopping — Find products, place orders, track deliveries\nVendors — How to become a vendor, KYC, product listing\nRetailers — Sourcing products, bulk orders\nPayments — How Paystack payments work\nShipping — Delivery times and tracking\nDisputes — Report issues, get refunds\nKYC — Verification help for vendors and retailers\nYou can also send me screenshots of any issues!\n\nJust ask me anything about OjaBridge! 💪`;
   }
 
-  // === DEFAULT (no match) — let OpenAI handle it ===
+  // === ALL OTHER TOPICS → OpenAI handles with full conversation context ===
+  // This includes: KYC, orders, complaints, disputes, refunds, payments, vendors,
+  // shipping, payouts, broken English, Pidgin — everything.
+  // OpenAI understands intent and conversation flow natively.
   return null;
 }
 
 // ============================================
-// USER DATA TOOLS (Server-side, role-aware)
+// USER DATA TOOLS (Server-side, role-aware, ownership-verified)
 // ============================================
 
-/** Get user's own orders (ownership verified) */
-async function getUserOrders(userId, role) {
+async function getUserOrders(userId) {
   if (!isDatabaseConnected()) return [];
   try {
     const { data } = await dbQuery('orders', {
       filter: { user_id: userId },
       order: { column: 'created_at', ascending: false },
-      limit: 5,
+      limit: 10,
     });
     return (data || []).map(o => ({
       id: o.id,
@@ -293,7 +262,6 @@ async function getUserOrders(userId, role) {
   } catch { return []; }
 }
 
-/** Get user's own disputes (ownership verified) */
 async function getUserDisputes(userId) {
   if (!isDatabaseConnected()) return [];
   try {
@@ -311,7 +279,6 @@ async function getUserDisputes(userId) {
   } catch { return []; }
 }
 
-/** Get vendor's payout info (ownership verified) */
 async function getVendorPayouts(userId) {
   if (!isDatabaseConnected()) return [];
   try {
@@ -332,7 +299,6 @@ async function getVendorPayouts(userId) {
   } catch { return []; }
 }
 
-/** Get user's KYC/verification status */
 async function getUserKycStatus(userId, role) {
   if (!isDatabaseConnected()) return null;
   try {
@@ -350,7 +316,6 @@ async function getUserKycStatus(userId, role) {
   } catch { return null; }
 }
 
-/** Get user's products (vendor only) */
 async function getUserProducts(userId) {
   if (!isDatabaseConnected()) return [];
   try {
@@ -360,7 +325,7 @@ async function getUserProducts(userId) {
     const { data } = await dbQuery('products', {
       filter: { vendor_id: vendorId },
       order: { column: 'created_at', ascending: false },
-      limit: 5,
+      limit: 10,
     });
     return (data || []).map(p => ({
       name: p.name,
@@ -370,7 +335,6 @@ async function getUserProducts(userId) {
   } catch { return []; }
 }
 
-/** Get user's notifications */
 async function getUserNotifications(userId) {
   if (!isDatabaseConnected()) return [];
   try {
@@ -388,7 +352,6 @@ async function getUserNotifications(userId) {
   } catch { return []; }
 }
 
-/** Get user's reviews (vendor only) */
 async function getUserReviews(userId) {
   if (!isDatabaseConnected()) return [];
   try {
@@ -406,6 +369,57 @@ async function getUserReviews(userId) {
       created_at: r.created_at,
     }));
   } catch { return []; }
+}
+
+// ============================================
+// HELPER: Fetch ALL user data for personalized responses
+// ============================================
+async function fetchAllUserData(userId, userRole, lowerMsg) {
+  if (!userId || !isDatabaseConnected()) return '';
+  
+  const parts = [];
+
+  const orders = await getUserOrders(userId);
+  if (orders.length > 0) {
+    parts.push(`[USER'S ORDERS]\n${orders.map(o => `Order ${o.order_number || o.id}: Status=${o.status}, Total=N${o.total}, Date=${new Date(o.created_at).toLocaleDateString()}`).join('\n')}`);
+  }
+
+  const disputes = await getUserDisputes(userId);
+  if (disputes.length > 0) {
+    parts.push(`[USER'S DISPUTES]\n${disputes.map(d => `Dispute: Reason=${d.reason}, Status=${d.status}, Date=${new Date(d.created_at).toLocaleDateString()}`).join('\n')}`);
+  }
+
+  if (userRole === 'vendor' || userRole === 'retailer') {
+    const kyc = await getUserKycStatus(userId, userRole);
+    if (kyc) {
+      parts.push(`[USER'S KYC STATUS]\nStatus: ${kyc.status}\nBusiness: ${kyc.business_name || 'Not set'}\nSubmitted: ${kyc.submitted_at ? new Date(kyc.submitted_at).toLocaleDateString() : 'Not submitted'}`);
+    }
+  }
+
+  if (userRole === 'vendor') {
+    const payouts = await getVendorPayouts(userId);
+    if (payouts.length > 0) {
+      parts.push(`[USER'S PAYOUTS]\n${payouts.map(p => `Payout: Amount=N${p.amount}, Status=${p.status}, Date=${new Date(p.created_at).toLocaleDateString()}`).join('\n')}`);
+    }
+
+    const products = await getUserProducts(userId);
+    if (products.length > 0) {
+      parts.push(`[USER'S PRODUCTS]\n${products.map(p => `${p.name}: Status=${p.status}, Price=N${p.price}`).join('\n')}`);
+    }
+
+    const reviews = await getUserReviews(userId);
+    if (reviews.length > 0) {
+      parts.push(`[USER'S REVIEWS]\n${reviews.map(r => `Rating: ${r.rating}/5 — "${r.comment || 'No comment'}"`).join('\n')}`);
+    }
+  }
+
+  const notifs = await getUserNotifications(userId);
+  if (notifs.length > 0) {
+    const unread = notifs.filter(n => !n.read).length;
+    parts.push(`[USER'S NOTIFICATIONS]\n${unread} unread out of ${notifs.length} total\nLatest: ${notifs[0]?.title || 'N/A'} — ${notifs[0]?.message || ''}`);
+  }
+
+  return parts.length > 0 ? '\n\n' + parts.join('\n\n') : '';
 }
 
 // ============================================
@@ -445,28 +459,27 @@ export async function POST(request) {
     const emotion = detectEmotion(message || '');
     const emotionPrefix = getEmotionPrefix(emotion);
 
-    // If JWT auth failed, use client-provided user info (from localStorage)
-    // This is safe because the client already authenticated during login
+    // Fallback: use client-provided user info from localStorage
     if (!userId && clientUser?.id) {
       userId = clientUser.id;
       userRole = clientUser.role || null;
       userName = clientUser.name?.split(' ')[0] || null;
     }
 
-    // Validate name — if it looks like a fake/app name, fetch real name from database
+    // Validate name — skip fake/app names
     if (userName && /^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(userName)) {
       userName = null;
     }
-    // If no valid name yet, try to fetch from database
+    // Fetch real name from database
     if (!userName && userId && isDatabaseConnected()) {
       try {
         const { data: userData } = await dbQuery('users', { filter: { id: userId }, limit: 1 });
-        if (userData && userData[0]?.name && ! /^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(userData[0].name)) {
+        if (userData && userData[0]?.name && !/^(ojabridge|admin|user|test|vendor|retailer|customer)$/i.test(userData[0].name)) {
           userName = userData[0].name.split(' ')[0];
         }
       } catch {}
     }
-    // Final fallback: email prefix
+    // Email prefix fallback
     if (!userName && authUser?.email) {
       userName = authUser.email.split('@')[0];
     }
@@ -483,10 +496,11 @@ export async function POST(request) {
         const { data: msgs } = await dbQuery('chat_messages', {
           filter: { conversation_id: convId },
           order: { column: 'created_at', ascending: true },
-          limit: 20,
+          limit: 30,
         });
         history = (msgs || []).map(m => ({ role: m.role, content: m.content }));
       } else {
+        // Create new conversation
         const { data: conv } = await dbInsert('chat_conversations', {
           user_id: userId,
           user_role: userRole,
@@ -495,6 +509,7 @@ export async function POST(request) {
         if (conv) convId = conv.id;
       }
 
+      // Save user message
       if (convId) {
         await dbInsert('chat_messages', {
           conversation_id: convId,
@@ -506,73 +521,14 @@ export async function POST(request) {
       }
     }
 
-    // FETCH ALL RELEVANT USER DATA — whenever they ask about anything personal
+    // DETECT PERSONAL QUERY — fetch all user data when they ask about their stuff
     const lowerMsg = (message || '').toLowerCase();
-    let userDataContext = '';
-
-    // Detect if user is asking about their own stuff (orders, account, status, etc.)
     const isPersonalQuery = /my|me|mine|account|order|dispute|payout|wallet|balance|product|review|notification|kyc|verify|profile|setting|address|favorite|password|security|earn|money|bank|status|history|recent/i.test(lowerMsg) &&
       !/become.*vendor|how.*to.*become|register|sign.*up|what.*is.*ojabridge|how.*does.*it.*work/i.test(lowerMsg);
 
+    let userDataContext = '';
     if (userId && isDatabaseConnected() && isPersonalQuery) {
-      const parts = [];
-
-      // Always fetch orders (most common question)
-      const orders = await getUserOrders(userId, userRole);
-      if (orders.length > 0) {
-        parts.push(`[USER'S ORDERS]\n${orders.map(o => `Order ${o.order_number}: Status=${o.status}, Total=₦${o.total}, Date=${new Date(o.created_at).toLocaleDateString()}`).join('\n')}`);
-      } else {
-        parts.push('[USER DATA: No orders yet.]');
-      }
-
-      // Always fetch disputes
-      const disputes = await getUserDisputes(userId);
-      if (disputes.length > 0) {
-        parts.push(`[USER'S DISPUTES]\n${disputes.map(d => `Dispute: Reason=${d.reason}, Status=${d.status}, Date=${new Date(d.created_at).toLocaleDateString()}`).join('\n')}`);
-      } else {
-        parts.push('[USER DATA: No disputes.]');
-      }
-
-      // Fetch KYC status for vendors/retailers
-      if (userRole === 'vendor' || userRole === 'retailer') {
-        const kyc = await getUserKycStatus(userId, userRole);
-        if (kyc) {
-          parts.push(`[USER'S KYC STATUS]\nStatus: ${kyc.status}\nBusiness: ${kyc.business_name || 'Not set'}\nSubmitted: ${kyc.submitted_at ? new Date(kyc.submitted_at).toLocaleDateString() : 'Not submitted'}`);
-        } else {
-          parts.push('[USER DATA: No KYC profile found.]');
-        }
-      }
-
-      // Fetch payouts for vendors
-      if (userRole === 'vendor') {
-        const payouts = await getVendorPayouts(userId);
-        if (payouts.length > 0) {
-          parts.push(`[USER'S PAYOUTS]\n${payouts.map(p => `Payout: Amount=₦${p.amount}, Status=${p.status}, Date=${new Date(p.created_at).toLocaleDateString()}`).join('\n')}`);
-        } else {
-          parts.push('[USER DATA: No payouts yet.]');
-        }
-
-        const products = await getUserProducts(userId);
-        if (products.length > 0) {
-          parts.push(`[USER'S PRODUCTS]\n${products.map(p => `${p.name}: Status=${p.status}, Price=₦${p.price}`).join('\n')}`);
-        }
-
-        const reviews = await getUserReviews(userId);
-        if (reviews.length > 0) {
-          parts.push(`[USER'S REVIEWS]\n${reviews.map(r => `Rating: ${r.rating}/5 — "${r.comment || 'No comment'}"`).join('\n')}`);
-        }
-      }
-
-      // Fetch notifications
-      const notifs = await getUserNotifications(userId);
-      if (notifs.length > 0) {
-        const unread = notifs.filter(n => !n.read).length;
-        parts.push(`[USER'S NOTIFICATIONS]\n${unread} unread out of ${notifs.length} total\nLatest: ${notifs[0]?.title || 'N/A'} — ${notifs[0]?.message || ''}`);
-      }
-
-      if (parts.length > 0) {
-        userDataContext = '\n\n' + parts.join('\n\n');
-      }
+      userDataContext = await fetchAllUserData(userId, userRole, lowerMsg);
     }
 
     // TRY SMART FALLBACK FIRST
@@ -586,7 +542,7 @@ export async function POST(request) {
         let userContent;
         if (image) {
           userContent = [
-            { type: 'text', text: message || 'Please analyze this image. If it shows an error on OjaBridge, explain what went wrong and how to fix it. If it shows a page, help the user navigate. Always relate it back to OjaBridge and provide the support email for complex issues.' },
+            { type: 'text', text: message || 'Please analyze this image. If it shows an error on OjaBridge, explain what went wrong and how to fix it. If it shows a page, help the user navigate. Always relate it back to OjaBridge.' },
             { type: 'image_url', image_url: { url: image, detail: 'low' } },
           ];
         } else {
@@ -595,9 +551,10 @@ export async function POST(request) {
 
         const systemPrompt = buildSystemPrompt({ userRole, userName }) + userDataContext;
 
+        // Build messages array with conversation history for context
         const messages = [
           { role: 'system', content: systemPrompt },
-          ...history.slice(-10),
+          ...history.slice(-15),
           { role: 'user', content: userContent },
         ];
 
@@ -628,13 +585,10 @@ export async function POST(request) {
       }
     }
 
-    // GENERIC FALLBACK — conversational, uses the user's name
+    // CONVERSATIONAL FALLBACK — when OpenAI fails, still be helpful
     if (!aiReply) {
-      if (userName) {
-        aiReply = `Hey ${userName}! 😊 I want to make sure I understand what you need.\n\nCould you tell me a bit more about what you are looking for? For example:\n\n- Are you having trouble with an order?\n- Do you need help with your account or KYC?\n- Are you looking for products to buy?\n- Do you want to become a vendor or retailer?\n- Or is there something else on your mind?\n\nI am here to help with anything on OjaBridge! Just tell me what is going on and I will do my best to assist you. 💪`;
-      } else {
-        aiReply = `Hey there! 😊 I want to make sure I understand what you need.\n\nCould you tell me a bit more about what you are looking for? For example:\n\n- Are you having trouble with an order?\n- Do you need help with your account or KYC?\n- Are you looking for products to buy?\n- Do you want to become a vendor or retailer?\n- Or is there something else on your mind?\n\nI am here to help with anything on OjaBridge! Just tell me what is going on and I will do my best to assist you. 💪`;
-      }
+      const name = userName ? ` ${userName}` : '';
+      aiReply = `Hey${name}! 😊 I am having a tiny technical hiccup connecting to my knowledge base right now, but I am still here to help!\n\nCould you tell me a bit more about what you need? For example:\n\nAre you having trouble with an order?\nDo you need help with your account or KYC?\nAre you looking for products to buy?\nDo you want to become a vendor or retailer?\nOr is there something else on your mind?\n\nIf it is urgent, you can also email us at ${SUPPORT_EMAIL} and we will get back to you quickly! 💪`;
     }
 
     // STORE ASSISTANT RESPONSE
@@ -657,16 +611,53 @@ export async function POST(request) {
   }
 }
 
+// GET: Load conversation history
 export async function GET(request) {
   try {
     await ensureChatTables();
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get('conversationId');
-    if (!conversationId) return NextResponse.json({ success: true, messages: [] });
+
+    // If no conversationId, return user's latest conversation
+    if (!conversationId) {
+      if (!isDatabaseConnected()) return NextResponse.json({ success: true, messages: [] });
+
+      const authUser = await getUserFromRequest(request);
+      let userId = authUser?.id || null;
+
+      // Fallback to client user info
+      if (!userId) {
+        try {
+          const clientUserStr = searchParams.get('clientUserId');
+          if (clientUserStr) userId = clientUserStr;
+        } catch {}
+      }
+
+      if (!userId) return NextResponse.json({ success: true, messages: [] });
+
+      // Find latest conversation for this user
+      const { data: convs } = await dbQuery('chat_conversations', {
+        filter: { user_id: userId },
+        order: { column: 'updated_at', ascending: false },
+        limit: 1,
+      });
+
+      if (!convs || convs.length === 0) return NextResponse.json({ success: true, messages: [] });
+      const latestConv = convs[0];
+
+      // Load messages for this conversation
+      const { data: messages } = await dbQuery('chat_messages', {
+        filter: { conversation_id: latestConv.id },
+        order: { column: 'created_at', ascending: true },
+        limit: 50,
+      });
+
+      return NextResponse.json({ success: true, messages: messages || [], conversationId: latestConv.id });
+    }
 
     if (!isDatabaseConnected()) return NextResponse.json({ success: true, messages: [], dbConnected: false });
 
-    // OWNERSHIP CHECK: verify conversation belongs to this user
+    // OWNERSHIP CHECK
     const authUser = await getUserFromRequest(request);
     if (authUser) {
       const { data: conv } = await dbQuery('chat_conversations', { filter: { id: conversationId } });
