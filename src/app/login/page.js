@@ -36,6 +36,8 @@ export default function LoginPage() {
         router.push(dashboards[result.user.role] || '/account');
       } else if (result.requiresVerification) {
         router.push(`/verify-email?email=${encodeURIComponent(result.email || email)}`);
+      } else if (result.emailNotFound) {
+        setError('not_registered');
       } else {
         setError(result.error || 'Login failed. Please check your credentials.');
       }
@@ -57,9 +59,20 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-8">
-          {error && (
+          {error === 'not_registered' ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                <div>
+                  <p className="text-amber-800 text-sm font-medium">This email is not registered on OjaBridge</p>
+                  <p className="text-amber-600 text-xs mt-1">Would you like to create an account?</p>
+                  <Link href="/register" className="inline-block mt-2 bg-ob-purple text-white text-xs font-semibold px-4 py-1.5 rounded-lg hover:bg-ob-purple-dark transition-colors">Create Account</Link>
+                </div>
+              </div>
+            </div>
+          ) : error ? (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-red-700 text-sm">{error}</div>
-          )}
+          ) : null}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>

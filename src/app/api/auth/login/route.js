@@ -34,8 +34,8 @@ export async function POST(request) {
       const user = users && users[0];
 
       if (!user) {
-        // Don't reveal whether email exists
-        return NextResponse.json({ success: false, error: 'Invalid email or password' }, { status: 401 });
+        // Tell user the email is not registered (helpful, not security risk for a marketplace)
+        return NextResponse.json({ success: false, error: 'This email is not registered on OjaBridge. Please create an account first.', emailNotFound: true }, { status: 401 });
       }
 
       // Check account status
