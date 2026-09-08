@@ -2,6 +2,21 @@ import { NextResponse } from 'next/server';
 import { dbQuery, dbInsert, dbUpdate, dbRaw, isDatabaseConnected } from '@/lib/db';
 import { getUserFromRequest, requireRole, sanitizeInput } from '@/lib/auth';
 
+// Check if user has CMS permission (admin always has, sub_admin needs 'content' permission)
+async function checkContentPermission(user) {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (user.role === 'sub_admin') {
+    try {
+      const { data } = await dbQuery('sub_admins', { filter: { user_id: user.id }, limit: 1 });
+      const perms = data?.[0]?.permissions || [];
+      const permList = typeof perms === 'string' ? JSON.parse(perms) : perms;
+      return permList.includes('content');
+    } catch { return false; }
+  }
+  return false;
+}
+
 export const dynamic = 'force-dynamic';
 
 /**
@@ -51,8 +66,9 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await getUserFromRequest(request);
-    const auth = requireRole(user, 'admin');
-    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    if (!(await checkContentPermission(user))) {
+      return NextResponse.json({ success: false, error: 'Content management access required' }, { status: 403 });
+    }
 
     if (!isDatabaseConnected()) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
 
@@ -126,8 +142,9 @@ export async function POST(request) {
 export async function PATCH(request) {
   try {
     const user = await getUserFromRequest(request);
-    const auth = requireRole(user, 'admin');
-    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    if (!(await checkContentPermission(user))) {
+      return NextResponse.json({ success: false, error: 'Content management access required' }, { status: 403 });
+    }
 
     if (!isDatabaseConnected()) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
 
@@ -170,8 +187,9 @@ export async function PATCH(request) {
 export async function DELETE(request) {
   try {
     const user = await getUserFromRequest(request);
-    const auth = requireRole(user, 'admin');
-    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    if (!(await checkContentPermission(user))) {
+      return NextResponse.json({ success: false, error: 'Content management access required' }, { status: 403 });
+    }
 
     if (!isDatabaseConnected()) return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
 

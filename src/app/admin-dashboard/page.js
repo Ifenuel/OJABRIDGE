@@ -129,18 +129,30 @@ export default function AdminDashboardPage() {
           {['7d', '30d', '90d', 'all'].map(p => (
             <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-ob-purple text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>{p === 'all' ? 'All Time' : p}</button>
           ))}
-          <button onClick={async () => {
-            if (!confirm('This will remove all test/fake data and keep only real users. Continue?')) return;
+          <button onClick={async (e) => {
+            const btn = e.target;
+            btn.textContent = '⏳ Checking...';
+            btn.disabled = true;
             try {
+              // First preview what will be deleted
+              const previewRes = await fetch('/api/admin/cleanup', { credentials: 'include' });
+              const preview = await previewRes.json();
+              if (!preview.success) { alert(preview.error); btn.textContent = '🧹 Clean Fake Data'; btn.disabled = false; return; }
+              if (preview.fakeCount === 0) { alert('Database is already clean! No fake data found.'); btn.textContent = '🧹 Clean Fake Data'; btn.disabled = false; return; }
+              if (!confirm(`Found ${preview.fakeCount} fake users to delete:\n\n` + preview.fakeUsers.map(u => `• ${u.name} (${u.email})`).join('\n') + `\n\nKeep ${preview.realCount} real users?\nClick OK to delete all fake data.`)) {
+                btn.textContent = '🧹 Clean Fake Data'; btn.disabled = false; return;
+              }
+              btn.textContent = '⏳ Deleting...';
               const res = await fetch('/api/admin/cleanup', { method: 'POST', credentials: 'include' });
               const data = await res.json();
               if (data.success) {
-                alert(data.message + '\n\nDeleted: ' + (data.deletedUsers || []).join(', '));
+                alert(data.message + '\n\nDeleted:\n' + (data.deletedUsers || []).join('\n') + '\n\nRemaining:\n' + (data.remainingUsers || []).join('\n'));
                 window.location.reload();
               } else {
-                alert(data.error || 'Cleanup failed');
+                alert('Error: ' + (data.error || 'Cleanup failed'));
+                btn.textContent = '🧹 Clean Fake Data'; btn.disabled = false;
               }
-            } catch { alert('Cleanup failed'); }
+            } catch (err) { alert('Cleanup failed: ' + err.message); btn.textContent = '🧹 Clean Fake Data'; btn.disabled = false; }
           }} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">
             🧹 Clean Fake Data
           </button>

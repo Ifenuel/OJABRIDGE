@@ -60,13 +60,14 @@ export async function PATCH(request) {
     }
 
     const body = await request.json();
-    const { name, phone, country, currency } = body;
+    const { name, phone, country, currency, avatar_url } = body;
 
     const updates = {};
     if (name !== undefined) updates.name = sanitizeInput(name);
     if (phone !== undefined) updates.phone = phone;
     if (country !== undefined) updates.country = country;
     if (currency !== undefined) updates.currency = currency;
+    if (avatar_url !== undefined) updates.avatar_url = avatar_url;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ success: false, error: 'No updates provided' }, { status: 400 });
@@ -87,6 +88,7 @@ export async function PATCH(request) {
         role: updated.role,
         country: updated.country,
         currency: updated.currency,
+        avatar_url: updated.avatar_url,
       },
     });
   } catch (error) {

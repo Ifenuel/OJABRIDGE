@@ -7,6 +7,7 @@ export default function VendorStorePage({ params }) {
   const slug = params?.slug || '';
   const [vendor, setVendor] = useState(null);
   const [products, setProducts] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -22,6 +23,13 @@ export default function VendorStorePage({ params }) {
         const prodRes = await fetch(`/api/products?vendor=${found.id}&limit=50`);
         const prodData = await prodRes.json();
         setProducts(prodData.products || []);
+
+        // Load vendor reviews
+        try {
+          const revRes = await fetch(`/api/reviews?vendorId=${found.id}&limit=20`);
+          const revData = await revRes.json();
+          if (revData.success) setReviews(revData.reviews || []);
+        } catch {}
       } catch (e) { setError('Failed to load vendor'); }
       setLoading(false);
     }
@@ -110,6 +118,53 @@ export default function VendorStorePage({ params }) {
                     </div>
                   </div>
                 </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Customer Reviews Section */}
+      <section className="section-padding bg-white border-t border-gray-100">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-ob-navy">Customer Reviews</h2>
+            {vendor.average_rating > 0 && (
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-ob-gold" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                <span className="font-bold text-ob-navy">{Number(vendor.average_rating).toFixed(1)}</span>
+                <span className="text-sm text-gray-500">({vendor.total_reviews} reviews)</span>
+              </div>
+            )}
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="text-center py-10 bg-gray-50 rounded-2xl">
+              <p className="text-4xl mb-2">⭐</p>
+              <p className="text-gray-500">No reviews yet for this vendor.</p>
+              <p className="text-sm text-gray-400 mt-1">Reviews appear after customers purchase and review products.</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {reviews.map((review) => (
+                <div key={review.id} className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <svg key={star} className={`w-4 h-4 ${star <= review.rating ? 'text-ob-gold' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                      ))}
+                    </div>
+                    <span className="text-xs text-gray-400">{review.created_at ? new Date(review.created_at).toLocaleDateString() : ''}</span>
+                  </div>
+                  {review.title && <h3 className="font-semibold text-ob-navy text-sm mb-1">{review.title}</h3>}
+                  {review.comment && <p className="text-gray-600 text-sm">{review.comment}</p>}
+                  {review.vendor_reply && (
+                    <div className="mt-3 pl-3 border-l-2 border-ob-purple/30">
+                      <p className="text-xs font-semibold text-ob-purple mb-0.5">Vendor Reply:</p>
+                      <p className="text-gray-600 text-sm">{review.vendor_reply}</p>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}

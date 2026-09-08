@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import ActionMenu from '@/components/ActionMenu';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
 
@@ -207,45 +208,14 @@ export default function AdminRetailersPage() {
                     <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${r.bank_verification_status === 'VERIFIED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{(r.bank_verification_status || 'NOT_STARTED').replace(/_/g, ' ')}</span></td>
                     <td className="px-6 py-4 text-sm text-gray-600">{r.total_orders || 0}</td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1.5">
-                        {['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW', 'NOT_STARTED', 'IN_PROGRESS', 'VERIFICATION_FAILED'].includes(r.kyc_status) && (
-                          <button onClick={() => openKycReview(r)} className="bg-ob-purple/10 text-ob-purple text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-ob-purple/20 transition-colors">
-                            Review KYC
-                          </button>
-                        )}
-                        {r.kyc_status === 'VERIFIED' && (
-                          <button onClick={() => openKycReview(r)} className="bg-green-50 text-green-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors">
-                            View Details
-                          </button>
-                        )}
-                        {r.kyc_status !== 'VERIFIED' && r.kyc_status !== 'SUSPENDED' && r.kyc_status !== 'BANNED' && (
-                          <button onClick={() => updateRetailer(r.id, { kyc_status: 'VERIFIED' })} className="bg-green-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-green-600 transition-colors">
-                            Approve
-                          </button>
-                        )}
-                        {['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(r.kyc_status) && (
-                          <button onClick={() => handleReject(r.id)} className="bg-red-50 text-red-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
-                            Reject
-                          </button>
-                        )}
-                        {r.kyc_status !== 'SUSPENDED' && r.kyc_status !== 'BANNED' && (
-                          <button onClick={() => updateRetailer(r.id, { kyc_status: 'SUSPENDED', is_active: false })} className="bg-amber-50 text-amber-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors">
-                            Suspend
-                          </button>
-                        )}
-                        {r.kyc_status !== 'BANNED' && (
-                          <button onClick={() => {
-                            if (confirm('BAN this retailer?')) updateRetailer(r.id, { kyc_status: 'BANNED', is_active: false });
-                          }} className="bg-red-100 text-red-700 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-red-200 transition-colors">
-                            Ban
-                          </button>
-                        )}
-                        {(r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED') && (
-                          <button onClick={() => updateRetailer(r.id, { kyc_status: 'NOT_STARTED', is_active: true })} className="bg-blue-50 text-blue-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
-                            Reinstate
-                          </button>
-                        )}
-                      </div>
+                      <ActionMenu actions={[
+                        { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(r) },
+                        { label: 'Approve', icon: '✅', hidden: r.kyc_status === 'VERIFIED' || r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-green-700', onClick: () => updateRetailer(r.id, { kyc_status: 'VERIFIED' }) },
+                        { label: 'Reject KYC', icon: '❌', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(r.kyc_status), className: 'text-red-600', onClick: () => handleReject(r.id) },
+                        { label: 'Suspend', icon: '⚠️', hidden: r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-amber-600', onClick: () => updateRetailer(r.id, { kyc_status: 'SUSPENDED', is_active: false }) },
+                        { label: 'Ban', icon: '🚫', hidden: r.kyc_status === 'BANNED', className: 'text-red-700', confirm: 'Are you sure you want to BAN this retailer? This action is severe.', onClick: () => updateRetailer(r.id, { kyc_status: 'BANNED', is_active: false }) },
+                        { label: 'Reinstate', icon: '♻️', hidden: !(r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED'), className: 'text-blue-600', onClick: () => updateRetailer(r.id, { kyc_status: 'NOT_STARTED', is_active: true }) },
+                      ]} />
                     </td>
                   </tr>
                 ))

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout from '@/components/DashboardLayout';
+import AvatarUpload from '@/components/AvatarUpload';
 
 export default function AccountProfilePage() {
   const { user, isAuthenticated, loading: authLoading, updateProfile } = useAuth();
@@ -70,6 +71,16 @@ export default function AccountProfilePage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-ob-navy">Profile Settings</h1>
         <p className="text-gray-500 text-sm mt-1">Manage your personal information.</p>
+      </div>
+
+      {/* Profile Picture */}
+      <div className="bg-white p-6 rounded-xl border border-gray-100 mb-6 max-w-3xl">
+        <h3 className="font-bold text-ob-navy mb-4">Profile Picture</h3>
+        <AvatarUpload
+          currentUrl={user?.avatar_url || null}
+          name={form.name || user?.name}
+          onSaved={() => {}}
+        />
       </div>
 
       {loadingProfile ? (

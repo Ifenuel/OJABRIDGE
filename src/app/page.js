@@ -3,6 +3,7 @@ import Link from 'next/link';
 import ScrollReveal from '@/components/ScrollReveal';
 import StatsSection from '@/components/StatsSection';
 import OnboardingDemo from '@/components/OnboardingDemo';
+import WebsiteReviews from '@/components/WebsiteReviews';
 
 export default function Home() {
   return (
@@ -502,6 +503,12 @@ export default function Home() {
           SECTION 10 — LIVE STATS
           ======================================== */}
       <StatsSection />
+
+      {/* ========================================
+          SECTION 11 — FINAL CTA
+          ======================================== */}
+      {/* Website Reviews — Approved platform reviews */}
+      <WebsiteReviews />
 
       {/* ========================================
           SECTION 11 — FINAL CTA

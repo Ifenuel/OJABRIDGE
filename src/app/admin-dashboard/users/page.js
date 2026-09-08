@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import ActionMenu from '@/components/ActionMenu';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
@@ -185,17 +186,11 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-4 text-sm text-gray-500">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : '—'}</td>
                     <td className="px-6 py-4">
-                      <div className="flex space-x-2">
-                        {u.status === 'active' && u.role !== 'admin' && (
-                          <>
-                            <button onClick={() => updateUserStatus(u.id, 'suspended')} className="text-amber-600 text-xs font-medium hover:underline">Suspend</button>
-                            <button onClick={() => updateUserStatus(u.id, 'banned')} className="text-red-500 text-xs font-medium hover:underline">Ban</button>
-                          </>
-                        )}
-                        {(u.status === 'suspended' || u.status === 'banned') && (
-                          <button onClick={() => updateUserStatus(u.id, 'active')} className="text-green-600 text-xs font-medium hover:underline">Reactivate</button>
-                        )}
-                      </div>
+                      <ActionMenu actions={[
+                        { label: 'Suspend', icon: '⚠️', hidden: !(u.status === 'active' && u.role !== 'admin'), className: 'text-amber-600', confirm: `Suspend ${u.name}?`, onClick: () => updateUserStatus(u.id, 'suspended') },
+                        { label: 'Ban', icon: '🚫', hidden: !(u.status === 'active' && u.role !== 'admin'), className: 'text-red-600', confirm: `Ban ${u.name}? They will lose access permanently.`, onClick: () => updateUserStatus(u.id, 'banned') },
+                        { label: 'Reactivate', icon: '♻️', hidden: !['suspended', 'banned'].includes(u.status), className: 'text-green-600', onClick: () => updateUserStatus(u.id, 'active') },
+                      ]} />
                     </td>
                   </tr>
                 ))
