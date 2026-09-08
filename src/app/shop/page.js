@@ -1,6 +1,5 @@
 'use client';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import HeartButton from '@/components/HeartButton';
@@ -10,7 +9,7 @@ const categories = ['All', 'Phones', 'Laptops', 'Tablets', 'Electronics', 'Acces
 // Fallback products shown only when DB is not connected
 // No fallback — all products come from the database
 
-export default function ShopPage() {
+function ShopPageContent() {
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get('search') || '';
   const [products, setProducts] = useState([]);
@@ -199,5 +198,18 @@ export default function ShopPage() {
         )}
       </div>
     </section>
+  );
+}
+
+// Suspense boundary required for useSearchParams (Next.js 14)
+export default function ShopPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-ob-light flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-ob-purple border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <ShopPageContent />
+    </Suspense>
   );
 }

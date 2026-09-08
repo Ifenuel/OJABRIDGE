@@ -1,7 +1,7 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import ActionMenu from '@/components/ActionMenu';
 import { exportData, filterByDateRange, formatDate, formatCurrency } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
 
@@ -17,6 +17,9 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState('');
 
   useEffect(() => { loadProducts(); }, []);
 
@@ -42,6 +45,44 @@ export default function AdminProductsPage() {
     } catch (err) { console.error(err); }
   };
 
+  // Bulk moderation — approve/reject all selected products at once
+  const bulkModerate = async (status) => {
+    if (selected.size === 0) return;
+    const verb = status === 'approved' ? 'approve' : status === 'rejected' ? 'reject' : 'suspend';
+    if (!confirm(`${verb.toUpperCase()} ${selected.size} selected product${selected.size > 1 ? 's' : ''}?`)) return;
+    setBulkBusy(true);
+    setBulkMsg('');
+    let ok = 0, fail = 0;
+    for (const id of selected) {
+      try {
+        const res = await fetch('/api/products', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: id, moderation_status: status }),
+        });
+        const data = await res.json();
+        if (data.success) ok++; else fail++;
+      } catch { fail++; }
+    }
+    setBulkMsg(`${ok} product${ok !== 1 ? 's' : ''} ${status}${fail ? `, ${fail} failed` : ''}`);
+    setSelected(new Set());
+    setBulkBusy(false);
+    loadProducts();
+    setTimeout(() => setBulkMsg(''), 5000);
+  };
+
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelected(prev => prev.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id)));
+  };
+
   const filtered = products.filter(p => {
     if (filter !== 'all' && p.moderation_status !== filter) return false;
     if (search.trim()) {
@@ -55,7 +96,28 @@ export default function AdminProductsPage() {
 
   return (
     <DashboardLayout role="admin">
-      <div className="mb-8"><h1 className="text-2xl font-bold text-ob-navy">Products</h1><p className="text-gray-500 text-sm mt-1">Review, approve and manage all marketplace product listings.</p></div>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-ob-navy">Products</h1>
+          <p className="text-gray-500 text-sm mt-1">Review, approve and manage all marketplace product listings.</p>
+        </div>
+        {/* Bulk actions — visible when products are selected */}
+        {selected.size > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-500">{selected.size} selected</span>
+            <button onClick={() => bulkModerate('approved')} disabled={bulkBusy}
+              className="bg-green-500 hover:bg-green-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50">
+              ✅ Approve All
+            </button>
+            <button onClick={() => bulkModerate('rejected')} disabled={bulkBusy}
+              className="bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50">
+              ❌ Reject All
+            </button>
+            <button onClick={() => setSelected(new Set())} className="text-xs text-gray-500 hover:text-gray-700">Clear</button>
+          </div>
+        )}
+        {bulkMsg && <span className="text-xs text-green-600 font-medium">{bulkMsg}</span>}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Total', value: products.length, color: 'text-ob-navy' },
@@ -103,21 +165,23 @@ export default function AdminProductsPage() {
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100"><th className="px-6 py-4 font-medium">Product</th><th className="px-6 py-4 font-medium">Price</th><th className="px-6 py-4 font-medium">Stock</th><th className="px-6 py-4 font-medium">Vendor</th><th className="px-6 py-4 font-medium">Status</th><th className="px-6 py-4 font-medium">Actions</th></tr></thead>
+            <thead><tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100"><th className="px-4 py-4 font-medium"><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll} className="rounded border-gray-300 text-ob-purple focus:ring-ob-purple" /></th><th className="px-6 py-4 font-medium">Product</th><th className="px-6 py-4 font-medium">Price</th><th className="px-6 py-4 font-medium">Stock</th><th className="px-6 py-4 font-medium">Vendor</th><th className="px-6 py-4 font-medium">Status</th><th className="px-6 py-4 font-medium">Actions</th></tr></thead>
             <tbody>
               {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : filtered.length === 0 ? <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-500 text-sm">No products found.</td></tr> : filtered.map(p => (
-                <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
+                <tr key={p.id} className={`border-b border-gray-50 hover:bg-gray-50 ${selected.has(p.id) ? 'bg-ob-purple/5' : ''}`}>
+                  <td className="px-4 py-4"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded border-gray-300 text-ob-purple focus:ring-ob-purple" /></td>
                   <td className="px-6 py-4 text-sm font-medium text-ob-navy max-w-[200px] truncate">{p.name}</td>
                   <td className="px-6 py-4 text-sm">₦{Number(p.price).toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{p.stock_quantity}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{p.store_name || '—'}</td>
                   <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusBadge(p.moderation_status)}`}>{p.moderation_status?.replace('_', ' ')}</span></td>
                   <td className="px-6 py-4">
-                    <div className="flex space-x-2">
-                      {p.moderation_status !== 'approved' && <button onClick={() => moderateProduct(p.id, 'approved')} className="text-green-600 text-xs font-medium hover:underline">Approve</button>}
-                      {p.moderation_status !== 'rejected' && <button onClick={() => moderateProduct(p.id, 'rejected')} className="text-red-500 text-xs font-medium hover:underline">Reject</button>}
-                      {p.moderation_status !== 'suspended' && <button onClick={() => moderateProduct(p.id, 'suspended')} className="text-orange-500 text-xs font-medium hover:underline">Suspend</button>}
-                    </div>
+                    <ActionMenu actions={[
+                      { label: 'Approve', icon: '✅', hidden: p.moderation_status === 'approved', className: 'text-green-700', onClick: () => moderateProduct(p.id, 'approved') },
+                      { label: 'Reject', icon: '❌', hidden: p.moderation_status === 'rejected', className: 'text-red-600', confirm: `Reject "${p.name}"?`, onClick: () => moderateProduct(p.id, 'rejected') },
+                      { label: 'Suspend', icon: '⚠️', hidden: p.moderation_status === 'suspended', className: 'text-orange-600', confirm: `Suspend "${p.name}"?`, onClick: () => moderateProduct(p.id, 'suspended') },
+                      { label: 'View in Shop', icon: '👁️', onClick: () => window.open(`/shop/product/${p.id}`, '_blank') },
+                    ]} />
                   </td>
                 </tr>
               ))}

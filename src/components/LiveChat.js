@@ -9,31 +9,29 @@ export default function LiveChat() {
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState(null);
   const [unread, setUnread] = useState(0);
-  const [userName, setUserName] = useState(null);
   const [connected, setConnected] = useState(false);
-  const [chatHeight, setChatHeight] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileHeight, setMobileHeight] = useState(null); // px string when measured
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const pollRef = useRef(null);
-  const lastMsgIdRef = useRef(null);
 
-  // Mobile keyboard detection using visualViewport
+  // Detect device + keyboard. Desktop and mobile get SEPARATE styling paths.
   useEffect(() => {
-    if (!open) { setChatHeight(null); return; }
+    if (!open) return;
 
     const update = () => {
-      const vv = window.visualViewport;
-      if (!vv) return;
-      const isMobile = window.innerWidth < 640;
-      if (!isMobile) { setChatHeight(null); return; }
+      const mobile = window.innerWidth < 640;
+      setIsMobile(mobile);
+      if (!mobile) { setMobileHeight(null); return; }
 
-      // When keyboard opens, vv.height shrinks to visible area above keyboard
-      // We want the chat to fill that visible area minus some padding at top
-      const visibleH = vv.height;
-      const offsetTop = vv.offsetTop || 0;
-      // Chat takes visible area minus offset, capped for sanity
-      const h = Math.max(Math.floor(visibleH - offsetTop - 10), 200);
-      setChatHeight(`${h}px`);
+      const vv = window.visualViewport;
+      if (!vv) { setMobileHeight(null); return; }
+
+      // When keyboard opens, vv.height shrinks to the visible area above it.
+      // Chat takes 60% of the visible area (capped) so the page stays visible behind.
+      const h = Math.min(Math.max(Math.floor(vv.height * 0.6), 200), 380);
+      setMobileHeight(`${h}px`);
     };
 
     update();
@@ -66,12 +64,11 @@ export default function LiveChat() {
   useEffect(() => {
     if (!open) return;
     const info = getUserInfo();
-    if (info?.name) setUserName(info.name);
 
     const loadOrCreate = async () => {
       try {
         if (!info?.id) {
-          setMessages([{ id: 'welcome', role: 'support', content: "Hello! 👋 Welcome to OjaBridge Live Support.\n\nTo chat with our support team, please log in or create an account first.\n\nOur team can help you with orders, payments, vendor issues, account questions, and anything else on the platform.\n\n[Log In](/login) | [Create Account](/register)" }]);
+          setMessages([{ id: 'welcome', role: 'support', content: "Hello! 👋 Welcome to OjaBridge Live Support.\n\nTo chat with our support team, please log in or create an account first.\n\nOur team can help you with orders, payments, vendor issues, account questions, and anything else on the platform." }]);
           return;
         }
         const res = await fetch(`/api/live-chat?clientUserId=${info.id}`, { credentials: 'include' });
@@ -83,8 +80,6 @@ export default function LiveChat() {
             content: `Hello${info.name ? ' ' + info.name : ''}! 👋 Welcome to OjaBridge Live Support.\n\nHow can we help you today?`
           }];
           setMessages(msgs);
-          // Track last message ID for polling
-          if (msgs.length > 0) lastMsgIdRef.current = msgs[msgs.length - 1].id;
           setConnected(true);
         } else {
           setMessages([{ id: 'welcome', role: 'support', content: "Hello! 👋 Welcome to OjaBridge Live Support.\n\nHow can we help you today?" }]);
@@ -96,21 +91,18 @@ export default function LiveChat() {
     loadOrCreate();
   }, [open, getUserInfo]);
 
-  // Poll for new messages — only fetch new ones
+  // Poll for new messages from support
   useEffect(() => {
     if (!open || !conversationId) return;
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/live-chat/poll?conversationId=${conversationId}&after=${lastMsgIdRef.current || ''}`, { credentials: 'include' });
+        const res = await fetch(`/api/live-chat/poll?conversationId=${conversationId}`, { credentials: 'include' });
         const data = await res.json();
         if (data.success && data.messages?.length > 0) {
           setMessages(prev => {
             const existingIds = new Set(prev.map(m => m.id));
             const newMsgs = data.messages.filter(m => !existingIds.has(m.id));
-            if (newMsgs.length > 0) {
-              lastMsgIdRef.current = newMsgs[newMsgs.length - 1].id;
-              return [...prev, ...newMsgs];
-            }
+            if (newMsgs.length > 0) return [...prev, ...newMsgs];
             return prev;
           });
         }
@@ -135,10 +127,7 @@ export default function LiveChat() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          message: messageText,
-          conversationId,
-        }),
+        body: JSON.stringify({ message: messageText, conversationId }),
       });
       const data = await res.json();
       if (data.success) {
@@ -161,10 +150,32 @@ export default function LiveChat() {
 
   const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
 
-  // Chat container styles
-  const containerStyle = chatHeight
-    ? { height: chatHeight, maxHeight: chatHeight, borderRadius: 0 }
-    : { height: 'min(65vh, 480px)', maxHeight: 'min(65vh, 480px)' };
+  // ============================================================
+  // POSITIONING — two clean paths, no class/inline conflicts
+  // ============================================================
+  // DESKTOP: floating card, bottom-right (all via inline styles for reliability)
+  const desktopStyle = {
+    bottom: '1.5rem',
+    right: '1.5rem',
+    width: '380px',
+    height: 'min(65vh, 520px)',
+    maxHeight: 'min(65vh, 520px)',
+    borderRadius: '1rem',
+  };
+
+  // MOBILE: bottom sheet, full width — height adapts to keyboard when typing
+  const mobileStyle = {
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: mobileHeight || 'min(65vh, 480px)',
+    maxHeight: mobileHeight || 'min(65vh, 480px)',
+    borderTopLeftRadius: '1rem',
+    borderTopRightRadius: '1rem',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+  };
 
   return (
     <>
@@ -187,30 +198,12 @@ export default function LiveChat() {
       {/* Chat Window */}
       {open && (
         <>
-          {/* Backdrop — mobile only, hidden when keyboard is open */}
-          {!chatHeight && <div className="fixed inset-0 z-[9998] bg-black/30 sm:hidden" onClick={() => setOpen(false)} />}
+          {/* Backdrop — mobile only */}
+          {isMobile && <div className="fixed inset-0 z-[9998] bg-black/30" onClick={() => setOpen(false)} />}
 
-          {/* Chat container — height adapts to keyboard via visualViewport */}
           <div
-            className="fixed z-[9999] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl"
-            style={{
-              ...containerStyle,
-              ...(chatHeight ? {
-                // Keyboard is open: position at top of visible area
-                bottom: 0,
-                left: 0,
-                right: 0,
-                borderRadius: 0,
-                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-              } : {
-                // Keyboard closed: mobile bottom-sheet style
-                bottom: 0,
-                left: 0,
-                right: 0,
-                borderTopLeftRadius: '1rem',
-                borderTopRightRadius: '1rem',
-              }),
-            }}
+            className="fixed z-[9999] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+            style={isMobile ? mobileStyle : desktopStyle}
           >
             {/* Header */}
             <div className="bg-ob-navy px-3 py-2 flex items-center justify-between flex-shrink-0">
@@ -224,7 +217,7 @@ export default function LiveChat() {
                 <div>
                   <h3 className="text-white font-semibold text-xs leading-tight">OjaBridge Support</h3>
                   <p className="text-green-400 text-[9px] leading-tight">
-                    {connected ? '🟢 Connected — Support team online' : 'Connecting...'}
+                    {connected ? '🟢 Support team online' : 'Connecting...'}
                   </p>
                 </div>
               </div>
