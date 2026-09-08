@@ -33,14 +33,12 @@ Visit [ojabridge.vercel.app](https://ojabridge.vercel.app)
 - **Retailer** (7 pages) — Overview, orders, sourcing, analytics, profile, KYC, disputes
 - **Customer** (7 pages) — Account, orders, favorites, addresses, disputes, notifications, security
 
-### AI Customer Care
-- **Floating chat widget** — Appears on every page, responsive on mobile and desktop
-- **Intelligent responses** — Handles English, Pidgin, broken English, typos
-- **Role-aware** — Knows if user is Customer, Vendor, Retailer, or Admin
-- **User data integration** — Can look up orders, disputes, KYC status, payouts
-- **Conversation history** — All chats stored in database for admin review
-- **Security** — Prompt injection protection, admin info protection, rate limiting
-- **Emotion detection** — Adapts tone for frustrated, confused, or happy users
+### Live Support Chat
+- **Real-time chat widget** — Customers chat with live support agents on every page
+- **Admin dashboard** — View all conversations, respond, assign sub-admins
+- **Conversation status** — Open, Active, Closed states with real-time polling
+- **User identification** — Shows customer name, email, role in admin view
+- **Conversation history** — All messages stored in database for review
 
 ### Content Management (Admin)
 - **Blog, Careers, Press, Announcements** — Admin creates, public pages display
@@ -145,7 +143,7 @@ src/
 ├── app/
 │   ├── api/              # 45+ API routes
 │   │   ├── auth/         # Login, register, verify, forgot-password
-│   │   ├── chat/         # AI customer care chatbot
+│   │   ├── live-chat/    # Live customer support chat
 │   │   ├── cms/          # Content management
 │   │   ├── contact/      # Contact form submissions
 │   │   ├── disputes/     # Customer dispute creation and resolution
@@ -168,7 +166,7 @@ src/
 │   ├── checkout/         # Payment checkout
 │   └── ...               # 30+ other pages
 ├── components/           # React components
-│   ├── ChatWidget.js     # AI customer care floating chat
+│   ├── LiveChat.js       # Live support chat widget
 │   ├── DashboardLayout.js# Shared dashboard layout with sidebar
 │   ├── ExportButton.js   # Multi-format export with date range
 │   ├── NotificationBell.js# Notification dropdown
@@ -176,7 +174,6 @@ src/
 │   └── ...
 ├── context/              # React Context (Auth, Cart, Favorites)
 └── lib/
-    ├── ai-knowledge.js   # AI chatbot knowledge base
     ├── auth.js           # JWT authentication utilities
     ├── csvExport.js      # CSV/Excel/JSON export utilities
     ├── db.js             # PostgreSQL database connection
