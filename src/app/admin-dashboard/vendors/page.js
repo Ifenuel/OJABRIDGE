@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
+import ActionMenu from '@/components/ActionMenu';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -23,7 +24,6 @@ export default function AdminVendorsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState(null);
-  const [openMenuId, setOpenMenuId] = useState(null);
 
   useEffect(() => { loadVendors(); }, []);
 
@@ -217,58 +217,17 @@ export default function AdminVendorsPage() {
                     <td className="px-6 py-4 text-sm text-gray-600">{v.average_rating ? `⭐ ${Number(v.average_rating).toFixed(1)}` : '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{v.total_orders || 0}</td>
                     <td className="px-6 py-4">
-                      <div className="relative">
-                        <button onClick={() => setOpenMenuId(openMenuId === v.id ? null : v.id)}
-                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
-                          Actions ▾
-                        </button>
-                        {openMenuId === v.id && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
-                            <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-48">
-                              <button onClick={() => { openKycReview(v); setOpenMenuId(null); }}
-                                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
-                                📋 Review KYC
-                              </button>
-                              {v.kyc_status !== 'VERIFIED' && v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED' && (
-                                <button onClick={() => { updateVendor(v.id, { kyc_status: 'VERIFIED' }); setOpenMenuId(null); }}
-                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-green-700">
-                                  ✅ Approve
-                                </button>
-                              )}
-                              {['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status) && (
-                                <button onClick={() => { handleReject(v.id); setOpenMenuId(null); }}
-                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600">
-                                  ❌ Reject KYC
-                                </button>
-                              )}
-                              {v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED' && (
-                                <button onClick={() => { updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false }); setOpenMenuId(null); }}
-                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-amber-600">
-                                  ⚠️ Suspend
-                                </button>
-                              )}
-                              {v.kyc_status !== 'BANNED' && (
-                                <button onClick={() => {
-                                  if (confirm('Are you sure you want to BAN this vendor? This action is severe.')) {
-                                    updateVendor(v.id, { kyc_status: 'BANNED', is_active: false });
-                                  }
-                                  setOpenMenuId(null);
-                                }}
-                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-red-700">
-                                  🚫 Ban
-                                </button>
-                              )}
-                              {(v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED') && (
-                                <button onClick={() => { updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true }); setOpenMenuId(null); }}
-                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-blue-600">
-                                  ♻️ Reinstate
-                                </button>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
+                      <ActionMenu
+                        label="Actions ▾"
+                        actions={[
+                          { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(v) },
+                          { label: 'Approve', icon: '✅', className: 'text-green-700', hidden: v.kyc_status === 'VERIFIED' || v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'VERIFIED' }) },
+                          { label: 'Reject KYC', icon: '❌', className: 'text-red-600', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status), onClick: () => handleReject(v.id) },
+                          { label: 'Suspend', icon: '⚠️', className: 'text-amber-600', hidden: v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false }) },
+                          { label: 'Ban', icon: '🚫', className: 'text-red-700', hidden: v.kyc_status === 'BANNED', confirm: 'Are you sure you want to BAN this vendor? This action is severe.', onClick: () => updateVendor(v.id, { kyc_status: 'BANNED', is_active: false }) },
+                          { label: 'Reinstate', icon: '♻️', className: 'text-blue-600', hidden: v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true }) },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))

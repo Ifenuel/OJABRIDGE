@@ -1,3 +1,6 @@
+// Force dynamic — this route reads request.url at runtime
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { dbQuery } from '@/lib/db';
 

@@ -3,20 +3,7 @@ import { dbQuery, dbInsert, dbRaw } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
 // Check if user has permission (super admin always has all, sub_admin needs specific permission)
-async function checkPermission(request, requiredPermission) {
-  const user = await getUserFromRequest(request);
-  if (!user) return { allowed: false, error: 'Authentication required' };
-  if (user.role === 'admin') return { allowed: true, user };
-  if (user.role === 'sub_admin') {
-    // Load permissions from sub_admins table
-    const { data } = await dbQuery('sub_admins', { filter: { user_id: user.id }, limit: 1 });
-    const perms = data?.[0]?.permissions || [];
-    const permList = typeof perms === 'string' ? JSON.parse(perms) : perms;
-    if (permList.includes(requiredPermission)) return { allowed: true, user };
-    return { allowed: false, error: 'Permission denied' };
-  }
-  return { allowed: false, error: 'Admin access required' };
-}
+import { checkPermission } from '@/lib/permissions';
 
 // GET — Admin views all live chat conversations or messages in a specific conversation
 export async function GET(request) {

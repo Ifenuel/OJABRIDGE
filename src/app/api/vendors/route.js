@@ -1,12 +1,21 @@
 import { NextResponse } from 'next/server';
 import { dbQuery, dbInsert, dbUpdate, dbRaw, isDatabaseConnected } from '@/lib/db';
 import { getUserFromRequest, requireRole } from '@/lib/auth';
+import { checkPermission } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/vendors — Fetch vendor stores (public or admin)
- * Supports: search, filter by kyc_status, pagination
+ * GET /api/vendors — Fetch vendor stores
+ *
+ * Access model (enforced server-side):
+ *  - Admin / sub-admin: full records, all statuses
+ *  - Authenticated vendor/retailer/customer: public fields for verified stores
+ *    + their OWN full record (so they can manage their store)
+ *  - Anonymous: public fields for verified, active stores only
+ *
+ * Public fields never include: user_id, RC number, business address,
+ * earnings, bank status, owner email/phone, rejection reasons, audit timestamps.
  */
 export async function GET(request) {
   try {
@@ -17,6 +26,14 @@ export async function GET(request) {
     const kycStatus = searchParams.get('kyc_status');
     const role = searchParams.get('role');
     const offset = (page - 1) * limit;
+
+    // Determine viewer role from the authenticated session (never trust query params)
+    const viewer = await getUserFromRequest(request);
+    const isStaff = !!viewer && (viewer.role === 'admin' || viewer.role === 'sub_admin');
+    // Sub-admins need the 'vendors' permission to see unverified/pending stores and full records
+    const hasManagePerm = isStaff && viewer.role === 'admin'
+      ? true
+      : (await checkPermission(request, 'vendors')).allowed;
 
     if (!isDatabaseConnected()) {
       return NextResponse.json({
@@ -29,19 +46,31 @@ export async function GET(request) {
     const params = [];
     let paramIndex = 1;
 
+    // Visibility: non-staff only see verified + active stores (plus their own record)
+    if (!hasManagePerm) {
+      if (viewer && viewer.id) {
+        conditions.push(`((v.kyc_status = 'VERIFIED' AND v.is_active = true) OR v.user_id = $${paramIndex})`);
+        params.push(viewer.id);
+      } else {
+        conditions.push(`(v.kyc_status = 'VERIFIED' AND v.is_active = true)`);
+      }
+      paramIndex++;
+    }
+
     if (search && search.trim()) {
       conditions.push(`(v.store_name ILIKE $${paramIndex} OR v.business_name ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex})`);
       params.push(`%${search.trim()}%`);
       paramIndex++;
     }
 
-    if (kycStatus) {
+    if (kycStatus && hasManagePerm) {
+      // Status filtering is an admin/staff capability
       conditions.push(`v.kyc_status = $${paramIndex}`);
       params.push(kycStatus);
       paramIndex++;
     }
 
-    if (role) {
+    if (role && hasManagePerm) {
       conditions.push(`u.role = $${paramIndex}`);
       params.push(role);
       paramIndex++;
@@ -78,13 +107,31 @@ export async function GET(request) {
 
     if (error) {
       console.error('Vendors query error:', error);
-      return NextResponse.json({ success: false, error }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
     }
+
+    // Field-level access control per row:
+    //  - staff -> full record
+    //  - authenticated owner -> full record for their own store
+    //  - everyone else -> public fields only
+    const PUBLIC_FIELDS = [
+      'id', 'store_name', 'store_slug', 'store_description', 'store_logo_url',
+      'business_name', 'business_type', 'business_city', 'business_country',
+      'product_categories', 'kyc_status', 'average_rating', 'total_reviews',
+      'total_orders', 'store_views', 'created_at',
+    ];
+    const safeVendors = (vendors || []).map(v => {
+      if (hasManagePerm) return v;
+      if (viewer && viewer.id && v.user_id === viewer.id) return v;
+      const pub = {};
+      for (const f of PUBLIC_FIELDS) pub[f] = v[f];
+      return pub;
+    });
 
     return NextResponse.json({
       success: true,
-      vendors: vendors || [],
-      data: vendors || [],
+      vendors: safeVendors,
+      data: safeVendors,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
       dbConnected: true,
     });
@@ -100,9 +147,10 @@ export async function GET(request) {
  */
 export async function PATCH(request) {
   try {
+    // Admin (or sub-admin with 'vendors' permission) only
+    const { allowed, error: permError } = await checkPermission(request, 'vendors');
+    if (!allowed) return NextResponse.json({ success: false, error: permError }, { status: 403 });
     const user = await getUserFromRequest(request);
-    const auth = requireRole(user, 'admin');
-    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
 
     if (!isDatabaseConnected()) {
       return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
