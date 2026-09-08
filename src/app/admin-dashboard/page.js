@@ -125,10 +125,25 @@ export default function AdminDashboardPage() {
           <h1 className="text-2xl font-bold text-ob-navy">Platform Overview</h1>
           <p className="text-gray-500 text-sm mt-1">Welcome back, {user?.name || 'Admin'}. Here&apos;s what&apos;s happening on OjaBridge.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           {['7d', '30d', '90d', 'all'].map(p => (
             <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-ob-purple text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>{p === 'all' ? 'All Time' : p}</button>
           ))}
+          <button onClick={async () => {
+            if (!confirm('This will remove all test/fake data and keep only real users. Continue?')) return;
+            try {
+              const res = await fetch('/api/admin/cleanup', { method: 'POST', credentials: 'include' });
+              const data = await res.json();
+              if (data.success) {
+                alert(data.message + '\n\nDeleted: ' + (data.deletedUsers || []).join(', '));
+                window.location.reload();
+              } else {
+                alert(data.error || 'Cleanup failed');
+              }
+            } catch { alert('Cleanup failed'); }
+          }} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">
+            🧹 Clean Fake Data
+          </button>
         </div>
       </div>
 

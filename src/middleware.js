@@ -192,23 +192,23 @@ export async function middleware(request) {
   // LAYER 4: ROLE-BASED ACCESS CONTROL
   // ==========================================
 
-  // Admin Dashboard
+  // Admin Dashboard (admin + sub_admin)
   if (pathname.startsWith('/admin-dashboard')) {
     if (!user) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('returnTo', pathname);
       return NextResponse.redirect(loginUrl);
     }
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'sub_admin') {
       console.warn(`[SECURITY] Unauthorized admin access: User=${user.email} Role=${user.role} IP=${ip}`);
       return new NextResponse('<html><head><title>403</title></head><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f6f7fb;"><div style="text-align:center;"><h1 style="color:#0F172A;font-size:48px;margin:0;">403</h1><p style="color:#6B7280;margin:10px 0;">Access Denied</p><a href="/" style="color:#5B21B6;">Return Home</a></div></body></html>', { status: 403, headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' } });
     }
   }
 
-  // Admin-only API routes
+  // Admin-only API routes (admin + sub_admin)
   if (pathname.startsWith('/api/admin')) {
     if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
-    if (user.role !== 'admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    if (user.role !== 'admin' && user.role !== 'sub_admin') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
   }
 
   // Settlements: admin + vendor access

@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server';
 import { dbQuery, dbInsert, dbRaw } from '@/lib/db';
+import { getUserFromRequest } from '@/lib/auth';
 
 // POST — Send a message from customer
 export async function POST(request) {
   try {
-    const { message, conversationId, clientUser } = await request.json();
+    const { message, conversationId } = await request.json();
     if (!message?.trim()) return NextResponse.json({ success: false, error: 'Message is required' }, { status: 400 });
 
-    const userId = clientUser?.id;
-    const userRole = clientUser?.role || 'customer';
-    const userName = clientUser?.name || 'Guest';
-    const userEmail = clientUser?.email || '';
+    // Get real user from JWT — don't trust client-sent user data
+    const authUser = await getUserFromRequest(request);
+    if (!authUser || !['customer', 'vendor', 'retailer'].includes(authUser.role)) {
+      return NextResponse.json({ success: false, error: 'Only registered customers, vendors, and retailers can use live support. Please log in or create an account.' }, { status: 403 });
+    }
+    const userId = authUser.id;
+    const userRole = authUser.role;
+    const userName = authUser.name || 'User';
+    const userEmail = authUser.email || '';
 
     // Ensure tables exist
     await dbRaw(`CREATE TABLE IF NOT EXISTS chat_conversations (

@@ -66,7 +66,6 @@ export default function AdminLiveChatsPage() {
         body: JSON.stringify({
           conversationId: selectedConv.id,
           message: reply.trim(),
-          adminUser: { id: adminUser?.id, name: adminUser?.name || 'Support Team' },
         }),
       });
       const data = await res.json();

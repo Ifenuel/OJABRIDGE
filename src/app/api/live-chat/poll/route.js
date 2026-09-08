@@ -8,15 +8,17 @@ export async function GET(request) {
     const conversationId = searchParams.get('conversationId');
     if (!conversationId) return NextResponse.json({ success: true, messages: [] });
 
-    // Get all messages — we'll filter client-side for new ones
+    const afterId = searchParams.get('after') || '';
+
+    // Get only admin/support messages (not user messages)
     const { data: messages } = await dbQuery('chat_messages', {
       filter: { conversation_id: conversationId },
       order: { column: 'created_at', ascending: true },
       limit: 100,
     });
 
-    // Return messages from support/admin (not from user)
-    const supportMessages = (messages || [])
+    // Filter to only support/admin messages, and if afterId is provided, only newer ones
+    let supportMessages = (messages || [])
       .filter(m => m.role === 'admin' || m.role === 'support')
       .map(m => ({
         id: m.id,
@@ -25,6 +27,12 @@ export async function GET(request) {
         senderName: m.sender_name,
         createdAt: m.created_at,
       }));
+
+    // If client provided last message ID, only return messages after it
+    if (afterId) {
+      const idx = supportMessages.findIndex(m => m.id === afterId);
+      if (idx >= 0) supportMessages = supportMessages.slice(idx + 1);
+    }
 
     return NextResponse.json({ success: true, messages: supportMessages });
   } catch (error) {

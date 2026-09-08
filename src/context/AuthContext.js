@@ -32,6 +32,23 @@ export function AuthProvider({ children }) {
     const stored = getStoredSession();
     if (stored) {
       setUser(stored);
+      // Load sub-admin permissions from database
+      if (stored.role === 'sub_admin') {
+        fetch('/api/admin/sub-admins', { credentials: 'include' })
+          .then(r => r.json())
+          .then(data => {
+            if (data.success && data.subAdmins) {
+              const myRecord = data.subAdmins.find(sa => sa.user_id === stored.id || sa.email === stored.email);
+              if (myRecord) {
+                const perms = typeof myRecord.permissions === 'string' ? JSON.parse(myRecord.permissions) : (myRecord.permissions || []);
+                const updated = { ...stored, permissions: perms };
+                setUser(updated);
+                saveSession(updated);
+              }
+            }
+          })
+          .catch(() => {});
+      }
     }
     setLoading(false);
   }, []);
@@ -51,7 +68,23 @@ export function AuthProvider({ children }) {
       const data = await res.json();
 
       if (data.success && data.user) {
-        const safeUser = { ...data.user, source: 'database' };
+        let safeUser = { ...data.user, source: 'database' };
+
+        // Load sub-admin permissions after login
+        if (safeUser.role === 'sub_admin') {
+          try {
+            const saRes = await fetch('/api/admin/sub-admins', { credentials: 'include' });
+            const saData = await saRes.json();
+            if (saData.success && saData.subAdmins) {
+              const myRecord = saData.subAdmins.find(sa => sa.user_id === safeUser.id || sa.email === safeUser.email);
+              if (myRecord) {
+                const perms = typeof myRecord.permissions === 'string' ? JSON.parse(myRecord.permissions) : (myRecord.permissions || []);
+                safeUser = { ...safeUser, permissions: perms };
+              }
+            }
+          } catch {}
+        }
+
         setUser(safeUser);
         saveSession(safeUser);
         setLoading(false);

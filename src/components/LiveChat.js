@@ -11,9 +11,41 @@ export default function LiveChat() {
   const [unread, setUnread] = useState(0);
   const [userName, setUserName] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [chatHeight, setChatHeight] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const pollRef = useRef(null);
+  const lastMsgIdRef = useRef(null);
+
+  // Mobile keyboard detection using visualViewport
+  useEffect(() => {
+    if (!open) { setChatHeight(null); return; }
+
+    const update = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const isMobile = window.innerWidth < 640;
+      if (!isMobile) { setChatHeight(null); return; }
+
+      // When keyboard opens, vv.height shrinks to visible area above keyboard
+      // We want the chat to fill that visible area minus some padding at top
+      const visibleH = vv.height;
+      const offsetTop = vv.offsetTop || 0;
+      // Chat takes visible area minus offset, capped for sanity
+      const h = Math.max(Math.floor(visibleH - offsetTop - 10), 200);
+      setChatHeight(`${h}px`);
+    };
+
+    update();
+    window.visualViewport?.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [open]);
 
   const getUserInfo = useCallback(() => {
     try {
@@ -32,49 +64,51 @@ export default function LiveChat() {
 
   // Load or create conversation
   useEffect(() => {
-    if (open) {
-      const info = getUserInfo();
-      if (info?.name) setUserName(info.name);
+    if (!open) return;
+    const info = getUserInfo();
+    if (info?.name) setUserName(info.name);
 
-      const loadOrCreate = async () => {
-        try {
-          if (!info?.id) {
-            setMessages([{ id: 'welcome', role: 'support', content: "Hello! 👋 Welcome to OjaBridge Live Support.\n\nOur support team is here to help you with orders, payments, vendor issues, account questions, and anything else on the platform.\n\nHow can we help you today?" }]);
-            return;
-          }
-          const res = await fetch(`/api/live-chat?clientUserId=${info.id}`, { credentials: 'include' });
-          const data = await res.json();
-          if (data.success && data.conversationId) {
-            setConversationId(data.conversationId);
-            setMessages(data.messages?.length > 0 ? data.messages : [{
-              id: 'welcome', role: 'support',
-              content: `Hello${info.name ? ' ' + info.name : ''}! 👋 Welcome to OjaBridge Live Support.\n\nHow can we help you today?`
-            }]);
-            setConnected(true);
-          } else {
-            setMessages([{ id: 'welcome', role: 'support', content: "Hello! 👋 Welcome to OjaBridge Live Support.\n\nHow can we help you today?" }]);
-          }
-        } catch {
+    const loadOrCreate = async () => {
+      try {
+        if (!info?.id) {
+          setMessages([{ id: 'welcome', role: 'support', content: "Hello! 👋 Welcome to OjaBridge Live Support.\n\nTo chat with our support team, please log in or create an account first.\n\nOur team can help you with orders, payments, vendor issues, account questions, and anything else on the platform.\n\n[Log In](/login) | [Create Account](/register)" }]);
+          return;
+        }
+        const res = await fetch(`/api/live-chat?clientUserId=${info.id}`, { credentials: 'include' });
+        const data = await res.json();
+        if (data.success && data.conversationId) {
+          setConversationId(data.conversationId);
+          const msgs = data.messages?.length > 0 ? data.messages : [{
+            id: 'welcome', role: 'support',
+            content: `Hello${info.name ? ' ' + info.name : ''}! 👋 Welcome to OjaBridge Live Support.\n\nHow can we help you today?`
+          }];
+          setMessages(msgs);
+          // Track last message ID for polling
+          if (msgs.length > 0) lastMsgIdRef.current = msgs[msgs.length - 1].id;
+          setConnected(true);
+        } else {
           setMessages([{ id: 'welcome', role: 'support', content: "Hello! 👋 Welcome to OjaBridge Live Support.\n\nHow can we help you today?" }]);
         }
-      };
-      loadOrCreate();
-    }
+      } catch {
+        setMessages([{ id: 'welcome', role: 'support', content: "Hello! 👋 Welcome to OjaBridge Live Support.\n\nHow can we help you today?" }]);
+      }
+    };
+    loadOrCreate();
   }, [open, getUserInfo]);
 
-  // Poll for new messages from admin/support
+  // Poll for new messages — only fetch new ones
   useEffect(() => {
     if (!open || !conversationId) return;
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/live-chat/poll?conversationId=${conversationId}`, { credentials: 'include' });
+        const res = await fetch(`/api/live-chat/poll?conversationId=${conversationId}&after=${lastMsgIdRef.current || ''}`, { credentials: 'include' });
         const data = await res.json();
         if (data.success && data.messages?.length > 0) {
           setMessages(prev => {
             const existingIds = new Set(prev.map(m => m.id));
             const newMsgs = data.messages.filter(m => !existingIds.has(m.id));
             if (newMsgs.length > 0) {
-              setUnread(u => u + newMsgs.filter(m => m.role !== 'user').length);
+              lastMsgIdRef.current = newMsgs[newMsgs.length - 1].id;
               return [...prev, ...newMsgs];
             }
             return prev;
@@ -104,7 +138,6 @@ export default function LiveChat() {
         body: JSON.stringify({
           message: messageText,
           conversationId,
-          clientUser: getUserInfo(),
         }),
       });
       const data = await res.json();
@@ -128,6 +161,11 @@ export default function LiveChat() {
 
   const handleKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
 
+  // Chat container styles
+  const containerStyle = chatHeight
+    ? { height: chatHeight, maxHeight: chatHeight, borderRadius: 0 }
+    : { height: 'min(65vh, 480px)', maxHeight: 'min(65vh, 480px)' };
+
   return (
     <>
       {/* Chat Bubble */}
@@ -149,13 +187,30 @@ export default function LiveChat() {
       {/* Chat Window */}
       {open && (
         <>
-          {/* Backdrop — mobile only */}
-          <div className="fixed inset-0 z-[9998] bg-black/30 sm:hidden" onClick={() => setOpen(false)} />
+          {/* Backdrop — mobile only, hidden when keyboard is open */}
+          {!chatHeight && <div className="fixed inset-0 z-[9998] bg-black/30 sm:hidden" onClick={() => setOpen(false)} />}
 
-          {/* Chat container */}
+          {/* Chat container — height adapts to keyboard via visualViewport */}
           <div
-            className="fixed z-[9999] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:rounded-t-2xl sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl"
-            style={{ height: 'min(65vh, 480px)', maxHeight: 'min(65vh, 480px)' }}
+            className="fixed z-[9999] bg-white shadow-2xl border border-gray-200 flex flex-col overflow-hidden sm:bottom-6 sm:right-6 sm:w-[380px] sm:rounded-2xl"
+            style={{
+              ...containerStyle,
+              ...(chatHeight ? {
+                // Keyboard is open: position at top of visible area
+                bottom: 0,
+                left: 0,
+                right: 0,
+                borderRadius: 0,
+                paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+              } : {
+                // Keyboard closed: mobile bottom-sheet style
+                bottom: 0,
+                left: 0,
+                right: 0,
+                borderTopLeftRadius: '1rem',
+                borderTopRightRadius: '1rem',
+              }),
+            }}
           >
             {/* Header */}
             <div className="bg-ob-navy px-3 py-2 flex items-center justify-between flex-shrink-0">

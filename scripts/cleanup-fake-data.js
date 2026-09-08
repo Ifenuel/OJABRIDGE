@@ -1,144 +1,167 @@
-/**
- * CLEANUP SCRIPT — Remove fake/test users and audit logs
- * 
- * Keeps ONLY these real accounts:
- * - admin@ojabridge.dev (admin)
- * - awoyoemmanuel12@gmail.com (vendor)
- * - treed8200@gmail.com (customer)
- * - oladejiayobamiadeola@gmail.com (customer)
- * 
- * Run: node scripts/cleanup-fake-data.js
- */
-
-require('dotenv').config();
+require('dotenv').config({ path: '.env.local' });
+require('dotenv').config({ path: '.env' });
 const { Pool } = require('pg');
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
 
-if (!DATABASE_URL) {
-  console.error('❌ DATABASE_URL not found in environment');
-  console.log('Add DATABASE_URL to your .env file');
-  process.exit(1);
-}
-
-const pool = new Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-
-// Real emails to KEEP
-const KEEP_EMAILS = [
+// Real users to KEEP — anyone with a real email address
+const REAL_USERS = [
   'admin@ojabridge.dev',
   'awoyoemmanuel12@gmail.com',
   'treed8200@gmail.com',
   'oladejiayobamiadeola@gmail.com',
 ];
 
+// Fake/test emails to DELETE
+const FAKE_PATTERNS = [
+  '@example.com',
+  'finaltest-',
+  'audit-',
+  'flowtest',
+  'test@',
+  'demo@',
+  'sample@',
+];
+
 async function cleanup() {
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
+    console.log('🧹 Starting fake data cleanup...\n');
 
-    // 1. Get IDs of real users to keep
-    const keepResult = await client.query(
-      'SELECT id, email, role FROM users WHERE email = ANY($1)',
-      [KEEP_EMAILS]
-    );
-    const keepIds = keepResult.rows.map(r => r.id);
-    console.log(`\n✅ Keeping ${keepIds.length} real accounts:`);
-    keepResult.rows.forEach(r => console.log(`   - ${r.email} (${r.role})`));
+    // 1. Find all users
+    const { rows: allUsers } = await client.query('SELECT id, email, name, role FROM users ORDER BY created_at');
+    console.log(`📊 Total users found: ${allUsers.length}`);
 
-    // 2. Find fake users to delete
-    const fakeResult = await client.query(
-      'SELECT id, email, role FROM users WHERE email != ALL($1)',
-      [KEEP_EMAILS]
-    );
-    console.log(`\n🗑️  Deleting ${fakeResult.rows.length} fake/test accounts:`);
-    fakeResult.rows.forEach(r => console.log(`   - ${r.email} (${r.role})`));
-
-    if (fakeResult.rows.length === 0) {
-      console.log('\n✅ No fake users to delete');
-    } else {
-      const fakeIds = fakeResult.rows.map(r => r.id);
-
-      // Delete related data first (foreign keys)
-      // Delete audit logs for fake users
-      try {
-        const auditResult = await client.query(
-          'DELETE FROM audit_logs WHERE user_id = ANY($1) RETURNING id',
-          [fakeIds]
-        );
-        console.log(`   📝 Deleted ${auditResult.rowCount} audit log entries`);
-      } catch (e) {
-        console.log(`   ⚠️  Audit logs cleanup: ${e.message}`);
+    // 2. Identify fake users
+    const fakeUsers = allUsers.filter(u => {
+      // Keep real users
+      if (REAL_USERS.includes(u.email.toLowerCase())) return false;
+      // Delete fake patterns
+      for (const pattern of FAKE_PATTERNS) {
+        if (u.email.toLowerCase().includes(pattern)) return true;
       }
+      // Delete users with .dev emails (except admin)
+      if (u.email.endsWith('.dev') && u.email !== 'admin@ojabridge.dev') return true;
+      // Delete users with suspicious test-like names
+      if (/^(test|demo|sample|audit|flow|final)/i.test(u.name || '')) return true;
+      return false;
+    });
 
-      // Delete vendor profiles for fake users
-      try {
-        const vendorResult = await client.query(
-          'DELETE FROM vendors WHERE user_id = ANY($1) RETURNING id',
-          [fakeIds]
-        );
-        console.log(`   🏪 Deleted ${vendorResult.rowCount} vendor profiles`);
-      } catch (e) {
-        console.log(`   ⚠️  Vendor cleanup: ${e.message}`);
-      }
+    console.log(`\n❌ Fake users to DELETE (${fakeUsers.length}):`);
+    fakeUsers.forEach(u => console.log(`   - ${u.email} (${u.name}) [${u.role}]`));
 
-      // Delete orders for fake users
-      try {
-        const orderResult = await client.query(
-          'DELETE FROM orders WHERE user_id = ANY($1) RETURNING id',
-          [fakeIds]
-        );
-        console.log(`   📦 Deleted ${orderResult.rowCount} orders`);
-      } catch (e) {}
+    console.log(`\n✅ Real users to KEEP (${allUsers.length - fakeUsers.length}):`);
+    allUsers.filter(u => !fakeUsers.includes(u)).forEach(u => console.log(`   - ${u.email} (${u.name}) [${u.role}]`));
 
-      // Delete transactions for fake users
-      try {
-        const txResult = await client.query(
-          'DELETE FROM transactions WHERE user_id = ANY($1) RETURNING id',
-          [fakeIds]
-        );
-        console.log(`   💳 Deleted ${txResult.rowCount} transactions`);
-      } catch (e) {}
-
-      // Delete the fake users
-      const deleteResult = await client.query(
-        'DELETE FROM users WHERE email != ALL($1) RETURNING email',
-        [KEEP_EMAILS]
-      );
-      console.log(`   👤 Deleted ${deleteResult.rowCount} user accounts`);
+    if (fakeUsers.length === 0) {
+      console.log('\n✨ No fake data to clean!');
+      return;
     }
 
-    // 3. Also clean any remaining test audit logs by user_id pattern
+    const fakeIds = fakeUsers.map(u => u.id);
+    const fakeEmails = fakeUsers.map(u => u.email);
+
+    // 3. Delete related data for fake users
+    console.log('\n🗑️  Cleaning related data...');
+
+    // Delete chat conversations/messages for fake users
     try {
-      const testAuditResult = await client.query(
-        `DELETE FROM audit_logs WHERE user_id NOT IN (
-          SELECT id FROM users WHERE email = ANY($1)
-        ) AND user_id != 'a0000000-0000-0000-0000-000000000001'
-        RETURNING id`,
-        [KEEP_EMAILS]
+      const { rows: fakeConvs } = await client.query(
+        `SELECT id FROM chat_conversations WHERE user_id = ANY($1)`,
+        [fakeIds]
       );
-      if (testAuditResult.rowCount > 0) {
-        console.log(`   📝 Cleaned ${testAuditResult.rowCount} additional orphaned audit entries`);
+      if (fakeConvs.length > 0) {
+        const convIds = fakeConvs.map(c => c.id);
+        await client.query('DELETE FROM chat_messages WHERE conversation_id = ANY($1)', [convIds]);
+        await client.query('DELETE FROM chat_conversations WHERE id = ANY($1)', [convIds]);
+        console.log(`   ✅ Deleted ${convIds.length} chat conversations`);
       }
-    } catch (e) {
-      console.log(`   ⚠️  Orphaned audit cleanup: ${e.message}`);
-    }
+    } catch (e) { console.log('   ⚠️  Chat tables may not exist yet'); }
 
-    // 4. Summary
-    const remainingUsers = await client.query('SELECT email, role FROM users ORDER BY created_at');
-    console.log(`\n📊 Remaining users (${remainingUsers.rows.length}):`);
-    remainingUsers.rows.forEach(r => console.log(`   - ${r.email} (${r.role})`));
+    // Delete disputes for fake users
+    try {
+      const { rowCount } = await client.query('DELETE FROM disputes WHERE user_id = ANY($1)', [fakeIds]);
+      console.log(`   ✅ Deleted ${rowCount} disputes`);
+    } catch (e) { console.log('   ⚠️  Disputes table may not exist'); }
 
-    const remainingAudit = await client.query('SELECT COUNT(*) as count FROM audit_logs');
-    console.log(`   📝 Audit logs: ${remainingAudit.rows[0].count} entries remaining`);
+    // Delete orders for fake users
+    try {
+      const { rowCount } = await client.query('DELETE FROM orders WHERE customer_id = ANY($1)', [fakeIds]);
+      console.log(`   ✅ Deleted ${rowCount} orders`);
+    } catch (e) { console.log('   ⚠️  Orders table may not exist'); }
 
-    await client.query('COMMIT');
-    console.log('\n✅ Cleanup complete!');
+    // Delete payments for fake users
+    try {
+      const { rowCount } = await client.query('DELETE FROM payments WHERE user_id = ANY($1)', [fakeIds]);
+      console.log(`   ✅ Deleted ${rowCount} payments`);
+    } catch (e) { console.log('   ⚠️  Payments table may not exist'); }
+
+    // Delete favorites for fake users
+    try {
+      const { rowCount } = await client.query('DELETE FROM favorites WHERE user_id = ANY($1)', [fakeIds]);
+      console.log(`   ✅ Deleted ${rowCount} favorites`);
+    } catch (e) {}
+
+    // Delete notifications for fake users
+    try {
+      const { rowCount } = await client.query('DELETE FROM notifications WHERE user_id = ANY($1)', [fakeIds]);
+      console.log(`   ✅ Deleted ${rowCount} notifications`);
+    } catch (e) {}
+
+    // Delete vendor records for fake users
+    try {
+      const { rowCount } = await client.query('DELETE FROM vendors WHERE user_id = ANY($1)', [fakeIds]);
+      console.log(`   ✅ Deleted ${rowCount} vendor records`);
+    } catch (e) {}
+
+    // Delete products by fake vendors
+    try {
+      const fakeVendorIds = fakeUsers.filter(u => u.role === 'vendor').map(u => u.id);
+      if (fakeVendorIds.length > 0) {
+        const { rowCount } = await client.query('DELETE FROM products WHERE vendor_id = ANY($1)', [fakeVendorIds]);
+        console.log(`   ✅ Deleted ${rowCount} products from fake vendors`);
+      }
+    } catch (e) {}
+
+    // Delete sub_admin records for fake users
+    try {
+      await client.query('DELETE FROM sub_admins WHERE user_id = ANY($1)', [fakeIds]);
+    } catch (e) {}
+
+    // Delete audit logs for fake users
+    try {
+      await client.query("DELETE FROM audit_logs WHERE user_email = ANY($1)", [fakeEmails]);
+    } catch (e) {}
+
+    // 4. Delete the fake users themselves
+    const { rowCount } = await client.query('DELETE FROM users WHERE id = ANY($1)', [fakeIds]);
+    console.log(`\n🗑️  Deleted ${rowCount} fake users`);
+
+    // 5. Clean up any products with fake vendor data
+    try {
+      const { rowCount: orphanProducts } = await client.query(`
+        DELETE FROM products WHERE vendor_id NOT IN (SELECT id FROM users WHERE role = 'vendor')
+      `);
+      if (orphanProducts > 0) console.log(`   ✅ Deleted ${orphanProducts} orphan products`);
+    } catch (e) {}
+
+    // 6. Clean up payments with fake order data
+    try {
+      const { rowCount: orphanPayments } = await client.query(`
+        DELETE FROM payments WHERE order_id IS NOT NULL AND order_id NOT IN (SELECT id FROM orders)
+      `);
+      if (orphanPayments > 0) console.log(`   ✅ Deleted ${orphanPayments} orphan payments`);
+    } catch (e) {}
+
+    console.log('\n✨ Cleanup complete! Only real users remain.');
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('❌ Cleanup failed:', error.message);
+    console.error('❌ Cleanup error:', error.message);
   } finally {
     client.release();
-    await pool.end();
+    pool.end();
   }
 }
 

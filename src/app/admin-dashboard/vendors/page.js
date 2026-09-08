@@ -23,6 +23,7 @@ export default function AdminVendorsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   useEffect(() => { loadVendors(); }, []);
 
@@ -216,51 +217,56 @@ export default function AdminVendorsPage() {
                     <td className="px-6 py-4 text-sm text-gray-600">{v.average_rating ? `⭐ ${Number(v.average_rating).toFixed(1)}` : '—'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{v.total_orders || 0}</td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1.5">
-                        {/* Review KYC — opens modal with full details */}
-                        {['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW', 'NOT_STARTED', 'IN_PROGRESS', 'VERIFICATION_FAILED'].includes(v.kyc_status) && (
-                          <button onClick={() => openKycReview(v)} className="bg-ob-purple/10 text-ob-purple text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-ob-purple/20 transition-colors">
-                            Review KYC
-                          </button>
-                        )}
-                        {v.kyc_status === 'VERIFIED' && (
-                          <button onClick={() => openKycReview(v)} className="bg-green-50 text-green-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors">
-                            View Details
-                          </button>
-                        )}
-                        {/* Approve */}
-                        {v.kyc_status !== 'VERIFIED' && v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED' && (
-                          <button onClick={() => updateVendor(v.id, { kyc_status: 'VERIFIED' })} className="bg-green-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-green-600 transition-colors">
-                            Approve
-                          </button>
-                        )}
-                        {/* Reject */}
-                        {['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status) && (
-                          <button onClick={() => handleReject(v.id)} className="bg-red-50 text-red-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors">
-                            Reject
-                          </button>
-                        )}
-                        {/* Suspend */}
-                        {v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED' && (
-                          <button onClick={() => updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false })} className="bg-amber-50 text-amber-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors">
-                            Suspend
-                          </button>
-                        )}
-                        {/* Ban */}
-                        {v.kyc_status !== 'BANNED' && (
-                          <button onClick={() => {
-                            if (confirm('Are you sure you want to BAN this vendor? This action is severe.')) {
-                              updateVendor(v.id, { kyc_status: 'BANNED', is_active: false });
-                            }
-                          }} className="bg-red-100 text-red-700 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-red-200 transition-colors">
-                            Ban
-                          </button>
-                        )}
-                        {/* Reinstate */}
-                        {(v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED') && (
-                          <button onClick={() => updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true })} className="bg-blue-50 text-blue-600 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
-                            Reinstate
-                          </button>
+                      <div className="relative">
+                        <button onClick={() => setOpenMenuId(openMenuId === v.id ? null : v.id)}
+                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+                          Actions ▾
+                        </button>
+                        {openMenuId === v.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+                            <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-48">
+                              <button onClick={() => { openKycReview(v); setOpenMenuId(null); }}
+                                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
+                                📋 Review KYC
+                              </button>
+                              {v.kyc_status !== 'VERIFIED' && v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED' && (
+                                <button onClick={() => { updateVendor(v.id, { kyc_status: 'VERIFIED' }); setOpenMenuId(null); }}
+                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-green-700">
+                                  ✅ Approve
+                                </button>
+                              )}
+                              {['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status) && (
+                                <button onClick={() => { handleReject(v.id); setOpenMenuId(null); }}
+                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600">
+                                  ❌ Reject KYC
+                                </button>
+                              )}
+                              {v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED' && (
+                                <button onClick={() => { updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false }); setOpenMenuId(null); }}
+                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-amber-600">
+                                  ⚠️ Suspend
+                                </button>
+                              )}
+                              {v.kyc_status !== 'BANNED' && (
+                                <button onClick={() => {
+                                  if (confirm('Are you sure you want to BAN this vendor? This action is severe.')) {
+                                    updateVendor(v.id, { kyc_status: 'BANNED', is_active: false });
+                                  }
+                                  setOpenMenuId(null);
+                                }}
+                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-red-700">
+                                  🚫 Ban
+                                </button>
+                              )}
+                              {(v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED') && (
+                                <button onClick={() => { updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true }); setOpenMenuId(null); }}
+                                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-blue-600">
+                                  ♻️ Reinstate
+                                </button>
+                              )}
+                            </div>
+                          </>
                         )}
                       </div>
                     </td>

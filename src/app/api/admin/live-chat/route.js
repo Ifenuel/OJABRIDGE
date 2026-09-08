@@ -1,9 +1,30 @@
 import { NextResponse } from 'next/server';
 import { dbQuery, dbInsert, dbRaw } from '@/lib/db';
+import { getUserFromRequest } from '@/lib/auth';
+
+// Check if user has permission (super admin always has all, sub_admin needs specific permission)
+async function checkPermission(request, requiredPermission) {
+  const user = await getUserFromRequest(request);
+  if (!user) return { allowed: false, error: 'Authentication required' };
+  if (user.role === 'admin') return { allowed: true, user };
+  if (user.role === 'sub_admin') {
+    // Load permissions from sub_admins table
+    const { data } = await dbQuery('sub_admins', { filter: { user_id: user.id }, limit: 1 });
+    const perms = data?.[0]?.permissions || [];
+    const permList = typeof perms === 'string' ? JSON.parse(perms) : perms;
+    if (permList.includes(requiredPermission)) return { allowed: true, user };
+    return { allowed: false, error: 'Permission denied' };
+  }
+  return { allowed: false, error: 'Admin access required' };
+}
 
 // GET — Admin views all live chat conversations or messages in a specific conversation
 export async function GET(request) {
   try {
+    const { allowed, user, error: permError } = await checkPermission(request, 'live-chats');
+    if (!allowed) {
+      return NextResponse.json({ success: false, error: permError }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get('conversationId');
     const status = searchParams.get('status') || 'all';
@@ -69,13 +90,18 @@ export async function GET(request) {
 // POST — Admin sends a reply to a conversation
 export async function POST(request) {
   try {
-    const { conversationId, message, adminUser } = await request.json();
+    const { allowed, user, error: permError } = await checkPermission(request, 'live-chats');
+    if (!allowed) {
+      return NextResponse.json({ success: false, error: permError }, { status: 403 });
+    }
+
+    const { conversationId, message } = await request.json();
     if (!conversationId || !message?.trim()) {
       return NextResponse.json({ success: false, error: 'Conversation ID and message required' }, { status: 400 });
     }
 
-    const adminId = adminUser?.id;
-    const adminName = adminUser?.name || 'Support Team';
+    const adminId = user.id;
+    const adminName = user.name || 'Support Team';
 
     // Save admin message
     const { data: msg, error } = await dbInsert('chat_messages', {
@@ -102,6 +128,11 @@ export async function POST(request) {
 // PATCH — Update conversation status (assign, close, reopen)
 export async function PATCH(request) {
   try {
+    const { allowed, user, error: permError } = await checkPermission(request, 'live-chats');
+    if (!allowed) {
+      return NextResponse.json({ success: false, error: permError }, { status: 403 });
+    }
+
     const { conversationId, status, assignedTo } = await request.json();
     if (!conversationId) {
       return NextResponse.json({ success: false, error: 'Conversation ID required' }, { status: 400 });
