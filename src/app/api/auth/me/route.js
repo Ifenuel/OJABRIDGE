@@ -30,6 +30,16 @@ export async function GET(request) {
         return NextResponse.json({ success: false, error: 'Account is not active' }, { status: 403 });
       }
 
+      // Sub-admins: load permissions from sub_admins table (never from client)
+      let permissions = undefined;
+      if (dbUser.role === 'sub_admin') {
+        try {
+          const { data: sa } = await dbQuery('sub_admins', { filter: { user_id: dbUser.id }, limit: 1 });
+          const perms = sa?.[0]?.permissions || [];
+          permissions = typeof perms === 'string' ? JSON.parse(perms) : perms;
+        } catch { permissions = []; }
+      }
+
       return NextResponse.json({
         success: true,
         user: {
@@ -43,6 +53,7 @@ export async function GET(request) {
           emailVerified: dbUser.email_verified,
           mfaEnabled: dbUser.mfa_enabled,
           createdAt: dbUser.created_at,
+          ...(permissions !== undefined && { permissions }),
         },
       });
     }

@@ -18,7 +18,7 @@ export default function LoginPage() {
   // Redirect if already logged in and verified
   useEffect(() => {
     if (isAuthenticated && user && user.email_verified) {
-      const dashboards = { admin: '/admin-dashboard', vendor: '/vendor-dashboard', retailer: '/retailer-dashboard', customer: '/account' };
+      const dashboards = { admin: '/admin-dashboard', sub_admin: '/admin-dashboard', vendor: '/vendor-dashboard', retailer: '/retailer-dashboard', customer: '/account' };
       router.replace(dashboards[user.role] || '/account');
     }
   }, [isAuthenticated, user, router]);
@@ -32,7 +32,7 @@ export default function LoginPage() {
     try {
       const result = await login(email, password);
       if (result.success && result.user) {
-        const dashboards = { admin: '/admin-dashboard', vendor: '/vendor-dashboard', retailer: '/retailer-dashboard', customer: '/account' };
+        const dashboards = { admin: '/admin-dashboard', sub_admin: '/admin-dashboard', vendor: '/vendor-dashboard', retailer: '/retailer-dashboard', customer: '/account' };
         router.push(dashboards[result.user.role] || '/account');
       } else if (result.requiresVerification) {
         router.push(`/verify-email?email=${encodeURIComponent(result.email || email)}`);

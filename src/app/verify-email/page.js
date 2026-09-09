@@ -101,7 +101,7 @@ function VerifyEmailForm() {
         setTimeout(() => {
           if (user?.role === 'vendor') router.push('/vendor-dashboard');
           else if (user?.role === 'retailer') router.push('/retailer-dashboard');
-          else if (user?.role === 'admin') router.push('/admin-dashboard');
+          else if (user?.role === 'admin' || user?.role === 'sub_admin') router.push('/admin-dashboard');
           else if (user) router.push('/account');
           else router.push('/login'); // No session (just registered) → go to login
         }, 2000);

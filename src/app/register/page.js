@@ -65,7 +65,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (isAuthenticated && user && user.email_verified) {
-      if (user.role === 'admin') router.replace('/admin-dashboard');
+      if (user.role === 'admin' || user.role === 'sub_admin') router.replace('/admin-dashboard');
       else if (user.role === 'vendor') router.replace('/vendor-dashboard');
       else if (user.role === 'retailer') router.replace('/retailer-dashboard');
       else router.replace('/account');

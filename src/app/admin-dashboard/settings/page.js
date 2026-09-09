@@ -26,9 +26,6 @@ export default function AdminSettingsPage() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
-  const [showCreateAdmin, setShowCreateAdmin] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newAdminForm, setNewAdminForm] = useState({ name: '', email: '', phone: '', password: '', permissions: [] });
   const [platformSettings, setPlatformSettings] = useState({ platform_commission: 10, free_shipping_threshold: 50000 });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -148,7 +145,7 @@ export default function AdminSettingsPage() {
           <div>
             <h3 className="font-bold text-ob-navy text-lg mb-1">Super Admin Access Control</h3>
             <p className="text-gray-600 text-sm leading-relaxed">
-              You have full access to all platform features. Create sub-admin accounts below and configure exactly which sections each admin can access. Permissions are stored in the database and enforced across all sessions.
+              You have full access to all platform features.              Create sub-admin accounts from the Sub-Admins page in the sidebar, and configure admin access levels below. Permissions are stored in the database and enforced across all sessions.
             </p>
             <div className="flex gap-4 mt-4">
               <div className="text-center">
@@ -172,73 +169,11 @@ export default function AdminSettingsPage() {
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-8">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-bold text-ob-navy">Admin Accounts</h3>
-          <button onClick={() => setShowCreateAdmin(!showCreateAdmin)} className="text-sm bg-ob-purple text-white px-4 py-2 rounded-lg hover:bg-ob-purple-dark transition-colors">
-            {showCreateAdmin ? 'Cancel' : '+ New Sub-Admin'}
-          </button>
+          <a href="/admin-dashboard/sub-admins" className="text-sm bg-ob-purple text-white px-4 py-2 rounded-lg hover:bg-ob-purple-dark transition-colors">
+            Manage Sub-Admins
+          </a>
         </div>
 
-        {/* Create Sub-Admin Form */}
-        {showCreateAdmin && (
-          <div className="px-6 py-6 bg-gray-50 border-b border-gray-100">
-            <p className="text-sm font-bold text-ob-navy mb-4">Create New Sub-Admin Account</p>
-            <div className="grid sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Full Name *</label>
-                <input type="text" value={newAdminForm.name} onChange={e => setNewAdminForm({...newAdminForm, name: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="e.g. John Doe" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Email *</label>
-                <input type="email" value={newAdminForm.email} onChange={e => setNewAdminForm({...newAdminForm, email: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="john@ojabridge.com" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Phone (optional)</label>
-                <input type="tel" value={newAdminForm.phone} onChange={e => setNewAdminForm({...newAdminForm, phone: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="+234..." />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Password *</label>
-                <input type="password" value={newAdminForm.password} onChange={e => setNewAdminForm({...newAdminForm, password: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none" placeholder="Min 8 characters" minLength={8} />
-              </div>
-            </div>
-            <div className="mb-4">
-              <p className="text-xs font-medium text-gray-600 mb-2">Assign Permissions</p>
-              <div className="flex flex-wrap gap-2">
-                {AVAILABLE_PERMISSIONS.map(perm => (
-                  <button key={perm.key} type="button" onClick={() => {
-                    const has = newAdminForm.permissions.includes(perm.key);
-                    setNewAdminForm({...newAdminForm, permissions: has ? newAdminForm.permissions.filter(p => p !== perm.key) : [...newAdminForm.permissions, perm.key]});
-                  }} className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${newAdminForm.permissions.includes(perm.key) ? 'bg-ob-purple text-white border-ob-purple' : 'bg-white text-gray-600 border-gray-200 hover:border-ob-purple'}`}>{perm.icon} {perm.label}</button>
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={async () => {
-                if (!newAdminForm.name || !newAdminForm.email || !newAdminForm.password) { setMessage({type:'error', text:'Name, email and password are required'}); return; }
-                setCreating(true);
-                try {
-                  const res = await fetch('/api/admin/create-admin', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newAdminForm),
-                  });
-                  const data = await res.json();
-                  if (data.success) {
-                    setMessage({ type: 'success', text: data.message || 'Sub-admin created successfully' });
-                    setShowCreateAdmin(false);
-                    setNewAdminForm({ name: '', email: '', phone: '', password: '', permissions: [] });
-                    loadData();
-                  } else {
-                    setMessage({ type: 'error', text: data.errors?.join(', ') || data.error || 'Failed to create' });
-                  }
-                } catch (e) { setMessage({ type: 'error', text: 'Network error' }); }
-                setCreating(false);
-                setTimeout(() => setMessage({type:'',text:''}), 5000);
-              }} disabled={creating} className="bg-ob-purple text-white px-5 py-2 text-sm rounded-lg font-medium hover:bg-ob-purple-dark disabled:opacity-50 transition-colors">
-                {creating ? 'Creating...' : 'Create Sub-Admin Account'}
-              </button>
-              <button type="button" onClick={() => setShowCreateAdmin(false)} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Cancel</button>
-            </div>
-          </div>
-        )}
 
         <div className="overflow-x-auto">
           <table className="w-full">
