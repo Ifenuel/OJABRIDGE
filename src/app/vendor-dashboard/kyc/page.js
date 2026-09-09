@@ -46,6 +46,18 @@ const NIGERIAN_BANKS = [
   'Wagnet Microfinance Bank', 'Wow Momo', 'Zedvance',
 ];
 
+const NIGERIAN_BANK_CODES = {
+  'Access Bank': '044', 'Citibank Nigeria': '023', 'Ecobank Nigeria': '050',
+  'Fidelity Bank': '070', 'First Bank of Nigeria': '011', 'First City Monument Bank (FCMB)': '214',
+  'Globus Bank': '00103', 'Guaranty Trust Bank (GTBank)': '058', 'Heritage Bank': '030',
+  'Keystone Bank': '082', 'Kuda Bank': '50211', 'Opay (Paycom)': '999992', 'Palmpay': '999991',
+  'Polaris Bank': '076', 'Providus Bank': '101', 'Stanbic IBTC Bank': '221',
+  'Standard Chartered Bank': '068', 'Sterling Bank': '232', 'SunTrust Bank': '100',
+  'Titan Trust Bank': '102', 'Union Bank': '032', 'United Bank for Africa (UBA)': '033',
+  'Unity Bank': '215', 'Wema Bank': '035', 'Zenith Bank': '057', 'ALAT by Wema': '555',
+  'Lotus Bank': '303', 'Parallex Bank': '525', 'Sparkle Microfinance Bank': '526',
+};
+
 function validateBvn(value) {
   const cleaned = (value || '').replace(/\s/g, '');
   if (!cleaned) return 'BVN is required';
@@ -120,6 +132,12 @@ export default function VendorKycPage() {
         if (data.kyc.dateOfBirth) setDateOfBirth(data.kyc.dateOfBirth);
         // DO NOT clear bank account fields — they are masked from API
         if (data.kyc.accountName) setAccountName(data.kyc.accountName);
+        // Prefill masked sensitive values so users SEE their saved data.
+        // Masked strings ("****1234") are accepted by validation as "unchanged"
+        // and the server keeps stored values for them — no retyping secrets.
+        if (data.kyc.bvn) setBvn(data.kyc.bvn);
+        if (data.kyc.nin) setNin(data.kyc.nin);
+        if (data.kyc.bankAccountNumber) setAccountNumber(data.kyc.bankAccountNumber);
         if (data.kyc.idDocumentUrl) setIdFileUrl(data.kyc.idDocumentUrl);
         if (data.kyc.fullName) setFullName(data.kyc.fullName);
         if (data.kyc.businessType) setBusinessType(data.kyc.businessType);
@@ -133,10 +151,18 @@ export default function VendorKycPage() {
 
   const status = VERIFICATION_STATES[kycData?.status || 'not_started'] || VERIFICATION_STATES.not_started;
 
+  // Masked-value aware checks — fields prefilled as "****1234" count as SAVED/unchanged.
+  // The server keeps stored values for masked inputs, so users never retype secrets to update other fields.
+  const hasDigits = (val, n) => !!val && !String(val).includes('*') && val.replace(/\s/g, '').length === n;
+  const isMasked = (val) => !!val && String(val).includes('*');
+  const bvnOk = hasDigits(bvn, 11) || isMasked(bvn);
+  const ninOk = hasDigits(nin, 11) || isMasked(nin);
+  const acctOk = (!!accountNumber && !accountNumber.includes('*') && accountNumber.replace(/\s/g, '').length >= 6) || isMasked(accountNumber);
+
   // Calculate completion — BOTH BVN and NIN required for step 2
   const step1Done = fullName && dateOfBirth;
-  const step2Done = (bvn && bvn.replace(/\s/g, '').length === 11) && (nin && nin.replace(/\s/g, '').length === 11);
-  const step3Done = bankName && accountNumber && accountName;
+  const step2Done = bvnOk && ninOk;
+  const step3Done = bankName && acctOk && accountName;
   const step4Done = businessName && rcNumber;
   const stepsCompleted = [step1Done, step2Done, step3Done, step4Done].filter(Boolean).length;
 
@@ -188,14 +214,12 @@ export default function VendorKycPage() {
 
   const handleSubmitForReview = async () => {
     const newErrors = {};
-    const bvnErr = validateBvn(bvn);
-    const ninErr = validateNin(nin);
-    if (bvnErr) newErrors.bvn = bvnErr;
-    if (ninErr) newErrors.nin = ninErr;
+    if (!bvnOk) newErrors.bvn = bvn ? validateBvn(bvn) : 'BVN is required';
+    if (!ninOk) newErrors.nin = nin ? validateNin(nin) : 'NIN is required';
     if (!fullName) newErrors.fullName = 'Full name is required';
     if (!dateOfBirth) newErrors.dateOfBirth = 'Date of birth is required';
     if (!bankName) newErrors.bankName = 'Bank name is required';
-    if (!accountNumber) newErrors.accountNumber = 'Account number is required';
+    if (!acctOk) newErrors.accountNumber = 'Account number is required';
     if (!accountName) newErrors.accountName = 'Account name is required';
     if (!businessName) newErrors.businessName = 'Business name is required';
     if (!rcNumber) newErrors.rcNumber = 'RC number is required';
@@ -222,6 +246,7 @@ export default function VendorKycPage() {
           idNumber,
           idDocumentUrl: idFileUrl,
           bankName,
+          bankCode: NIGERIAN_BANK_CODES[bankName] || null,
           bankAccountNumber: accountNumber,
           bankAccountName: accountName,
           businessName,
@@ -244,7 +269,7 @@ export default function VendorKycPage() {
   };
 
   // Both BVN and NIN are now required
-  const canSubmit = fullName && dateOfBirth && bvn && nin && bvn.replace(/\s/g, '').length === 11 && nin.replace(/\s/g, '').length === 11 && bankName && accountNumber && accountName && businessName && rcNumber;
+  const canSubmit = fullName && dateOfBirth && bvnOk && ninOk && bankName && acctOk && accountName && businessName && rcNumber;
 
   // Show caution only when BVN or NIN is missing
   const showIdentityCaution = !bvn || !nin;
@@ -368,6 +393,7 @@ export default function VendorKycPage() {
               <input type="text" value={bvn} onChange={e => { setBvn(e.target.value); validateField('bvn', e.target.value); }} maxLength={11}
                 className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.bvn ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="11-digit BVN" />
               <p className="text-[10px] text-gray-400 mt-1">Dial *565*0# to check your BVN</p>
+              {isMasked(bvn) && <p className="text-[10px] text-green-600 mt-1">✓ Saved on file — leave as is or type a new BVN to change it</p>}
               {errors.bvn && <p className="text-xs text-red-500 mt-1">{errors.bvn}</p>}
             </div>
             <div>
@@ -375,6 +401,7 @@ export default function VendorKycPage() {
               <input type="text" value={nin} onChange={e => { setNin(e.target.value); validateField('nin', e.target.value); }} maxLength={11}
                 className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.nin ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="11-digit NIN" />
               <p className="text-[10px] text-gray-400 mt-1">Dial *346# to check your NIN</p>
+              {isMasked(nin) && <p className="text-[10px] text-green-600 mt-1">✓ Saved on file — leave as is or type a new NIN to change it</p>}
               {errors.nin && <p className="text-xs text-red-500 mt-1">{errors.nin}</p>}
             </div>
           </div>
@@ -477,8 +504,9 @@ export default function VendorKycPage() {
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Account Number *</label>
-              <input type="text" value={accountNumber} onChange={e => setAccountNumber(e.target.value)} maxLength={10}
+              <input type="text" value={accountNumber} onChange={e => setAccountNumber(e.target.value)} maxLength={13}
                 className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.accountNumber ? 'border-red-300' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="10-digit account number" />
+              {isMasked(accountNumber) && <p className="text-[10px] text-green-600 mt-1">✓ Saved on file — leave as is or type the full number to change it</p>}
               {errors.accountNumber && <p className="text-xs text-red-500 mt-1">{errors.accountNumber}</p>}
             </div>
             <div>

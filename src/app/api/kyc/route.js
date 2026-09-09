@@ -86,39 +86,60 @@ export async function POST(request) {
       fullName,
     } = body;
 
-    // Validate both BVN and NIN are required
+    if (!isDatabaseConnected()) {
+      return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
+    }
+
+    // Load existing profile FIRST so masked/unchanged values can be merged.
+    // The GET endpoint returns masked BVN/NIN/account number (e.g. ****1234).
+    // If the user re-submits without re-typing those (value contains * or is empty),
+    // we keep the stored value instead of failing validation — otherwise a verified
+    // vendor could never update anything (e.g. bank details) without retyping secrets.
+    let vendorProfile = await dbQuery('vendors', { filter: { user_id: user.id } });
+    const existing = vendorProfile.data?.[0] || null;
+
+    const mergeValue = (incoming, stored) => {
+      const v = typeof incoming === 'string' ? incoming.trim() : incoming;
+      if (v && !String(v).includes('*')) return String(v); // fresh value from the user
+      return stored || null;                               // masked or empty → keep stored
+    };
+
+    const mergedBvn = mergeValue(bvn, existing?.bvn);
+    const mergedNin = mergeValue(nin, existing?.nin);
+    const mergedAcctNumber = mergeValue(bankAccountNumber, existing?.bank_account_number);
+    const mergedAcctName = mergeValue(bankAccountName, existing?.bank_account_name);
+    const mergedBankName = bankName || existing?.bank_name || null;
+    const mergedBusinessName = businessName || existing?.business_name || null;
+    const mergedRcNumber = rcNumber || existing?.rc_number || null;
+
+    // Validate merged values — both BVN and NIN are required
     const errors = [];
-    if (!bvn || bvn.length !== 11 || !/^\d{11}$/.test(bvn)) errors.push('BVN must be exactly 11 digits');
-    if (!nin || nin.length !== 11 || !/^\d{11}$/.test(nin)) errors.push('NIN must be exactly 11 digits');
-    if (!bankName) errors.push('Bank name is required');
-    if (!bankAccountNumber) errors.push('Account number is required');
-    if (!bankAccountName) errors.push('Account name is required');
-    if (!businessName) errors.push('Business name is required');
-    if (!rcNumber) errors.push('RC number is required');
+    if (!mergedBvn || !/^\d{11}$/.test(mergedBvn)) errors.push('BVN must be exactly 11 digits');
+    if (!mergedNin || !/^\d{11}$/.test(mergedNin)) errors.push('NIN must be exactly 11 digits');
+    if (!mergedBankName) errors.push('Bank name is required');
+    if (!mergedAcctNumber) errors.push('Account number is required');
+    if (!mergedAcctName) errors.push('Account name is required');
+    if (!mergedBusinessName) errors.push('Business name is required');
+    if (!mergedRcNumber) errors.push('RC number is required');
     
     if (errors.length > 0) {
       return NextResponse.json({ success: false, error: errors[0], errors }, { status: 400 });
     }
 
-    if (!isDatabaseConnected()) {
-      return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
-    }
-
-    let vendorProfile = await dbQuery('vendors', { filter: { user_id: user.id } });
     let vendorId;
 
-    if (!vendorProfile.data?.[0]) {
+    if (!existing) {
       const slug = (user.name || 'user').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const { data: newProfile, error: createError } = await dbInsert('vendors', {
         user_id: user.id,
         store_name: user.name || 'Store',
         store_slug: `${slug}-${Date.now().toString(36)}`,
-        business_name: businessName || user.name,
+        business_name: mergedBusinessName || user.name,
       });
       if (createError) return NextResponse.json({ success: false, error: createError }, { status: 500 });
       vendorId = newProfile.id;
     } else {
-      vendorId = vendorProfile.data[0].id;
+      vendorId = existing.id;
     }
 
     const updates = {
@@ -130,26 +151,29 @@ export async function POST(request) {
     if (fullName) updates.full_name = fullName;
     if (dateOfBirth) updates.date_of_birth = dateOfBirth;
 
-    // Identity verification — always save both
-    updates.bvn = bvn;
-    updates.nin = nin;
+    // Identity verification — always save both (merged values)
+    updates.bvn = mergedBvn;
+    updates.nin = mergedNin;
     if (idType) updates.id_type = idType;
     if (idNumber) updates.id_number = idNumber;
     if (idDocumentUrl) updates.id_document_url = idDocumentUrl;
     updates.id_verification_status = 'SUBMITTED';
 
-    // Business info
-    if (businessName) updates.business_name = businessName;
-    if (rcNumber) updates.rc_number = rcNumber;
+    // Business info (merged with stored values)
+    if (mergedBusinessName) updates.business_name = mergedBusinessName;
+    if (mergedRcNumber) updates.rc_number = mergedRcNumber;
     if (businessType) updates.business_type = businessType;
     if (businessAddress) updates.business_address = businessAddress;
 
-    // Bank info — always save all bank details
-    updates.bank_name = bankName;
-    updates.bank_account_number = bankAccountNumber;
+    // Bank info — always save all bank details (merged with stored values).
+    // Bank details count as complete when bank + account number + account name are all present.
+    // If complete, mark VERIFIED (server-side); otherwise keep IN_PROGRESS so the user knows to fix it.
+    updates.bank_name = mergedBankName;
+    updates.bank_account_number = mergedAcctNumber;
     if (bankCode) updates.bank_code = bankCode;
-    updates.bank_account_name = bankAccountName;
-    updates.bank_verification_status = 'IN_PROGRESS';
+    updates.bank_account_name = mergedAcctName;
+    const bankDetailsComplete = !!(mergedBankName && mergedAcctNumber && String(mergedAcctNumber).replace(/\s/g, '').length >= 6 && mergedAcctName);
+    updates.bank_verification_status = bankDetailsComplete ? 'VERIFIED' : 'IN_PROGRESS';
 
     const { data, error } = await dbUpdate('vendors', { id: vendorId }, updates);
     if (error) return NextResponse.json({ success: false, error }, { status: 500 });

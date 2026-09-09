@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import ActionMenu from '@/components/ActionMenu';
+import KycDocumentViewer from '@/components/KycDocumentViewer';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
 
@@ -270,7 +271,7 @@ export default function AdminRetailersPage() {
                       <div className="bg-gray-50 p-3 rounded-lg"><p className="text-[10px] text-gray-400 uppercase">ID Number</p><p className="text-sm font-medium text-gray-700">{kycDetails.idNumber || '—'}</p></div>
                     </div>
                     {kycDetails.idDocumentUrl && (
-                      <div className="mt-3"><p className="text-[10px] text-gray-400 uppercase mb-1">Uploaded ID</p><a href={kycDetails.idDocumentUrl} target="_blank" rel="noopener noreferrer" className="text-ob-purple text-sm hover:underline">View Document →</a></div>
+                      <KycDocumentViewer url={kycDetails.idDocumentUrl} label="Uploaded ID Document" />
                     )}
                   </div>
 

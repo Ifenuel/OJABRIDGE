@@ -119,7 +119,7 @@ export default function VendorDashboardPage() {
           <p className="text-xl font-bold text-blue-600 mt-1">₦{(totalRevenue - commission).toLocaleString()}</p>
           <p className="text-[10px] text-gray-400 mt-1">After platform commission</p>
         </Link>
-        <Link href="/vendor-dashboard/store" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
+        <Link href="/vendor-dashboard/reviews" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
           <p className="text-xs text-gray-500">Store Rating</p>
           <p className="text-xl font-bold text-amber-600 mt-1">{vendor?.average_rating ? `⭐ ${Number(vendor.average_rating).toFixed(1)}` : 'No ratings yet'}</p>
           <p className="text-[10px] text-gray-400 mt-1">{vendor?.total_reviews || 0} reviews</p>

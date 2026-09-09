@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { dbQuery, dbUpdate, dbInsert, isDatabaseConnected } from '@/lib/db';
+import { getUserFromRequest, requireAuth } from '@/lib/auth';
 import { verifyPayment } from '@/lib/paystack';
 
 /**
@@ -19,6 +20,12 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
+    // SECURITY: verification requires an authenticated session (the webhook
+    // handles server-to-server confirmation; this route is for the payer only)
+    const authUser = await getUserFromRequest(request);
+    const auth = requireAuth(authUser);
+    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+
     const body = await request.json();
     const { reference } = body;
 
@@ -40,9 +47,47 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'Transaction not found' }, { status: 404 });
     }
 
+    // 1b. Ownership check — a user may only verify their OWN transaction
+    if (transaction.user_id !== authUser.id && authUser.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Not authorized to verify this transaction' }, { status: 403 });
+    }
+
     // 2. Idempotency — already verified
     if (transaction.status === 'completed') {
       return NextResponse.json({ success: true, message: 'Transaction already verified', alreadyVerified: true });
+    }
+
+    // 2b. PER-ORDER idempotency — the order itself may already be settled
+    // (double-init → user paid two references, or webhook processed first).
+    // Financial side-effects (commission, vendor wallets) must run ONCE per order.
+    const { data: orderTxns } = await dbQuery('transactions', { filter: { order_id: transaction.order_id } });
+    const otherCompleted = orderTxns?.some(t => t.id !== transaction.id && t.status === 'completed');
+    const { data: existingCommissions } = await dbQuery('commissions', { filter: { order_id: transaction.order_id } });
+    if (otherCompleted || (existingCommissions && existingCommissions.length > 0)) {
+      // Real money WAS received for this second reference — flag for refund review,
+      // but NEVER record commission/earnings twice for the same order.
+      await dbUpdate('transactions', { id: transaction.id }, {
+        status: 'flagged',
+        failure_reason: 'Duplicate payment received for this order — refund review required',
+        verified_at: new Date().toISOString(),
+      });
+      await dbUpdate('orders', { id: transaction.order_id }, {
+        payment_status: 'paid',
+        status: 'confirmed',
+        paystack_reference: reference,
+      });
+      await dbInsert('audit_logs', {
+        action: 'payment.duplicate_flagged',
+        entity_type: 'order',
+        entity_id: transaction.order_id,
+        new_data: { reference, reason: 'Second completed payment for same order' },
+        created_at: new Date().toISOString(),
+      });
+      return NextResponse.json({
+        success: false,
+        error: 'This order was already paid. The extra payment has been flagged for refund review.',
+        duplicatePayment: true,
+      }, { status: 409 });
     }
 
     // 3. Verify with Paystack server-side

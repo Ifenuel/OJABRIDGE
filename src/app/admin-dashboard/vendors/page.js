@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import KycDocumentViewer from '@/components/KycDocumentViewer';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
 import ActionMenu from '@/components/ActionMenu';
@@ -306,12 +307,7 @@ export default function AdminVendorsPage() {
                       </div>
                     </div>
                     {kycDetails.idDocumentUrl && (
-                      <div className="mt-3">
-                        <p className="text-[10px] text-gray-400 uppercase mb-1">Uploaded ID Document</p>
-                        <a href={kycDetails.idDocumentUrl} target="_blank" rel="noopener noreferrer" className="text-ob-purple text-sm hover:underline">
-                          View Document →
-                        </a>
-                      </div>
+                      <KycDocumentViewer url={kycDetails.idDocumentUrl} label="Uploaded ID Document" />
                     )}
                   </div>
 

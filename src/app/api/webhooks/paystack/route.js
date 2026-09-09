@@ -125,6 +125,23 @@ async function handleChargeSuccess(data) {
     return;
   }
 
+  // PER-ORDER idempotency — if any other transaction for this order already
+  // completed, mark this one flagged for refund review and DON'T double-book
+  // commission/vendor earnings for the same order.
+  {
+    const { data: orderTxns } = await dbQuery('transactions', { filter: { order_id: transaction.order_id } });
+    const otherCompleted = orderTxns?.some(t => t.id !== transaction.id && t.status === 'completed');
+    const { data: existingCommissions } = await dbQuery('commissions', { filter: { order_id: transaction.order_id } });
+    if (otherCompleted || (existingCommissions && existingCommissions.length > 0)) {
+      await dbUpdate('transactions', { id: transaction.id }, {
+        status: 'flagged',
+        failure_reason: 'Duplicate payment received for this order — refund review required',
+      });
+      console.error(`[WEBHOOK] Duplicate payment for order ${transaction.order_id}: ${reference} — flagged, no double settlement`);
+      return;
+    }
+  }
+
   // Verify amount server-side
   const paidAmountKobo = amount;
   const expectedAmountKobo = Math.round(transaction.amount * 100);
