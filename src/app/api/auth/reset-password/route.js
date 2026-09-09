@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { hashPassword, validatePasswordStrength } from '@/lib/auth';
-import { dbQuery, dbUpdate, isDatabaseConnected } from '@/lib/db';
+import { dbQuery, dbUpdate, dbInsert, isDatabaseConnected } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +47,17 @@ export async function POST(request) {
       failed_login_attempts: 0,
       locked_until: null,
     });
+
+    // Audit log (non-blocking) — security-relevant event must be traceable
+    dbInsert('audit_logs', {
+      user_id: user.id,
+      action: 'password_reset',
+      entity_type: 'user',
+      entity_id: user.id,
+      ip_address: request.headers.get('x-forwarded-for') || null,
+      user_agent: request.headers.get('user-agent') || null,
+      created_at: new Date().toISOString(),
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

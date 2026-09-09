@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyPassword, hashPassword, validatePasswordStrength, getUserFromRequest, requireAuth } from '@/lib/auth';
-import { dbQuery, dbUpdate, isDatabaseConnected } from '@/lib/db';
+import { dbQuery, dbUpdate, dbInsert, isDatabaseConnected } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,6 +57,17 @@ export async function POST(request) {
     if (updateError) {
       return NextResponse.json({ success: false, error: 'Failed to update password' }, { status: 500 });
     }
+
+    // Audit log (non-blocking) — security-relevant event must be traceable
+    dbInsert('audit_logs', {
+      user_id: authUser.id,
+      action: 'password_changed',
+      entity_type: 'user',
+      entity_id: authUser.id,
+      ip_address: request.headers.get('x-forwarded-for') || null,
+      user_agent: request.headers.get('user-agent') || null,
+      created_at: new Date().toISOString(),
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, message: 'Password updated successfully' });
   } catch (error) {
