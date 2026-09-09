@@ -47,7 +47,8 @@ export async function GET(request) {
         rejectionReason: v.kyc_rejection_reason || null,
         bankVerificationStatus: (v.bank_verification_status || 'NOT_STARTED').toLowerCase(),
         fullName: v.full_name || user.name || null,
-        dateOfBirth: v.date_of_birth,
+        // DATE column → JS Date → would serialize as full ISO timestamp; format as YYYY-MM-DD
+        dateOfBirth: v.date_of_birth ? new Date(v.date_of_birth).toLocaleDateString('en-CA') : null,
         businessName: v.business_name,
         rcNumber: v.rc_number,
         businessType: v.business_type,
@@ -174,6 +175,23 @@ export async function POST(request) {
     updates.bank_account_name = mergedAcctName;
     const bankDetailsComplete = !!(mergedBankName && mergedAcctNumber && String(mergedAcctNumber).replace(/\s/g, '').length >= 6 && mergedAcctName);
     updates.bank_verification_status = bankDetailsComplete ? 'VERIFIED' : 'IN_PROGRESS';
+
+    // Identity provider hook — machine-verify BVN/NIN when a provider is
+    // configured (Dojah/Youverify env vars); otherwise stays MANUAL_REVIEW
+    // and the admin review flow remains the source of truth.
+    try {
+      const { verifyIdentity } = await import('@/lib/paystack');
+      const identityResult = await verifyIdentity({
+        bvn: mergedBvn,
+        nin: mergedNin,
+        fullName,
+        dateOfBirth,
+      });
+      updates.id_verification_status = identityResult.status; // VERIFIED | VERIFICATION_FAILED | MANUAL_REVIEW
+    } catch (e) {
+      console.error('Identity verification hook failed:', e.message);
+      updates.id_verification_status = 'MANUAL_REVIEW';
+    }
 
     const { data, error } = await dbUpdate('vendors', { id: vendorId }, updates);
     if (error) return NextResponse.json({ success: false, error }, { status: 500 });

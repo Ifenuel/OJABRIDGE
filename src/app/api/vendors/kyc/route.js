@@ -32,7 +32,10 @@ export async function GET(request) {
       success: true,
       kyc: {
         fullName: v.full_name,
-        dateOfBirth: v.date_of_birth,
+        // date_of_birth is a DATE column; node-postgres parses it to a JS Date
+        // which serializes as a full ISO timestamp. Format as YYYY-MM-DD in local
+        // time (en-CA locale gives exactly YYYY-MM-DD) so admins see 1997-02-17.
+        dateOfBirth: v.date_of_birth ? new Date(v.date_of_birth).toLocaleDateString('en-CA') : null,
         businessName: v.business_name,
         rcNumber: v.rc_number,
         businessType: v.business_type,

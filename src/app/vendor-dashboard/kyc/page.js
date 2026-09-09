@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
+import { NIGERIAN_BANKS as FALLBACK_BANKS, NIGERIAN_BANK_CODES } from '@/lib/nigerian-banks';
 
 const VERIFICATION_STATES = {
   not_started: { label: 'Not Started', color: 'bg-gray-100 text-gray-600', icon: '📋', description: 'Complete all steps below to start the verification process.' },
@@ -15,48 +16,8 @@ const VERIFICATION_STATES = {
 
 const ID_TYPES = ['National ID (NIN)', "Driver's License", 'International Passport', "Voter's Card"];
 
-const NIGERIAN_BANKS = [
-  'Access Bank', 'Citibank Nigeria', 'Ecobank Nigeria', 'Fidelity Bank',
-  'First Bank of Nigeria', 'First City Monument Bank (FCMB)', 'Globus Bank',
-  'Guaranty Trust Bank (GTBank)', 'Heritage Bank', 'Keystone Bank',
-  'Kuda Bank', 'Opay (Paycom)', 'Palmpay', 'Polaris Bank',
-  'Providus Bank', 'Stanbic IBTC Bank', 'Standard Chartered Bank',
-  'Sterling Bank', 'SunTrust Bank', 'Titan Trust Bank',
-  'Union Bank', 'United Bank for Africa (UBA)', 'Unity Bank',
-  'VFD Microfinance Bank', 'Wema Bank', 'Zenith Bank',
-  'AB Microfinance Bank', 'ALAT by Wema', 'Amju Unique Microfinance Bank',
-  'ASO Savings and Loans', 'Baobab Microfinance Bank', 'Branch International Finance',
-  'Carbon (Formerly OneCredit)', 'Chaka', 'Cowrywise',
-  'CrusaderSterling Microfinance Bank', 'DLM Asset Management',
-  'Ekondo Microfinance Bank', 'Eyowo', 'Fairmoney',
-  'Firmus Finance', 'FSDH Asset Managers', 'FundQuest Financial Services',
-  'Hedon Consulting', 'Ignite Education Fund', 'IzMee Microfinance Bank',
-  'Jubilee Life Mortgage Bank', 'Lagos Building Investment Company',
-  'La Canera Microfinance Bank', 'Lotus Bank', 'Malachy Microfinance Bank',
-  'Meridian Microfinance Bank', 'Microvis Microfinance Bank',
-  'Money Trust Microfinance Bank', 'NPF Microfinance Bank',
-  'Oakland Microfinance Bank', 'Ohafx Microfinance Bank',
-  'Olympic Microfinance Bank', 'One Finance', 'Parallex Bank',
-  'Petra Microfinance Bank', 'Pillar Microfinance Bank',
-  'Rephidim Microfinance Bank', 'Rogo Microfinance Bank',
-  'SafeHaven Microfinance Bank', 'Sparkle Microfinance Bank',
-  'Spring Capital', 'Supreme Microfinance Bank',
-  'Tangerine Microfinance Bank', 'TrustBanc Financial Services',
-  'Unical Microfinance Bank', 'VAS2Nets Technologies',
-  'Wagnet Microfinance Bank', 'Wow Momo', 'Zedvance',
-];
-
-const NIGERIAN_BANK_CODES = {
-  'Access Bank': '044', 'Citibank Nigeria': '023', 'Ecobank Nigeria': '050',
-  'Fidelity Bank': '070', 'First Bank of Nigeria': '011', 'First City Monument Bank (FCMB)': '214',
-  'Globus Bank': '00103', 'Guaranty Trust Bank (GTBank)': '058', 'Heritage Bank': '030',
-  'Keystone Bank': '082', 'Kuda Bank': '50211', 'Opay (Paycom)': '999992', 'Palmpay': '999991',
-  'Polaris Bank': '076', 'Providus Bank': '101', 'Stanbic IBTC Bank': '221',
-  'Standard Chartered Bank': '068', 'Sterling Bank': '232', 'SunTrust Bank': '100',
-  'Titan Trust Bank': '102', 'Union Bank': '032', 'United Bank for Africa (UBA)': '033',
-  'Unity Bank': '215', 'Wema Bank': '035', 'Zenith Bank': '057', 'ALAT by Wema': '555',
-  'Lotus Bank': '303', 'Parallex Bank': '525', 'Sparkle Microfinance Bank': '526',
-};
+// Fallback only — the live list is loaded from /api/banks (Paystack-backed)
+const NIGERIAN_BANKS = FALLBACK_BANKS;
 
 function validateBvn(value) {
   const cleaned = (value || '').replace(/\s/g, '');
@@ -108,7 +69,57 @@ export default function VendorKycPage() {
   const [businessType, setBusinessType] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
 
+  // Live bank list + Paystack account resolution
+  const [banks, setBanks] = useState(FALLBACK_BANKS);
+  const [resolving, setResolving] = useState(false);
+  const [resolveNote, setResolveNote] = useState(null);
+
   useEffect(() => { fetchKycData(); }, []);
+
+  // Load live bank list from /api/banks (Paystack; falls back to bundled list)
+  useEffect(() => {
+    fetch('/api/banks', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.banks) && d.banks.length) {
+          setBanks(d.banks.map(b => b.name || b));
+        }
+      })
+      .catch(() => {}); // fallback list already in place
+  }, []);
+
+  // Paystack account resolution: when bank + full account number are entered,
+  // verify the account and confirm the account name belongs to the user.
+  useEffect(() => {
+    const acct = accountNumber.replace(/\s/g, '');
+    const code = NIGERIAN_BANK_CODES[bankName];
+    if (!bankName || !code || acct.length !== 10 || !/^\d{10}$/.test(acct)) {
+      setResolveNote(null);
+      return;
+    }
+    let cancelled = false;
+    setResolving(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/banks?resolve=1&accountNumber=${acct}&bankCode=${code}`, { credentials: 'include' });
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.success && data.accountName) {
+          setAccountName(data.accountName);
+          setResolveNote({ ok: true, text: `✓ Verified: ${data.accountName}` });
+        } else if (data.unavailable) {
+          setResolveNote({ ok: false, text: 'Bank check unavailable — we will confirm the account name during review.' });
+        } else {
+          setResolveNote({ ok: false, text: data.error || 'Account could not be verified. Please check the number and bank.' });
+        }
+      } catch {
+        if (!cancelled) setResolveNote({ ok: false, text: 'Bank check unavailable — we will confirm the account name during review.' });
+      } finally {
+        if (!cancelled) setResolving(false);
+      }
+    }, 700); // debounce
+    return () => { cancelled = true; clearTimeout(t); setResolving(false); };
+  }, [accountNumber, bankName]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -488,13 +499,13 @@ export default function VendorKycPage() {
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-ob-purple" autoFocus />
                   </div>
                   <div className="overflow-y-auto max-h-48">
-                    {NIGERIAN_BANKS.filter(b => !bankSearch || b.toLowerCase().includes(bankSearch.toLowerCase())).map(bank => (
+                    {banks.filter(b => !bankSearch || b.toLowerCase().includes(bankSearch.toLowerCase())).map(bank => (
                       <button key={bank} type="button" onClick={() => { setBankName(bank); setBankSearch(''); setShowBankDropdown(false); }}
                         className={`w-full text-left px-4 py-2.5 text-sm hover:bg-ob-purple/5 transition-colors ${bankName === bank ? 'bg-ob-purple/10 text-ob-purple font-medium' : 'text-gray-700'}`}>
                         {bank}
                       </button>
                     ))}
-                    {NIGERIAN_BANKS.filter(b => !bankSearch || b.toLowerCase().includes(bankSearch.toLowerCase())).length === 0 && (
+                    {banks.filter(b => !bankSearch || b.toLowerCase().includes(bankSearch.toLowerCase())).length === 0 && (
                       <div className="px-4 py-3 text-sm text-gray-400 text-center">No banks found matching &quot;{bankSearch}&quot;</div>
                     )}
                   </div>
@@ -504,9 +515,11 @@ export default function VendorKycPage() {
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Account Number *</label>
-              <input type="text" value={accountNumber} onChange={e => setAccountNumber(e.target.value)} maxLength={13}
+              <input type="text" inputMode="numeric" value={accountNumber} onChange={e => setAccountNumber(e.target.value.replace(/[^0-9]/g, ''))} maxLength={10}
                 className={`w-full px-4 py-2.5 border rounded-lg text-sm outline-none ${errors.accountNumber ? 'border-red-300' : 'border-gray-200 focus:border-ob-purple'}`} placeholder="10-digit account number" />
-              {isMasked(accountNumber) && <p className="text-[10px] text-green-600 mt-1">✓ Saved on file — leave as is or type the full number to change it</p>}
+              {resolving && <p className="text-[10px] text-gray-500 mt-1">Verifying account…</p>}
+              {!resolving && resolveNote && <p className={`text-[10px] mt-1 ${resolveNote.ok ? 'text-green-600' : 'text-amber-600'}`}>{resolveNote.text}</p>}
+              {!resolving && !resolveNote && isMasked(accountNumber) && <p className="text-[10px] text-green-600 mt-1">✓ Saved on file — leave as is or type the full number to change it</p>}
               {errors.accountNumber && <p className="text-xs text-red-500 mt-1">{errors.accountNumber}</p>}
             </div>
             <div>

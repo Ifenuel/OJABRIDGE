@@ -226,6 +226,89 @@ export async function initiateRefund(transactionReference, amount = null) {
 }
 
 // ============================================
+// IDENTITY VERIFICATION (BVN / NIN)
+// ============================================
+
+/**
+ * Identity provider adapter — pluggable KYC verification.
+ *
+ * Today: no provider credentials are configured, so submissions are stored
+ * and reviewed by a human admin (safe default — we never pretend a BVN/NIN
+ * was machine-verified when it wasn't).
+ *
+ * To enable machine verification, add env vars for ONE provider:
+ *   Dojah:     DOJAH_APP_ID + DOJAH_PUBLIC_KEY + DOJAH_PRIVATE_KEY  (https://dojah.io)
+ *   Youverify: YOUVERIFY_TOKEN                                        (https://youverify.co)
+ *
+ * This function is the single integration point — the KYC route calls it
+ * after the number-format check and stores the provider verdict alongside
+ * the submission for admin review.
+ */
+export async function verifyIdentity({ bvn, nin, firstName, lastName, dateOfBirth }) {
+  const provider = process.env.DOJAH_APP_ID ? 'dojah'
+    : process.env.YOUVERIFY_TOKEN ? 'youverify'
+    : null;
+
+  if (!provider) {
+    return { performed: false, provider: null, status: 'MANUAL_REVIEW' };
+  }
+
+  try {
+    if (provider === 'dojah') {
+      // Dojah KYC API — /api/v1/kyc/bvn-full (BVN) or /api/v1/kyc/nin (NIN)
+      // API-Full docs: https://docs.dojah.io
+      const base = 'https://api.dojah.io';
+      const endpoint = bvn ? '/api/v1/kyc/bvn' : '/api/v1/kyc/nin';
+      const number = (bvn || nin).replace(/\s/g, '');
+      const res = await fetch(`${base}${endpoint}?bvn=${number}`, {
+        headers: {
+          Authorization: process.env.DOJAH_PRIVATE_KEY,
+          AppId: process.env.DOJAH_APP_ID,
+        },
+      });
+      const data = await res.json();
+      return {
+        performed: true,
+        provider: 'dojah',
+        status: res.ok ? 'VERIFIED' : 'VERIFICATION_FAILED',
+        response: data,
+      };
+    }
+
+    if (provider === 'youverify') {
+      // Youverify — POST /api/v2/identity/ng/bvn (or /nin)
+      const base = 'https://api.youverify.co';
+      const endpoint = bvn ? '/api/v2/identity/ng/bvn' : '/api/v2/identity/ng/nin';
+      const res = await fetch(`${base}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.YOUVERIFY_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          idType: bvn ? 'BVN' : 'NIN',
+          idNumber: (bvn || nin).replace(/\s/g, ''),
+          ...(dateOfBirth ? { dateOfBirth } : {}),
+        }),
+      });
+      const data = await res.json();
+      return {
+        performed: true,
+        provider: 'youverify',
+        status: res.ok && data?.statusCode === 200 ? 'VERIFIED' : 'VERIFICATION_FAILED',
+        response: data,
+      };
+    }
+  } catch (e) {
+    console.error('Identity verification provider error:', e.message);
+    // Provider down ≠ user lied. Store as manual review rather than failing the user.
+    return { performed: true, provider, status: 'MANUAL_REVIEW', error: e.message };
+  }
+
+  return { performed: false, provider: null, status: 'MANUAL_REVIEW' };
+}
+
+// ============================================
 // BANK LIST
 // ============================================
 

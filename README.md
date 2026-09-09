@@ -28,10 +28,10 @@ Visit [ojabridge.vercel.app](https://ojabridge.vercel.app)
 - **Email verification** — OTP-based verification for all accounts
 
 ### Dashboards
-- **Admin** (15 pages) — Overview, users, vendors, retailers, products, orders, payments, disputes, reports, content, newsletter, security, audit logs, settings, settlements
-- **Vendor** (10 pages) — Overview, products, orders, inventory, analytics, payouts, reviews, store settings, KYC, disputes
-- **Retailer** (7 pages) — Overview, orders, sourcing, analytics, profile, KYC, disputes
-- **Customer** (7 pages) — Account, orders, favorites, addresses, disputes, notifications, security
+- **Admin** (17 pages) — Overview, users, vendors, retailers, products, orders, payments, disputes, reports, content, newsletter, security, audit logs, settings, settlements, sub-admins, live chats
+- **Vendor** (11 pages) — Overview, products, orders, inventory, analytics, payouts, reviews, store settings, KYC, disputes, notifications
+- **Retailer** (8 pages) — Overview, orders, sourcing, analytics, profile, KYC, disputes, notifications
+- **Customer** (7 pages) — Account, orders, addresses, profile, disputes, notifications, security
 
 ### Live Support Chat
 - **Real-time chat widget** — Customers chat with live support agents on every page
@@ -54,13 +54,13 @@ Visit [ojabridge.vercel.app](https://ojabridge.vercel.app)
 
 ### Security
 - JWT authentication with HTTP-only cookies
-- Rate limiting on auth, payment, and chat endpoints
+- Rate limiting on auth, payment, chat, and upload endpoints
 - Role-based access control (RBAC)
 - Webhook signature verification (HMAC-SHA512)
 - Input validation and SQL injection prevention
 - Security headers (CSP, XSS protection)
-- AI prompt injection protection
-- Conversation isolation between users
+- Chat conversation isolation between users
+- Sub-admin permissions enforced server-side (never trusted from the client)
 
 ## Tech Stack
 
@@ -71,7 +71,7 @@ Visit [ojabridge.vercel.app](https://ojabridge.vercel.app)
 | Auth | JWT + HTTP-only cookies | Stateless, secure, scalable |
 | Payments | Paystack | Africa's leading processor, split payments |
 | Email | Brevo (Sendinblue) | Free tier, transactional + newsletter |
-| AI Chat | OpenAI GPT-4o-mini | Intelligent, cost-effective |
+| Live Chat | In-app polling chat | Human support, zero third-party dependency |
 | Cache | Redis (Upstash) | Serverless-friendly caching |
 | Deployment | Vercel | One-click deploy, serverless functions |
 
@@ -83,7 +83,6 @@ Visit [ojabridge.vercel.app](https://ojabridge.vercel.app)
 - PostgreSQL database (Railway)
 - Paystack account (test mode)
 - Brevo account (free tier)
-- OpenAI API key
 
 ### Installation
 
@@ -113,8 +112,6 @@ NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_...
 BREVO_API_KEY=your-brevo-key
 BREVO_SENDER_EMAIL=your@email.com
 
-# OpenAI (Customer Care Chatbot)
-OPENAI_API_KEY=sk-...
 
 # Redis (Upstash)
 UPSTASH_REDIS_REST_URL=https://...
@@ -141,7 +138,7 @@ npm start
 ```
 src/
 ├── app/
-│   ├── api/              # 45+ API routes
+│   ├── api/              # 49 API routes
 │   │   ├── auth/         # Login, register, verify, forgot-password
 │   │   ├── live-chat/    # Live customer support chat
 │   │   ├── cms/          # Content management
@@ -197,19 +194,19 @@ src/
 4. Copy the `DATABASE_URL` to Vercel environment variables
 
 ### Paystack Webhook
-1. Set webhook URL to `https://your-domain.vercel.app/api/payments/webhook`
+1. Set webhook URL to `https://your-domain.vercel.app/api/webhooks/paystack`
 2. Copy webhook secret to Vercel environment variables
 
 ## Page Count
 
-- **28 public pages** — Homepage, shop, categories, about, contact, policies, how-it-works
-- **7 customer pages** — Account, orders, addresses, disputes, notifications, security, favorites
-- **10 vendor pages** — Overview, products, orders, inventory, analytics, payouts, reviews, store, KYC, disputes
-- **7 retailer pages** — Overview, orders, sourcing, analytics, KYC, profile, disputes
-- **15 admin pages** — Overview, users, vendors, retailers, products, orders, payments, disputes, reports, content, newsletter, security, audit, settings, settlements
+- **34 public pages** — Homepage, shop, categories, about, contact, policies, how-it-works, favorites, support, product detail, vendor storefronts, order tracking
+- **7 customer pages** — Account, orders, addresses, profile, disputes, notifications, security
+- **11 vendor pages** — Overview, products, orders, inventory, analytics, payouts, reviews, store, KYC, disputes, notifications
+- **8 retailer pages** — Overview, orders, sourcing, analytics, KYC, profile, disputes, notifications
+- **17 admin pages** — Overview, users, vendors, retailers, products, orders, payments, disputes, reports, content, newsletter, security, audit, settings, settlements, sub-admins, live chats
 - **4 auth pages** — Login, register, verify-email, forgot-password
 
-**Total: 71+ pages**
+**Total: 77 pages**
 
 ## License
 
