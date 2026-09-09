@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbQuery, dbInsert, dbUpdate, dbRaw, isDatabaseConnected } from '@/lib/db';
 import { getUserFromRequest, requireRole, sanitizeInput } from '@/lib/auth';
+import { normalizeImages, toPgTextArray } from '@/lib/image-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,10 +112,19 @@ export async function GET(request) {
       return NextResponse.json({ success: false, error }, { status: 500 });
     }
 
+    // Keep listing responses small — cards only render the first image.
+    // (Full-size legacy base64 rows previously blew past Vercel serverless
+    // response limits and 500'd the shop page.)
+    const trimmed = (products || []).map((p) => ({
+      ...p,
+      images: Array.isArray(p.images) && p.images.length > 0 ? [p.images[0]] : [],
+      total_images: Array.isArray(p.images) ? p.images.length : 0,
+    }));
+
     return NextResponse.json({
       success: true,
-      products: products || [],
-      data: products || [],
+      products: trimmed,
+      data: trimmed,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
       dbConnected: true,
     });
@@ -159,8 +169,13 @@ export async function POST(request) {
       }, { status: 403 });
     }
 
+    const cleanImages = normalizeImages(images); // validates, heals legacy shredded data URLs, enforces limits
+
     const slug = sanitizeInput(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+    // NOTE: images must be bound as a text[] literal string (single param),
+    // NOT a plain JS array — node-postgres does not escape commas in JS
+    // arrays for text[] columns, which shredded data URLs at every comma.
     const product = await dbInsert('products', {
       vendor_id: vendorResult.data[0].id,
       name: sanitizeInput(name),
@@ -170,7 +185,7 @@ export async function POST(request) {
       price,
       compare_price: comparePrice || null,
       stock_quantity: stock || 0,
-      images: images || [],
+      images: toPgTextArray(cleanImages),
       tags: tags || [],
       category: category || null,
       sku: sku || null,

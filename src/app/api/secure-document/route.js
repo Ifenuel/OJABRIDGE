@@ -28,17 +28,52 @@ export async function GET(request) {
     if (!user) {
       return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
-    if (user.role !== 'admin') {
-      const { allowed } = await checkPermission(request, 'vendors');
-      if (!allowed) {
-        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-      }
-    }
 
     const { searchParams } = new URL(request.url);
     const rawUrl = searchParams.get('url');
     if (!rawUrl) {
       return NextResponse.json({ success: false, error: 'url parameter required' }, { status: 400 });
+    }
+
+    // DB-stored files (KYC identity documents): serve by token.
+    // Ownership is checked FIRST: the uploader always sees their own
+    // document; other users need admin or the 'vendors' permission.
+    const tokenMatch = rawUrl.match(/^\/api\/files\/([a-f0-9]{32,64})$/i);
+    if (tokenMatch) {
+      const { dbRaw } = await import('@/lib/db');
+      const { rows } = await dbRaw('SELECT data, mime_type, is_public, uploaded_by FROM uploads WHERE token = $1 LIMIT 1', [tokenMatch[1]]);
+      if (!rows || rows.length === 0) {
+        return NextResponse.json({ success: false, error: 'File not found' }, { status: 404 });
+      }
+      const file = rows[0];
+      const isOwner = file.uploaded_by && String(file.uploaded_by) === String(user.id);
+      if (!isOwner) {
+        if (user.role !== 'admin') {
+          const { allowed } = await checkPermission(request, 'vendors');
+          if (!allowed) {
+            return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+          }
+        }
+      }
+      const body = Buffer.isBuffer(file.data) ? file.data : Buffer.from(file.data);
+      return new NextResponse(body, {
+        status: 200,
+        headers: {
+          'Content-Type': file.mime_type || 'application/octet-stream',
+          'Content-Disposition': 'inline',
+          'Cache-Control': 'no-store, private',
+          'X-Content-Type-Options': 'nosniff',
+        },
+      });
+    }
+
+    // Remote URLs — reviewer permission required (never document owners;
+    // documents must not be sent to third-party hosts through this proxy).
+    if (user.role !== 'admin') {
+      const { allowed } = await checkPermission(request, 'vendors');
+      if (!allowed) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     let target;

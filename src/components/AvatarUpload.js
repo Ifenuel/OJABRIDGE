@@ -52,9 +52,11 @@ export default function AvatarUpload({ currentUrl, name = 'U', size = 'lg', onSa
 
     setUploading(true);
     try {
-      // Step 1: upload to /api/upload (returns base64 data URL)
+      // Step 1: upload to /api/upload (stores the file, returns a short /api/files/... URL)
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('folder', 'avatars');
+      fd.append('public', 'true');
       const upRes = await fetch('/api/upload', { method: 'POST', credentials: 'include', body: fd });
       const upData = await upRes.json();
       if (!upData.success) throw new Error(upData.error || 'Upload failed');

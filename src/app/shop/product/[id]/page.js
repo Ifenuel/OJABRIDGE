@@ -15,6 +15,7 @@ export default function ProductDetailPage({ params }) {
   const [error, setError] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState(0);
+  const [activeImage, setActiveImage] = useState(0);
   const [activeTab, setActiveTab] = useState('description');
   const [addedToCart, setAddedToCart] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -65,6 +66,7 @@ export default function ProductDetailPage({ params }) {
       const data = await res.json();
       if (data.success && data.product) {
         setProduct(data.product);
+        setActiveImage(0);
         // Load reviews
         try {
           const revRes = await fetch(`/api/reviews?productId=${id}`, { credentials: 'include' });
@@ -155,10 +157,12 @@ export default function ProductDetailPage({ params }) {
       <section className="py-8 lg:py-12 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12">
-            {/* Left — Image */}
+            {/* Left — Image gallery */}
             <div className="space-y-4">
               <div className="aspect-square bg-gradient-to-br from-ob-purple/5 to-ob-lime/5 rounded-2xl flex items-center justify-center border border-gray-100 overflow-hidden">
-                {product.images && product.images[0] ? (
+                {product.images && product.images[activeImage] ? (
+                  <img src={product.images[activeImage]} alt={product.name} className="w-full h-full object-cover" />
+                ) : product.images && product.images[0] ? (
                   <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="text-center">
@@ -171,6 +175,21 @@ export default function ProductDetailPage({ params }) {
                   </div>
                 )}
               </div>
+              {/* Thumbnails — clickable to switch the main image */}
+              {product.images && product.images.length > 1 && (
+                <div className="flex gap-2 flex-wrap">
+                  {product.images.map((img, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setActiveImage(i)}
+                      className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${i === activeImage ? 'border-ob-purple ring-2 ring-ob-purple/20' : 'border-gray-100 hover:border-ob-purple/40'}`}
+                    >
+                      <img src={img} alt={`${product.name} view ${i + 1}`} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Right — Info */}

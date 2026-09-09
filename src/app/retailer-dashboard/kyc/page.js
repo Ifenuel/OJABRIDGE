@@ -198,6 +198,7 @@ export default function RetailerKycPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('folder', 'kyc'); // private — only owner + admins can view via /api/secure-document
       const res = await fetch('/api/upload', { method: 'POST', credentials: 'include', body: formData });
       const data = await res.json();
       if (data.success) {

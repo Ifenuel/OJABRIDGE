@@ -14,13 +14,14 @@ export default function VendorProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  // Form state
+  // Form state — images is a proper ARRAY (never comma-joined; data URLs contain commas)
   const [form, setForm] = useState({
     name: '', description: '', shortDescription: '', price: '', compareAtPrice: '',
     category: '', stock: '', sku: '', weight: '', tags: '',
-    imageUrls: '',
+    imageUrls: [],
   });
 
   const [kycStatus, setKycStatus] = useState(null);
@@ -71,7 +72,7 @@ export default function VendorProductsPage() {
           sku: form.sku || null,
           weight: form.weight ? parseFloat(form.weight) : null,
           tags: form.tags ? form.tags.split(',').map(t => t.trim()) : [],
-          images: form.imageUrls ? form.imageUrls.split(',').map(u => u.trim()).filter(Boolean) : [],
+          images: form.imageUrls,
         }),
       });
 
@@ -79,7 +80,7 @@ export default function VendorProductsPage() {
       if (data.success) {
         setMessage({ type: 'success', text: 'Product submitted for review! It will appear on the marketplace once approved.' });
         setShowAddForm(false);
-        setForm({ name: '', description: '', shortDescription: '', price: '', compareAtPrice: '', category: '', stock: '', sku: '', weight: '', tags: '', imageUrls: '' });
+        setForm({ name: '', description: '', shortDescription: '', price: '', compareAtPrice: '', category: '', stock: '', sku: '', weight: '', tags: '', imageUrls: [] });
         loadProducts();
       } else {
         setMessage({ type: 'error', text: data.error || data.errors?.join(', ') || 'Failed to add product' });
@@ -203,32 +204,38 @@ export default function VendorProductsPage() {
                     for (const file of files) {
                       const formData = new FormData();
                       formData.append('file', file);
+                      formData.append('folder', 'products');
+                      formData.append('public', 'true');
+                      setUploadingImages(true);
                       try {
                         const res = await fetch('/api/upload', { method: 'POST', body: formData });
                         const data = await res.json();
                         if (data.success && data.url) {
-                          const current = form.imageUrls ? form.imageUrls.split(',').map(u=>u.trim()).filter(Boolean) : [];
-                          setForm({...form, imageUrls: [...current, data.url].join(', ')});
+                          setForm(prev => ({ ...prev, imageUrls: [...prev.imageUrls, data.url].slice(0, 8) }));
+                        } else {
+                          setMessage({ type: 'error', text: data.error || 'Image upload failed' });
                         }
-                      } catch (err) { console.error('Upload failed:', err); }
+                      } catch (err) { console.error('Upload failed:', err); } finally { setUploadingImages(false); }
                     }
+                    e.target.value = '';
                   }} />
                 </label>
               </div>
               
               {/* Or paste URL */}
               <div className="flex gap-2">
-                <input type="url" id="imageUrlInput" className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg focus:border-ob-purple focus:ring-2 focus:ring-ob-purple/20 outline-none text-sm" placeholder="Or paste image URL here..." onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const val = e.target.value.trim(); if (val && val.startsWith('http')) { const current = form.imageUrls ? form.imageUrls.split(',').map(u=>u.trim()).filter(Boolean) : []; if (!current.includes(val)) { setForm({...form, imageUrls: [...current, val].join(', ')}); } e.target.value = ''; } } }} />
-                <button type="button" onClick={() => { const inp = document.getElementById('imageUrlInput'); const val = inp?.value?.trim(); if (val && val.startsWith('http')) { const current = form.imageUrls ? form.imageUrls.split(',').map(u=>u.trim()).filter(Boolean) : []; if (!current.includes(val)) { setForm({...form, imageUrls: [...current, val].join(', ')}); } inp.value = ''; } }} className="px-4 py-2.5 bg-ob-purple text-white text-sm rounded-lg hover:bg-ob-purple-dark transition-colors whitespace-nowrap">+ Add URL</button>
+                <input type="url" id="imageUrlInput" className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg focus:border-ob-purple focus:ring-2 focus:ring-ob-purple/20 outline-none text-sm" placeholder="Or paste image URL here..." onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const val = e.target.value.trim(); if (val && /^https?:\/\//.test(val) && !form.imageUrls.includes(val)) { setForm(prev => ({ ...prev, imageUrls: [...prev.imageUrls, val].slice(0, 8) })); e.target.value = ''; } } }} />
+                <button type="button" onClick={() => { const inp = document.getElementById('imageUrlInput'); const val = inp?.value?.trim(); if (val && /^https?:\/\//.test(val) && !form.imageUrls.includes(val)) { setForm(prev => ({ ...prev, imageUrls: [...prev.imageUrls, val].slice(0, 8) })); inp.value = ''; } }} className="px-4 py-2.5 bg-ob-purple text-white text-sm rounded-lg hover:bg-ob-purple-dark transition-colors whitespace-nowrap">+ Add URL</button>
               </div>
               
               {/* Image previews */}
-              {form.imageUrls && (
+              {uploadingImages && <p className="text-xs text-ob-purple mt-2 animate-pulse">Uploading image…</p>}
+              {form.imageUrls.length > 0 && (
                 <div className="flex gap-2 mt-3 flex-wrap">
-                  {form.imageUrls.split(',').map((url, i) => url.trim() && (
+                  {form.imageUrls.map((url, i) => (
                     <div key={i} className="relative group w-20 h-20 rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
-                      <img src={url.trim()} alt="" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
-                      <button type="button" onClick={() => { const imgs = form.imageUrls.split(',').map(u=>u.trim()).filter(Boolean); imgs.splice(i, 1); setForm({...form, imageUrls: imgs.join(', ')}); }} className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                      <img src={url} alt="" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+                      <button type="button" onClick={() => setForm(prev => ({ ...prev, imageUrls: prev.imageUrls.filter((_, idx) => idx !== i) }))} className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
                       {i === 0 && <span className="absolute bottom-0.5 left-0.5 bg-ob-purple text-white text-[8px] px-1 rounded">Main</span>}
                     </div>
                   ))}

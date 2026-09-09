@@ -54,10 +54,12 @@ export default function AdminContentPage() {
     setLoading(false);
   };
 
-  // Upload file to server
+  // Upload file to server (stored in DB, served via short /api/files/... URL)
   const uploadFile = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('folder', 'content');
+    formData.append('public', 'true');
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
