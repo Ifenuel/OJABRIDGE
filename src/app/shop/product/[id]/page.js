@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import HeartButton from '@/components/HeartButton';
 
 export default function ProductDetailPage({ params }) {
-  const resolvedParams = use(params);
-  const id = resolvedParams?.id;
+  // Next.js 14: params is a plain object in client components (NOT a Promise —
+  // passing it to React's use() throws "unsupported type").
+  const id = params?.id;
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);

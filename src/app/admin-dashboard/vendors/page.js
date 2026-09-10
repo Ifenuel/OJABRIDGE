@@ -314,7 +314,7 @@ export default function AdminVendorsPage() {
                   {/* Bank Account */}
                   <div>
                     <h4 className="font-semibold text-ob-navy text-sm mb-3 flex items-center gap-2">🏦 Bank Account</h4>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <p className="text-[10px] text-gray-400 uppercase">Bank Name</p>
                         <p className="text-sm font-medium text-gray-700">{kycDetails.bankName || '—'}</p>

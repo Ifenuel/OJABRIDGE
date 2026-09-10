@@ -27,6 +27,20 @@
     scroll-behavior: smooth;
   }
 
+  /* Mobile safety net: never allow horizontal page scroll on phones.
+     Individual tables/cards scroll inside their own overflow-x containers. */
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
   body {
     font-family: 'Poppins', sans-serif;
     color: #1a1a2e;

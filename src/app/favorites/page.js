@@ -8,7 +8,7 @@ import HeartButton from '@/components/HeartButton';
 
 export default function FavoritesPage() {
   const { isAuthenticated, user } = useAuth();
-  const { favorites, favoritesCount, loading } = useFavorites();
+  const { favorites, favoriteCount, loading } = useFavorites();
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 

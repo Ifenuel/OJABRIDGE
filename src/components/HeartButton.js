@@ -10,8 +10,8 @@ import { useFavorites } from '@/context/FavoritesContext';
  */
 export default function HeartButton({ productId, className = '', size = 'default', onToggle }) {
   const { isAuthenticated } = useAuth();
-  const { isFavorited, toggleFavorite } = useFavorites();
-  const favorited = isFavorited(productId);
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const favorited = isFavorite(productId);
 
   const handleClick = (e) => {
     e.preventDefault();
