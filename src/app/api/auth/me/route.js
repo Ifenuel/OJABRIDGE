@@ -51,6 +51,7 @@ export async function GET(request) {
           avatar: dbUser.avatar_url,
           status: dbUser.status,
           emailVerified: dbUser.email_verified,
+          email_verified: !!dbUser.email_verified,
           mfaEnabled: dbUser.mfa_enabled,
           createdAt: dbUser.created_at,
           ...(permissions !== undefined && { permissions }),

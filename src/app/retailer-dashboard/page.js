@@ -108,7 +108,7 @@ export default function RetailerDashboardPage() {
           { label: 'My Orders', href: '/account/orders', icon: '📦' },
           { label: 'Find Vendors', href: '/shop', icon: '🏪' },
           { label: 'KYC Verification', href: '/retailer-dashboard/kyc', icon: '🔐' },
-          { label: 'My Reviews', href: '/account/reviews', icon: '⭐' },
+          { label: 'My Disputes', href: '/retailer-dashboard/disputes', icon: '⚖️' },
           { label: 'Contact Support', href: '/contact', icon: '💬' },
         ].map((a, i) => (
           <Link key={i} href={a.href} className="p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:bg-ob-purple/5 transition-all text-center">

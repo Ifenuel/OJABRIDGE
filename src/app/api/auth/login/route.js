@@ -120,6 +120,7 @@ export async function POST(request) {
           email: user.email,
           role: user.role,
           avatar: user.avatar_url,
+          email_verified: !!user.email_verified,
         },
       });
 

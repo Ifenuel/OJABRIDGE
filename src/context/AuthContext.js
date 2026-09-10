@@ -27,30 +27,56 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize — restore session from localStorage
+  // Initialize — restore session from localStorage, then VALIDATE it server-side.
+  // The HTTP-only auth cookie may have expired (24h) even though localStorage
+  // still has the user — without this check, dashboards render but every API
+  // call 401s, which looks like "dashboard shows nothing".
   useEffect(() => {
+    let cancelled = false;
     const stored = getStoredSession();
     if (stored) {
       setUser(stored);
-      // Load sub-admin permissions from database
-      if (stored.role === 'sub_admin') {
-        fetch('/api/admin/sub-admins', { credentials: 'include' })
-          .then(r => r.json())
-          .then(data => {
-            if (data.success && data.subAdmins) {
-              const myRecord = data.subAdmins.find(sa => sa.user_id === stored.id || sa.email === stored.email);
-              if (myRecord) {
-                const perms = typeof myRecord.permissions === 'string' ? JSON.parse(myRecord.permissions) : (myRecord.permissions || []);
-                const updated = { ...stored, permissions: perms };
-                setUser(updated);
-                saveSession(updated);
-              }
-            }
-          })
-          .catch(() => {});
-      }
     }
-    setLoading(false);
+
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user && !cancelled) {
+            const merged = { ...stored, ...data.user, source: 'database' };
+            setUser(merged);
+            saveSession(merged);
+            // Load sub-admin permissions from database
+            if (merged.role === 'sub_admin') {
+              try {
+                const saRes = await fetch('/api/admin/sub-admins', { credentials: 'include' });
+                const saData = await saRes.json();
+                if (saData.success && saData.subAdmins) {
+                  const myRecord = saData.subAdmins.find(sa => sa.user_id === merged.id || sa.email === merged.email);
+                  if (myRecord) {
+                    const perms = typeof myRecord.permissions === 'string' ? JSON.parse(myRecord.permissions) : (myRecord.permissions || []);
+                    const updated = { ...merged, permissions: perms };
+                    setUser(updated);
+                    saveSession(updated);
+                  }
+                }
+              } catch {}
+            }
+          }
+        } else if (res.status === 401 || res.status === 403) {
+          // Cookie expired/invalid — clear stale session so the user re-authenticates
+          // instead of seeing dashboards full of empty data.
+          if (!cancelled) {
+            setUser(null);
+            clearSession();
+          }
+        }
+      } catch {}
+      if (!cancelled) setLoading(false);
+    })();
+
+    return () => { cancelled = true; };
   }, []);
 
   // ============================================

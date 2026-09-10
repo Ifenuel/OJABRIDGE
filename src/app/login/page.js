@@ -15,9 +15,9 @@ export default function LoginPage() {
   const { login, isAuthenticated, user } = useAuth();
   const router = useRouter();
 
-  // Redirect if already logged in and verified
+  // Auto-redirect if a valid session already exists (e.g. user navigates back to /login)
   useEffect(() => {
-    if (isAuthenticated && user && user.email_verified) {
+    if (isAuthenticated && user) {
       const dashboards = { admin: '/admin-dashboard', sub_admin: '/admin-dashboard', vendor: '/vendor-dashboard', retailer: '/retailer-dashboard', customer: '/account' };
       router.replace(dashboards[user.role] || '/account');
     }
@@ -46,8 +46,6 @@ export default function LoginPage() {
     }
     setIsSubmitting(false);
   };
-
-  if (isAuthenticated) return null;
 
   return (
     <section className="min-h-screen bg-ob-light flex items-center justify-center px-4 py-8">
