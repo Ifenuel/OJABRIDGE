@@ -53,7 +53,7 @@ export default function AdminReportsPage() {
   const resolvedCount = reports.filter(r => ['resolved_favor_buyer', 'resolved_favor_vendor', 'closed'].includes(r.status)).length;
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="reports">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-ob-navy">Customer Reports</h1>
         <p className="text-gray-500 text-sm mt-1">Review and address customer reports about vendors and products.</p>

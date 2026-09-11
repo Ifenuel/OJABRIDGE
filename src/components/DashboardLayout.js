@@ -11,10 +11,11 @@ import { useAuth } from '@/context/AuthContext';
  * DashboardLayout — Shared layout for all dashboards.
  * Waits for auth to fully load before checking role.
  */
-export default function DashboardLayout({ children, role = 'vendor', showSidebar = true }) {
+export default function DashboardLayout({ children, role = 'vendor', showSidebar = true, requiredPermission }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading, logout } = useAuth();
@@ -47,6 +48,14 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
     if (role === 'customer' && user.role !== 'customer') {
       // Allow vendors/admins to also view customer account
     }
+    // Backend-enforced permission check for sub-admins
+    if (requiredPermission && user.role === 'sub_admin') {
+      const perms = user.permissions || [];
+      if (!perms.includes(requiredPermission)) {
+        setPermissionDenied(true);
+        return;
+      }
+    }
     setAuthReady(true);
   }, [user, loading, role, router]);
 
@@ -63,6 +72,26 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
   }
 
   if (!user) return null;
+
+  // Permission denied for sub-admins
+  if (permissionDenied) {
+    return (
+      <div className="min-h-screen bg-ob-light flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-ob-navy mb-3">Access Denied</h1>
+          <p className="text-gray-500 mb-6">You don&apos;t have permission to access this page. Contact your administrator to request access.</p>
+          <button onClick={() => router.push('/admin-dashboard')} className="bg-ob-purple text-white px-6 py-2.5 rounded-lg font-medium hover:bg-ob-purple-dark transition-colors">
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // CUSTOMER LAYOUT — with sidebar navigation
   if (isCustomer && !showSidebar) {
@@ -159,8 +188,8 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
     );
   }
 
-  const isAdmin = role === 'admin' || user.role === 'admin';
   const isSubAdmin = user.role === 'sub_admin';
+  const isAdmin = (role === 'admin' || user.role === 'admin') && !isSubAdmin;
   const isRetailer = role === 'retailer' || user.role === 'retailer';
 
   // Parse sub-admin permissions from user object

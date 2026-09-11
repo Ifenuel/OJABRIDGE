@@ -14,16 +14,21 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     if (favorites.length === 0) { setProducts([]); setLoadingProducts(false); return; }
-    // Fetch all products then filter to favorited ones
-    fetch('/api/products?limit=200')
-      .then(r => r.json())
-      .then(d => {
-        const allProducts = d.products || [];
-        const matched = allProducts.filter(p => favorites.includes(p.id));
-        setProducts(matched);
-        setLoadingProducts(false);
-      })
-      .catch(() => { setProducts([]); setLoadingProducts(false); });
+    // The favorites array from the API already contains product data (name, price, images, etc.)
+    // Map them to a format the page can render directly
+    const favProducts = favorites.map(f => ({
+      id: f.product_id,
+      name: f.name,
+      price: f.price,
+      compare_price: f.compare_price,
+      images: f.images,
+      slug: f.slug,
+      category: f.category,
+      stock_quantity: f.stock_quantity,
+      store_name: f.store_name,
+    }));
+    setProducts(favProducts);
+    setLoadingProducts(false);
   }, [favorites]);
 
   const formatPrice = (price) => {

@@ -65,7 +65,7 @@ export default function AdminDisputesPage() {
   }[s] || 'bg-gray-100 text-gray-600');
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="disputes">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-ob-navy">Disputes</h1>
         <p className="text-gray-500 text-sm mt-1">Review and resolve customer-vendor disputes.</p>

@@ -39,10 +39,66 @@ export default function AccountSecurityPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNew, setConfirmNew] = useState('');
+  const [sessions, setSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [revokingSessions, setRevokingSessions] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.replace('/login');
   }, [isAuthenticated, authLoading, router]);
+
+  // Load active sessions
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadSessions();
+    }
+  }, [isAuthenticated]);
+
+  const loadSessions = async () => {
+    setLoadingSessions(true);
+    try {
+      const res = await fetch('/api/sessions', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setSessions(data.sessions || []);
+      }
+    } catch (err) {
+      console.error('Failed to load sessions:', err);
+    }
+    setLoadingSessions(false);
+  };
+
+  const revokeOtherSessions = async () => {
+    if (!confirm('This will sign you out of all other devices. Continue?')) return;
+    setRevokingSessions(true);
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: 'All other sessions have been signed out.' });
+        loadSessions();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to revoke sessions' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+    }
+    setRevokingSessions(false);
+    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+  };
+
+  const formatDevice = (ua) => {
+    if (!ua) return 'Unknown device';
+    if (/mobile|android|iphone/i.test(ua)) return '📱 Mobile device';
+    if (/tablet|ipad/i.test(ua)) return '📱 Tablet';
+    if (/windows/i.test(ua)) return '💻 Windows';
+    if (/macintosh|mac os/i.test(ua)) return '💻 Mac';
+    if (/linux/i.test(ua)) return '💻 Linux';
+    return '🌐 Browser';
+  };
 
   if (authLoading || !isAuthenticated) return <div className="min-h-screen bg-ob-light flex items-center justify-center"><div className="w-12 h-12 border-4 border-ob-purple border-t-transparent rounded-full animate-spin" /></div>;
 
@@ -111,16 +167,47 @@ export default function AccountSecurityPage() {
 
         <div className="bg-white p-6 rounded-xl border border-gray-100">
           <h3 className="font-bold text-ob-navy mb-4">Active Sessions</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between py-3 border-b border-gray-50">
-              <div>
-                <p className="text-sm font-medium text-ob-navy">Current Session</p>
-                <p className="text-xs text-gray-400">This device</p>
-              </div>
-              <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">Active</span>
+          {loadingSessions ? (
+            <div className="text-center py-4">
+              <div className="w-6 h-6 border-2 border-ob-purple border-t-transparent rounded-full animate-spin mx-auto" />
             </div>
-          </div>
-          <button className="text-red-500 text-sm font-medium mt-4 hover:underline">Sign out of all other sessions</button>
+          ) : sessions.length === 0 ? (
+            <p className="text-gray-500 text-sm">No active sessions found.</p>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {sessions.map(session => (
+                  <div key={session.id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{formatDevice(session.userAgent)}</span>
+                      <div>
+                        <p className="text-sm font-medium text-ob-navy">
+                          {session.isCurrent ? 'Current Session' : 'Other Session'}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          IP: {session.ip} {session.lastActive && `· Last active: ${new Date(session.lastActive).toLocaleString()}`}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      session.isCurrent ? 'text-green-600 bg-green-50' : 'text-gray-500 bg-gray-100'
+                    }`}>
+                      {session.isCurrent ? 'Current' : 'Active'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {sessions.length > 1 && (
+                <button
+                  onClick={revokeOtherSessions}
+                  disabled={revokingSessions}
+                  className="text-red-500 text-sm font-medium mt-4 hover:underline disabled:opacity-50"
+                >
+                  {revokingSessions ? 'Signing out other sessions...' : 'Sign out of all other sessions'}
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         <div className="bg-white p-6 rounded-xl border border-gray-100">

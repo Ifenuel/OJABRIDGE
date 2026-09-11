@@ -31,7 +31,7 @@ export default function AdminSecurityPage() {
   const lockedAccounts = users.filter(u => u.locked_until && new Date(u.locked_until) > new Date()).length;
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="security">
       <div className="mb-8"><h1 className="text-2xl font-bold text-ob-navy">Security Center</h1><p className="text-gray-500 text-sm mt-1">Monitor security events, fraud detection, system health and account enforcement.</p></div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[

@@ -23,7 +23,7 @@ export default function AdminOrdersPage() {
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="orders">
       <div className="mb-8"><h1 className="text-2xl font-bold text-ob-navy">Orders</h1><p className="text-gray-500 text-sm mt-1">Monitor and manage all marketplace orders.</p></div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[{ l: 'Total', v: orders.length, c: 'text-ob-navy' }, { l: 'Pending', v: orders.filter(o => o.status === 'pending').length, c: 'text-amber-600' }, { l: 'Active', v: orders.filter(o => ['confirmed', 'processing', 'shipped'].includes(o.status)).length, c: 'text-blue-600' }, { l: 'Completed', v: orders.filter(o => o.status === 'delivered').length, c: 'text-green-600' }].map((s, i) => <div key={i} className="bg-white p-4 rounded-xl border border-gray-100"><p className="text-xs text-gray-500">{s.l}</p><p className={`text-xl font-bold mt-1 ${s.c}`}>{s.v}</p></div>)}

@@ -111,6 +111,16 @@ export async function POST(request) {
         user_agent: request.headers.get('user-agent') || null,
       }).catch(() => {});
 
+      // For sub_admin: load permissions from sub_admins table
+      let permissions = undefined;
+      if (user.role === 'sub_admin' && isDatabaseConnected()) {
+        try {
+          const { data: sa } = await dbQuery('sub_admins', { filter: { user_id: user.id }, limit: 1 });
+          const perms = sa?.[0]?.permissions || [];
+          permissions = typeof perms === 'string' ? JSON.parse(perms) : perms;
+        } catch { permissions = []; }
+      }
+
       // Build response with cookies
       const response = NextResponse.json({
         success: true,
@@ -121,6 +131,7 @@ export async function POST(request) {
           role: user.role,
           avatar: user.avatar_url,
           email_verified: !!user.email_verified,
+          ...(permissions !== undefined && { permissions }),
         },
       });
 

@@ -133,8 +133,10 @@ export default function Home() {
             </div>
           </ScrollReveal>
 
-          {/* Staircase Layout — each step indents further right like descending stairs */}
+          {/* Staircase Layout — vertical on mobile, staircase on desktop */}
           <div className="max-w-3xl mx-auto relative">
+            {/* Vertical connecting line — hidden on mobile, visible on md+ */}
+            <div className="absolute left-6 md:left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-ob-purple/30 via-ob-purple/20 to-ob-purple/10 hidden md:block" />
             {[
               { step: 1, title: 'Place Your Order', desc: 'Choose your products and place your order securely', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z', color: 'bg-ob-purple', textColor: 'text-white' },
               { step: 2, title: 'Order Confirmed', desc: 'We confirm your payment and notify the vendor', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', color: 'bg-blue-600', textColor: 'text-white' },
@@ -144,40 +146,25 @@ export default function Home() {
               { step: 6, title: 'Vendor Gets Paid', desc: 'After delivery confirmation, vendor payment is processed', icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z', color: 'bg-ob-lime', textColor: 'text-ob-navy' },
             ].map((item, idx) => (
               <ScrollReveal key={idx} animation="fade-up" delay={idx * 150}>
-                <div
-                  className="relative flex items-stretch mb-4 last:mb-0"
-                  style={{ paddingLeft: `${idx * 48}px` }}
-                >
-                  {/* Vertical connecting line */}
-                  {idx < 5 && (
-                    <div
-                      className="absolute top-14 bg-gradient-to-b from-ob-purple/30 to-ob-purple/10"
-                      style={{
-                        left: `${idx * 48 + 23}px`,
-                        width: '2px',
-                        height: 'calc(100% - 8px)',
-                      }}
-                    />
-                  )}
-
+                <div className="relative flex items-stretch mb-6 md:mb-4 last:mb-0">
                   {/* Step number circle */}
-                  <div className="flex-shrink-0 relative z-10 mr-4 mt-5">
-                    <div className={`w-12 h-12 rounded-full ${item.color} ${item.textColor} flex items-center justify-center font-bold text-sm shadow-lg`}>
+                  <div className="flex-shrink-0 relative z-10 mr-3 md:mr-4 mt-5">
+                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full ${item.color} ${item.textColor} flex items-center justify-center font-bold text-xs md:text-sm shadow-lg`}>
                       {item.step}
                     </div>
                   </div>
 
                   {/* Step content card */}
-                  <div className="flex-1 bg-white rounded-xl p-5 border border-gray-100 hover:shadow-lg transition-shadow group">
-                    <div className="flex items-start gap-4">
-                      <div className="w-11 h-11 rounded-lg bg-ob-purple/10 flex items-center justify-center text-ob-purple flex-shrink-0 group-hover:bg-ob-purple group-hover:text-white transition-colors">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex-1 bg-white rounded-xl p-4 md:p-5 border border-gray-100 hover:shadow-lg transition-shadow group">
+                    <div className="flex items-start gap-3 md:gap-4">
+                      <div className="w-9 h-9 md:w-11 md:h-11 rounded-lg bg-ob-purple/10 flex items-center justify-center text-ob-purple flex-shrink-0 group-hover:bg-ob-purple group-hover:text-white transition-colors">
+                        <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
                         </svg>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-ob-navy text-base mb-1">{item.title}</h3>
-                        <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-ob-navy text-sm md:text-base mb-1">{item.title}</h3>
+                        <p className="text-gray-500 text-xs md:text-sm leading-relaxed">{item.desc}</p>
                       </div>
                     </div>
                   </div>

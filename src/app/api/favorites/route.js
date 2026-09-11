@@ -20,6 +20,17 @@ export async function GET(request) {
       return NextResponse.json({ success: true, favorites: [], dbConnected: false });
     }
 
+    // Ensure favorites table exists
+    try {
+      await dbRaw(`CREATE TABLE IF NOT EXISTS favorites (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, product_id)
+      )`);
+    } catch {}
+
     const { data: favorites, error } = await dbRaw(
       `SELECT f.id, f.product_id, f.created_at, 
               p.name, p.price, p.compare_price, p.images, p.slug, p.category, p.stock_quantity,

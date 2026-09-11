@@ -95,7 +95,7 @@ export default function AdminProductsPage() {
   const statusBadge = (s) => ({ approved: 'bg-green-100 text-green-700', pending: 'bg-amber-100 text-amber-700', rejected: 'bg-red-100 text-red-700', suspended: 'bg-red-100 text-red-700' }[s] || 'bg-gray-100 text-gray-600');
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="products">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ob-navy">Products</h1>

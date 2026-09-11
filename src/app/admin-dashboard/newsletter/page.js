@@ -71,7 +71,7 @@ export default function AdminNewsletterPage() {
   };
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="newsletter">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-ob-navy">Newsletter</h1>
         <p className="text-gray-500 text-sm mt-1">Compose and send newsletters to all subscribers via Brevo.</p>

@@ -97,7 +97,7 @@ export default function AdminAuditPage() {
   const severityColor = (s) => ({ info: 'bg-blue-100 text-blue-700', warning: 'bg-amber-100 text-amber-700', critical: 'bg-red-100 text-red-700' }[s] || 'bg-gray-100 text-gray-600');
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="audit-logs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ob-navy">Audit Logs</h1>

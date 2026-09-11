@@ -6,16 +6,17 @@ import AvatarUpload from '@/components/AvatarUpload';
 import { useAuth } from '@/context/AuthContext';
 
 const AVAILABLE_PERMISSIONS = [
-  { key: 'users', label: 'User Management', desc: 'View, suspend, ban users', icon: '👥' },
-  { key: 'vendors', label: 'Vendor Management', desc: 'Approve/suspend vendors, KYC review', icon: '🏪' },
-  { key: 'products', label: 'Product Moderation', desc: 'Approve/reject product listings', icon: '📦' },
-  { key: 'orders', label: 'Order Management', desc: 'View and manage all orders', icon: '📋' },
-  { key: 'payments', label: 'Payment & Finance', desc: 'View transactions, commissions, settlements', icon: '💰' },
+  { key: 'live-chats', label: 'Live Chat Support', desc: 'Respond to customer live chats', icon: '💬' },
+  { key: 'orders', label: 'Order Management', desc: 'View and manage customer orders', icon: '📋' },
   { key: 'disputes', label: 'Dispute Resolution', desc: 'Review and resolve disputes', icon: '⚖️' },
+  { key: 'users', label: 'User Management', desc: 'View customer and user accounts', icon: '👥' },
+  { key: 'vendors', label: 'Vendor Management', desc: 'Approve/suspend vendors, KYC review', icon: '🏪' },
+  { key: 'retailers', label: 'Retailer Management', desc: 'View and manage retailer accounts', icon: '🏬' },
+  { key: 'products', label: 'Product Moderation', desc: 'Approve/reject product listings', icon: '📦' },
+  { key: 'payments', label: 'Payment & Finance', desc: 'View transactions, commissions, settlements', icon: '💰' },
+  { key: 'reports', label: 'Reports', desc: 'View reports and analytics', icon: '📊' },
   { key: 'content', label: 'Content Management', desc: 'Blog, careers, press, announcements', icon: '📝' },
-  { key: 'security', label: 'Security Center', desc: 'View security events, system health', icon: '🛡️' },
-  { key: 'audit', label: 'Audit Logs', desc: 'View platform activity logs', icon: '📊' },
-  { key: 'settings', label: 'Platform Settings', desc: 'Manage admin roles, platform config', icon: '⚙️' },
+  { key: 'newsletter', label: 'Newsletter', desc: 'Manage newsletter subscribers and sends', icon: '✉️' },
 ];
 
 export default function AdminSettingsPage() {
@@ -67,31 +68,46 @@ export default function AdminSettingsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [usersRes, rolesRes] = await Promise.allSettled([
-        fetch('/api/users?limit=100').then(r => r.json()),
-        fetch('/api/admin/roles').then(r => r.json()),
-      ]);
-      if (usersRes.status === 'fulfilled') setAllUsers(usersRes.value.users || []);
-      if (rolesRes.status === 'fulfilled') setRoles(rolesRes.value.roles || []);
+      const usersRes = await fetch('/api/admin/sub-admins', { credentials: 'include' }).then(r => r.json());
+      if (usersRes.success) {
+        // Sub-admin records from the canonical subsystem
+        setAllUsers(
+          (usersRes.subAdmins || []).map(sa => ({
+            id: sa.user_id || sa.id,
+            name: sa.name,
+            email: sa.email,
+            status: sa.status || 'active',
+            created_at: sa.created_at,
+            permissions: typeof sa.permissions === 'string' ? JSON.parse(sa.permissions) : (sa.permissions || []),
+          }))
+        );
+        setRoles(usersRes.subAdmins || []);
+      }
     } catch (err) {}
     setLoading(false);
   };
 
   const getPermissionsForAdmin = (adminId) => {
-    const role = roles.find(r => r.admin_id === adminId);
-    if (!role) return [];
-    // permissions is TEXT[] from the DB — may come as array or JSON string
-    const perms = role.permissions;
+    const sa = allUsers.find(u => (u.id === adminId));
+    if (!sa) return [];
+    const perms = sa.permissions;
     if (Array.isArray(perms)) return perms;
     try { return JSON.parse(perms || '[]'); } catch { return []; }
   };
 
   const savePermissions = async (adminId, perms) => {
     try {
-      const res = await fetch('/api/admin/roles', {
-        method: 'POST',
+      // Find the sub-admin record id to PATCH via the canonical endpoint
+      const sa = allUsers.find(u => (u.id === adminId));
+      if (!sa || !sa.id) {
+        setMessage({ type: 'error', text: 'Sub-admin record not found' });
+        return;
+      }
+      const res = await fetch('/api/admin/sub-admins', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminUserId: adminId, permissions: perms }),
+        credentials: 'include',
+        body: JSON.stringify({ subAdminId: sa.id, permissions: perms }),
       });
       const data = await res.json();
       if (data.success) {
@@ -114,13 +130,12 @@ export default function AdminSettingsPage() {
     savePermissions(adminId, updated);
   };
 
-  const grantAll = (adminId) => savePermissions(adminId, AVAILABLE_PERMISSIONS.map(p => p.key));
-  const revokeAll = (adminId) => savePermissions(adminId, []);
 
-  const admins = allUsers.filter(u => u.role === 'admin');
+
+  const admins = allUsers.filter(u => u.email); // sub_admin records from canonical subsystem
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="settings">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-ob-navy">Platform Settings</h1>
         <p className="text-gray-500 text-sm mt-1">Manage admin roles, permissions and platform configuration.</p>
@@ -168,10 +183,10 @@ export default function AdminSettingsPage() {
       {/* Admin Accounts */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-8">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-bold text-ob-navy">Admin Accounts</h3>
-          <a href="/admin-dashboard/sub-admins" className="text-sm bg-ob-purple text-white px-4 py-2 rounded-lg hover:bg-ob-purple-dark transition-colors">
-            Manage Sub-Admins
-          </a>
+          <h3 className="font-bold text-ob-navy">Admin Accounts</h3>              <span className="inline-flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-4 py-2 rounded-lg">
+            Sub-Admins managed from the sidebar
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+          </span>
         </div>
 
 
@@ -194,8 +209,7 @@ export default function AdminSettingsPage() {
                 <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-400 text-sm">No admin accounts found.</td></tr>
               ) : admins.map(admin => {
                 const perms = getPermissionsForAdmin(admin.id);
-                const role = roles.find(r => r.admin_id === admin.id);
-                const isSuperAdmin = role?.is_super_admin || admin.id === user?.id;
+                const isSuperAdmin = admin.id === user?.id;
                 return (
                   <tr key={admin.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-6 py-4">
@@ -224,23 +238,9 @@ export default function AdminSettingsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {admin.id !== user?.id && (
-                        <div className="flex space-x-2">
-                          <button onClick={() => { setSelectedAdmin(admin); setShowRoleModal(true); }} className="text-ob-purple text-xs font-medium hover:underline">Configure Access</button>
-                          {!isSuperAdmin && (
-                            <button onClick={async () => {
-                              if (!confirm(`Remove admin role from ${admin.name}?`)) return;
-                              try {
-                                const res = await fetch(`/api/admin/roles?userId=${admin.id}`, { method: 'DELETE' });
-                                const data = await res.json();
-                                if (data.success) { setMessage({type:'success', text:'Admin role removed'}); loadData(); }
-                                else setMessage({type:'error', text: data.error});
-                              } catch(e) { setMessage({type:'error', text:'Failed'}); }
-                              setTimeout(() => setMessage({type:'',text:''}), 3000);
-                            }} className="text-red-500 text-xs font-medium hover:underline">Remove</button>
-                          )}
-                        </div>
-                      )}
+                      <a href="/admin-dashboard/sub-admins" className="text-ob-purple text-xs font-medium hover:underline">
+                        Manage
+                      </a>
                     </td>
                   </tr>
                 );
@@ -318,55 +318,32 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
-      {/* Permission Config Modal */}
-      {showRoleModal && selectedAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-bold text-ob-navy">Configure Access</h3>
-                <p className="text-sm text-gray-500">Grant or revoke dashboard permissions for {selectedAdmin.name}</p>
+      {/* Sub-admin permission management note */}
+      <div className="bg-gradient-to-r from-ob-purple/5 to-ob-purple/10 border border-ob-purple/20 rounded-xl p-6 mb-8">
+        <div className="flex items-start gap-4">
+          <span className="text-3xl">🔐</span>
+          <div>
+            <h3 className="font-bold text-ob-navy text-lg mb-1">Sub-Admin Access Control</h3>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              Create sub-admin accounts and assign their permissions on the Sub-Admins page in the sidebar. Permissions are stored in the database and enforced across all sessions.
+            </p>
+            <div className="flex gap-4 mt-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-ob-purple">{admins.length}</p>
+                <p className="text-xs text-gray-500">Sub-Admins</p>
               </div>
-              <button onClick={() => setShowRoleModal(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-
-            <div className="flex gap-2 mb-4">
-              <button onClick={() => grantAll(selectedAdmin.id)} className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium">Grant All</button>
-              <button onClick={() => revokeAll(selectedAdmin.id)} className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium">Revoke All</button>
-            </div>
-
-            <div className="space-y-2">
-              {AVAILABLE_PERMISSIONS.map(perm => {
-                const hasPerm = getPermissionsForAdmin(selectedAdmin.id).includes(perm.key);
-                return (
-                  <div key={perm.key} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${hasPerm ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'}`}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">{perm.icon}</span>
-                      <div>
-                        <p className="text-sm font-medium text-ob-navy">{perm.label}</p>
-                        <p className="text-xs text-gray-400">{perm.desc}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => togglePermission(selectedAdmin.id, perm.key)}
-                      className={`w-12 h-6 rounded-full transition-all ${hasPerm ? 'bg-green-500' : 'bg-gray-300'}`}
-                    >
-                      <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${hasPerm ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
-              <p className="text-xs text-gray-400">Changes are saved to the database immediately</p>
-              <button onClick={() => setShowRoleModal(false)} className="bg-ob-purple text-white px-6 py-2 text-sm rounded-lg hover:bg-ob-purple-dark transition-colors">Done</button>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">{admins.filter(a => a.status === 'active').length}</p>
+                <p className="text-xs text-gray-500">Active</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-amber-600">{admins.filter(a => a.status !== 'active').length}</p>
+                <p className="text-xs text-gray-500">Suspended</p>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </DashboardLayout>
   );
 }

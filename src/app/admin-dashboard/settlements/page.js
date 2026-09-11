@@ -48,7 +48,7 @@ export default function AdminSettlementsPage() {
   }[s] || 'bg-gray-100 text-gray-600');
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="payments">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-ob-navy">Settlements</h1>
         <p className="text-gray-500 text-sm mt-1">Track vendor payouts, commissions and settlement history.</p>

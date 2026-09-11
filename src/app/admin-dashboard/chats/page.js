@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import DashboardLayout from '@/components/DashboardLayout';
 
 export default function AdminLiveChatsPage() {
   const [conversations, setConversations] = useState([]);
@@ -271,3 +272,13 @@ export default function AdminLiveChatsPage() {
     </div>
   );
 }
+
+function AdminLiveChatsWrapped() {
+  return (
+    <DashboardLayout role="admin" requiredPermission="live-chats">
+      <AdminLiveChatsPage />
+    </DashboardLayout>
+  );
+}
+
+export default AdminLiveChatsWrapped;

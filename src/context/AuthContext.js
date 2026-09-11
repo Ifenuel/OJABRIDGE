@@ -47,22 +47,7 @@ export function AuthProvider({ children }) {
             const merged = { ...stored, ...data.user, source: 'database' };
             setUser(merged);
             saveSession(merged);
-            // Load sub-admin permissions from database
-            if (merged.role === 'sub_admin') {
-              try {
-                const saRes = await fetch('/api/admin/sub-admins', { credentials: 'include' });
-                const saData = await saRes.json();
-                if (saData.success && saData.subAdmins) {
-                  const myRecord = saData.subAdmins.find(sa => sa.user_id === merged.id || sa.email === merged.email);
-                  if (myRecord) {
-                    const perms = typeof myRecord.permissions === 'string' ? JSON.parse(myRecord.permissions) : (myRecord.permissions || []);
-                    const updated = { ...merged, permissions: perms };
-                    setUser(updated);
-                    saveSession(updated);
-                  }
-                }
-              } catch {}
-            }
+            // Note: sub-admin permissions are now returned directly from /api/auth/me
           }
         } else if (res.status === 401 || res.status === 403) {
           // Cookie expired/invalid — clear stale session so the user re-authenticates
@@ -96,20 +81,7 @@ export function AuthProvider({ children }) {
       if (data.success && data.user) {
         let safeUser = { ...data.user, source: 'database' };
 
-        // Load sub-admin permissions after login
-        if (safeUser.role === 'sub_admin') {
-          try {
-            const saRes = await fetch('/api/admin/sub-admins', { credentials: 'include' });
-            const saData = await saRes.json();
-            if (saData.success && saData.subAdmins) {
-              const myRecord = saData.subAdmins.find(sa => sa.user_id === safeUser.id || sa.email === safeUser.email);
-              if (myRecord) {
-                const perms = typeof myRecord.permissions === 'string' ? JSON.parse(myRecord.permissions) : (myRecord.permissions || []);
-                safeUser = { ...safeUser, permissions: perms };
-              }
-            }
-          } catch {}
-        }
+        // Note: sub-admin permissions are now returned directly from login API and /api/auth/me
 
         setUser(safeUser);
         saveSession(safeUser);

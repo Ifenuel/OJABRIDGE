@@ -67,7 +67,7 @@ export default function AdminUsersPage() {
   const statusColors = { active: 'bg-green-100 text-green-700', suspended: 'bg-red-100 text-red-700', banned: 'bg-red-200 text-red-800', pending_verification: 'bg-amber-100 text-amber-700' };
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="users">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-ob-navy">Users</h1>
         <p className="text-gray-500 text-sm mt-1">Manage all platform users — customers, vendors, retailers and administrators.</p>
