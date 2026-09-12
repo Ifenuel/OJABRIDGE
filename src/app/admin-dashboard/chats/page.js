@@ -17,11 +17,23 @@ function AdminLiveChatsPage() {
   // Role-aware tab model.
   // Super Admin: All / Open / Active / Closed
   // Live Support Sub Admin: My Chats / Unassigned / All
-  const tabs = isSuperAdmin
-    ? [{ key: 'all', label: 'All' }, { key: 'open', label: 'Open' }, { key: 'active', label: 'Active' }, { key: 'closed', label: 'Closed' }]
-    : isLiveSupportSubAdmin
-      ? [{ key: 'my', label: 'My Chats' }, { key: 'unassigned', label: 'Unassigned' }, { key: 'all', label: 'All' }]
-      : [{ key: 'all', label: 'All' }];
+  const tabs = (() => {
+    try {
+      const isSuperAdmin = adminUser?.role === 'admin';
+      const isLiveSupportSubAdmin = adminUser?.role === 'sub_admin' && Array.isArray(adminUser?.permissions || []) && adminUser.permissions.includes('live-chats');
+
+      if (isSuperAdmin) {
+        return [{ key: 'all', label: 'All' }, { key: 'open', label: 'Open' }, { key: 'active', label: 'Active' }, { key: 'closed', label: 'Closed' }];
+      }
+      if (isLiveSupportSubAdmin) {
+        return [{ key: 'my', label: 'My Chats' }, { key: 'unassigned', label: 'Unassigned' }, { key: 'all', label: 'All' }];
+      }
+      return [{ key: 'all', label: 'All' }];
+    } catch (e) {
+      console.error('[AdminLiveChats] tab model error:', e);
+      return [{ key: 'all', label: 'All' }];
+    }
+  })();
 
   // Map the visible tab to the status value the backend already understands.
   const statusForTab = (tabKey) => {
@@ -48,11 +60,16 @@ function AdminLiveChatsPage() {
   }, []);
 
   useEffect(() => {
-    const nu = adminUser;
-    const isLiveSupportSubAdmin = nu?.role === 'sub_admin' && Array.isArray(nu?.permissions || []) && nu.permissions.includes('live-chats');
-    if (isLiveSupportSubAdmin) {
-      setTab(hasAssignedChats ? 'my' : 'unassigned');
-    } else {
+    try {
+      const nu = adminUser;
+      const isLiveSupportSubAdmin = nu?.role === 'sub_admin' && Array.isArray(nu?.permissions || []) && nu.permissions.includes('live-chats');
+      if (isLiveSupportSubAdmin) {
+        setTab(hasAssignedChats ? 'my' : 'unassigned');
+      } else {
+        setTab('all');
+      }
+    } catch (e) {
+      console.error('[AdminLiveChats] tab effect error:', e);
       setTab('all');
     }
   }, [adminUser]);
@@ -70,6 +87,7 @@ function AdminLiveChatsPage() {
     setAgentsLoading(false);
   };
 
+  let loadConversationsPrev = loadConversations;
   const loadConversations = async () => {
     try {
       const res = await fetch(`/api/admin/live-chat?status=${statusForTab(tab)}`, { credentials: 'include' });
@@ -80,6 +98,7 @@ function AdminLiveChatsPage() {
     }
     setLoading(false);
   };
+  loadConversationsPrev = loadConversations;
 
   useEffect(() => { loadConversations(); }, [tab]);
 
@@ -365,39 +384,46 @@ function AdminLiveChatsPage() {
                               <div className="p-3 text-xs text-gray-500 text-center">No active live chat agents</div>
                             ) : (
                               <div className="max-h-52 overflow-y-auto">
-                                {availableAgents.map(agent => {
-                                  const isAssigned = agent.id === selectedConv.assigned_to || agent.userId === selectedConv.assigned_to;
-                                  return (
-                                    <button
-                                      key={agent.id}
-                                      type="button"
-                                      onClick={() => assignToAgent(agent.id)}
-                                      disabled={assigning || isAssigned}
-                                      className={
-                                        `w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center justify-between ` +
-                                        (isAssigned
-                                          ? 'bg-ob-purple/10 text-ob-purple font-medium'
-                                          : 'text-gray-700'
-                                        ) +
-                                        ' disabled:opacity-50 disabled:cursor-not-allowed'
-                                      }
-                                    >
-                                      <span className="truncate">{agent.name}</span>
-                                      {isAssigned
-                                        ? <svg className="w-3.5 h-3.5 text-ob-purple flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                                        : null}
-                                    </button>
-                                  );
-                                })}
-                                <button
-                                  type="button"
-                                  onClick={unassignConversation}
-                                  disabled={assigning || !selectedConv.assigned_to}
-                                  className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Remove assignment
-                                </button>
-                              </div>
+                              {(() => {
+                                try {
+                                  return availableAgents.map(agent => {
+                                    const isAssigned = agent.id === selectedConv.assigned_to || agent.userId === selectedConv.assigned_to;
+                                    return (
+                                      <button
+                                        key={agent.id}
+                                        type="button"
+                                        onClick={() => assignToAgent(agent.id)}
+                                        disabled={assigning || isAssigned}
+                                        className={
+                                          `w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center justify-between ` +
+                                          (isAssigned
+                                            ? 'bg-ob-purple/10 text-ob-purple font-medium'
+                                            : 'text-gray-700'
+                                          ) +
+                                          ' disabled:opacity-50 disabled:cursor-not-allowed'
+                                        }
+                                      >
+                                        <span className="truncate">{agent?.name || 'Agent'}</span>
+                                        {isAssigned
+                                          ? <svg className="w-3.5 h-3.5 text-ob-purple flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                          : null}
+                                      </button>
+                                    );
+                                  });
+                                } catch (e) {
+                                  console.error('[AdminLiveChats] agents render error:', e);
+                                  return <div className="px-3 py-2 text-xs text-red-600">Agents unavailable</div>;
+                                }
+                              })()}
+                              <button
+                                type="button"
+                                onClick={unassignConversation}
+                                disabled={assigning || !selectedConv.assigned_to}
+                                className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Remove assignment
+                              </button>
+                            </div>
                             )}
                           </div>
                         </>
@@ -437,20 +463,27 @@ function AdminLiveChatsPage() {
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-50 min-h-0">
-                {messages.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.role === 'admin' || msg.role === 'support' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${
-                      msg.role === 'admin' || msg.role === 'support'
-                        ? 'bg-ob-purple text-white rounded-br-md'
-                        : 'bg-white text-gray-700 border border-gray-100 shadow-sm rounded-bl-md'
-                    }`}>
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
-                      <p className={`text-[9px] mt-1 ${msg.role === 'admin' || msg.role === 'support' ? 'text-white/60' : 'text-gray-400'}`}>
-                        {msg.senderName || (msg.role === 'user' ? selectedConv.user_name : 'Support')} · {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                {(() => {
+                  try {
+                    return messages.map(msg => (
+                      <div key={msg.id} className={`flex ${msg.role === 'admin' || msg.role === 'support' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${
+                          msg.role === 'admin' || msg.role === 'support'
+                            ? 'bg-ob-purple text-white rounded-br-md'
+                            : 'bg-white text-gray-700 border border-gray-100 shadow-sm rounded-bl-md'
+                        }`}>
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <p className={`text-[9px] mt-1 ${msg.role === 'admin' || msg.role === 'support' ? 'text-white/60' : 'text-gray-400'}`}>
+                            {msg.senderName || (msg.role === 'user' ? selectedConv?.user_name : 'Support')} · {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </p>
+                        </div>
+                      </div>
+                    ));
+                  } catch (e) {
+                    console.error('[AdminLiveChats] messages render error:', e);
+                    return <div className="text-sm text-red-600">Messages unavailable</div>;
+                  }
+                })()}
                 <div ref={messagesEndRef} />
               </div>
 
