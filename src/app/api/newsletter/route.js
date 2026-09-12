@@ -112,28 +112,29 @@ export async function POST(request) {
     }
 
     // Send via Brevo
-    let sentCount = 0;        try {
-          const { sendEmail, buildNewsletterEmail } = await import('@/lib/email');
+    let sentCount = 0;
+    try {
+      const { sendEmail, buildNewsletterEmail } = await import('@/lib/email');
 
-          // Brevo supports bulk sending via their API, but for simplicity we send individually.
-          // For production with many subscribers, use Brevo's contact list + campaign API.
-          const htmlContent = buildNewsletterEmail({ subject, content, preheader: null });
+      // Brevo supports bulk sending via their API, but for simplicity we send individually.
+      // For production with many subscribers, use Brevo's contact list + campaign API.
+      const htmlContent = buildNewsletterEmail({ subject, content, preheader: null });
 
-          for (const email of activeEmails) {
-            try {
-              await sendEmail({
-                to: email,
-                subject,
-                htmlContent,
-              });
-              sentCount++;
-            } catch (emailErr) {
-              console.error(`Failed to send to ${email}:`, emailErr.message);
-            }
-          }
+      for (const email of activeEmails) {
+        try {
+          await sendEmail({
+            to: email,
+            subject,
+            htmlContent,
+          });
+          sentCount++;
         } catch (emailErr) {
-          console.error('Newsletter send error:', emailErr.message);
+          console.error(`Failed to send to ${email}:`, emailErr.message);
         }
+      }
+    } catch (emailErr) {
+      console.error('Newsletter send error:', emailErr.message);
+    }
 
     // Save campaign record
     try {

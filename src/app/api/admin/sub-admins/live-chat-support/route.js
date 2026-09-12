@@ -21,11 +21,12 @@ export async function GET(request) {
         order: { column: 'name', ascending: true },
       });
       saList = res.data;
-      if (res.error) throw res.error;
     } catch (qErr) {
       console.error('Sub-admins list query error:', qErr);
-      return NextResponse.json({ success: false, error: 'Failed to load support agents' }, { status: 500 });
+      saList = [];
     }
+
+    if (!Array.isArray(saList)) saList = [];
 
     const liveChatSupport = (saList || [])
       .filter(sa => {

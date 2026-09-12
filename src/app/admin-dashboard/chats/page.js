@@ -14,14 +14,18 @@ function AdminLiveChatsPage() {
   const [adminUser, setAdminUser] = useState(null);
   const [hasAssignedChats, setHasAssignedChats] = useState(false);
 
+  // Role flags computed from current adminUser so they are stable across renders.
+  // Declared once near the top so statusForTab and the JSX can use them safely.
+  const isSuperAdmin = adminUser?.role === 'admin';
+  const isLiveSupportSubAdmin = adminUser?.role === 'sub_admin'
+    && Array.isArray(adminUser?.permissions || [])
+    && adminUser.permissions.includes('live-chats');
+
   // Role-aware tab model.
   // Super Admin: All / Open / Active / Closed
   // Live Support Sub Admin: My Chats / Unassigned / All
   const tabs = (() => {
     try {
-      const isSuperAdmin = adminUser?.role === 'admin';
-      const isLiveSupportSubAdmin = adminUser?.role === 'sub_admin' && Array.isArray(adminUser?.permissions || []) && adminUser.permissions.includes('live-chats');
-
       if (isSuperAdmin) {
         return [{ key: 'all', label: 'All' }, { key: 'open', label: 'Open' }, { key: 'active', label: 'Active' }, { key: 'closed', label: 'Closed' }];
       }
@@ -37,13 +41,18 @@ function AdminLiveChatsPage() {
 
   // Map the visible tab to the status value the backend already understands.
   const statusForTab = (tabKey) => {
-    if (isSuperAdmin) return tabKey === 'all' ? 'all' : tabKey;
-    if (isLiveSupportSubAdmin) {
-      if (tabKey === 'all') return 'all';
-      if (tabKey === 'unassigned') return 'open'; // backend filters assigned_to IS NULL on open
-      return 'all'; // 'my' relies on backend assigned_to filter
+    try {
+      if (isSuperAdmin) return tabKey === 'all' ? 'all' : tabKey;
+      if (isLiveSupportSubAdmin) {
+        if (tabKey === 'all') return 'all';
+        if (tabKey === 'unassigned') return 'open'; // backend filters assigned_to IS NULL on open
+        return 'all'; // 'my' relies on backend assigned_to filter
+      }
+      return 'all';
+    } catch (e) {
+      console.error('[AdminLiveChats] statusForTab error:', e);
+      return 'all';
     }
-    return 'all';
   };
   const [availableAgents, setAvailableAgents] = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
@@ -61,8 +70,6 @@ function AdminLiveChatsPage() {
 
   useEffect(() => {
     try {
-      const nu = adminUser;
-      const isLiveSupportSubAdmin = nu?.role === 'sub_admin' && Array.isArray(nu?.permissions || []) && nu.permissions.includes('live-chats');
       if (isLiveSupportSubAdmin) {
         setTab(hasAssignedChats ? 'my' : 'unassigned');
       } else {
@@ -72,7 +79,7 @@ function AdminLiveChatsPage() {
       console.error('[AdminLiveChats] tab effect error:', e);
       setTab('all');
     }
-  }, [adminUser]);
+  }, [adminUser, isLiveSupportSubAdmin, hasAssignedChats]);
 
   const loadAgents = async () => {
     if (!assignMenuOpen) return;
@@ -103,9 +110,17 @@ function AdminLiveChatsPage() {
   useEffect(() => { loadConversations(); }, [tab]);
 
   useEffect(() => {
-    if (!isLiveSupportSubAdmin) return;
-    const yes = conversations.some(c => c.assigned_to && (c.assigned_to === adminUser?.id || c.assigned_to_name));
-    setHasAssignedChats(!!yes);
+    try {
+      if (!isLiveSupportSubAdmin) {
+        setHasAssignedChats(false);
+        return;
+      }
+      const yes = conversations.some(c => c.assigned_to && (c.assigned_to === adminUser?.id || c.assigned_to_name));
+      setHasAssignedChats(!!yes);
+    } catch (e) {
+      console.error('[AdminLiveChats] hasAssignedChats error:', e);
+      setHasAssignedChats(false);
+    }
   }, [conversations, adminUser, isLiveSupportSubAdmin]);
 
   const loadMessages = async (convId) => {
@@ -235,8 +250,6 @@ function AdminLiveChatsPage() {
     setAssigning(false);
     setAssignMenuOpen(false);
   };
-
-  const isSuperAdmin = adminUser?.role === 'admin';
 
   const statusColors = {
     open: 'bg-green-100 text-green-700',

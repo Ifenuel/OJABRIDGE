@@ -4,6 +4,65 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 
+/** Lightweight branded fallback preview used when the real email HTML builder
+ * fails or is unavailable. It uses the same brand identity as the production
+ * email wrapper so the admin still sees an honest preview.
+ */
+function buildFallbackPreviewHtml({ subject, content }) {
+  const safeSubject = subject && subject.trim()
+    ? subject.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    : 'OjaBridge Newsletter';
+  const safeContent = content
+    ? content.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    : 'Your newsletter content will appear here...';
+
+  return `
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { margin: 0; padding: 0; background: #f4f5f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+      table { border-collapse: collapse; }
+      .email-body { background: #ffffff; }
+    </style>
+  </head>
+  <body style="margin:0;padding:24px 16px;background:#f4f5f7;">
+    <table role="presentation" width="100%" style="max-width:600px;margin:0 auto;">
+      <tr>
+        <td style="padding:24px 28px;background:#ffffff;border-bottom:1px solid #e5e7eb;">
+          <table role="presentation" width="100%">
+            <tr>
+              <td style="color:#0f172a;font-size:20px;font-weight:800;letter-spacing:-0.3px;">
+                <span style="color:#6b21a8;">Oja</span><span style="color:#0f172a;">Bridge</span>
+              </td>
+              <td align="right" style="color:#6b7280;font-size:10px;letter-spacing:1.4px;text-transform:uppercase;font-weight:600;">Shop &bull; Connect &bull; Grow</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:26px 28px;background:#fafbfc;border-bottom:1px solid #e5e7eb;">
+          <div style="border-bottom:2px solid #6b21a8;padding-bottom:10px;margin-bottom:14px;">
+            <h1 style="color:#0f172a;font-size:19px;font-weight:700;margin:0;line-height:1.3;">${safeSubject}</h1>
+          </div>
+          <div style="color:#374151;line-height:1.8;font-size:14px;white-space:pre-wrap;">
+            ${safeContent}
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:14px 28px;text-align:center;background:#0f172a;">
+          <p style="color:rgba(255,255,255,0.7);font-size:11px;margin:0;">OjaBridge &mdash; Shop &bull; Connect &bull; Grow</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`.trim();
+}
+
+
 export default function AdminNewsletterPage() {
   const { user } = useAuth();
   const [subscribers, setSubscribers] = useState([]);
@@ -24,20 +83,29 @@ export default function AdminNewsletterPage() {
   }, []);
 
   useEffect(() => {
-    if (showPreview) {
-      let cancelled = false;
-      (async () => {
-        try {
-          const { buildNewsletterEmail } = await import('@/lib/email');
-          if (!cancelled) setPreviewHtml(buildNewsletterEmail({ subject, content, preheader: null }));
-        } catch (e) {
-          console.error('Failed to build newsletter preview:', e);
-        }
-      })();
-      return () => { cancelled = true; };
-    } else {
+    if (!showPreview) {
       setPreviewHtml('');
+      return;
     }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const mod = await import('@/lib/email');
+        const buildNewsletterEmail = mod.buildNewsletterEmail;
+        if (!cancelled && typeof buildNewsletterEmail === 'function') {
+          setPreviewHtml(buildNewsletterEmail({ subject, content, preheader: null }));
+        } else if (!cancelled) {
+          setPreviewHtml(buildFallbackPreviewHtml({ subject, content }));
+        }
+      } catch (e) {
+        console.error('Failed to build newsletter preview:', e);
+        if (!cancelled) {
+          setPreviewHtml(buildFallbackPreviewHtml({ subject, content }));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, [showPreview, subject, content]);
 
   const loadData = async () => {
