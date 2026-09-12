@@ -157,7 +157,7 @@ export async function PATCH(request) {
     }
 
     const body = await request.json();
-    const { vendorId, kyc_status, is_active, bank_verification_status, kyc_rejection_reason } = body;
+    const { vendorId, kyc_status, is_active, bank_verification_status, kyc_rejection_reason, additional_info_request } = body;
 
     if (!vendorId) return NextResponse.json({ success: false, error: 'Vendor ID required' }, { status: 400 });
 
@@ -166,6 +166,7 @@ export async function PATCH(request) {
     if (is_active !== undefined) updates.is_active = is_active;
     if (bank_verification_status) updates.bank_verification_status = bank_verification_status;
     if (kyc_rejection_reason !== undefined) updates.kyc_rejection_reason = kyc_rejection_reason;
+    if (additional_info_request !== undefined) updates.additional_info_request = additional_info_request;
 
     if (kyc_status === 'VERIFIED') {
       updates.kyc_verified_at = new Date().toISOString();
@@ -192,6 +193,7 @@ export async function PATCH(request) {
         SUSPENDED: { title: 'Account Suspended', message: 'Your vendor account has been suspended. Please contact support for more information.', type: 'warning' },
         BANNED: { title: 'Account Banned', message: 'Your account has been banned from the platform. Please contact support for more information.', type: 'error' },
         VERIFICATION_FAILED: { title: 'KYC Rejected', message: kyc_rejection_reason ? `Verification was not approved. Reason: ${kyc_rejection_reason}` : 'Your verification documents were not approved. Please review and resubmit.', type: 'error' },
+        REQUIRES_ADDITIONAL_INFO: { title: 'Additional Documents Required', message: additional_info_request ? `Our team needs more information: ${additional_info_request}` : 'Our team requires additional information. Please check your KYC page for details.', type: 'warning' },
         NOT_STARTED: { title: 'Account Reinstate', message: 'Your account has been reinstated. Please complete your KYC verification.', type: 'info' },
       };
       const notif = statusMessages[kyc_status];
@@ -213,7 +215,7 @@ export async function PATCH(request) {
     if (vendorUser && kyc_status) {
       try {
         const { sendKYCUpdate } = await import('@/lib/email');
-        const emailStatus = kyc_status === 'VERIFIED' ? 'verified' : kyc_status === 'SUSPENDED' ? 'rejected' : 'submitted';
+        const emailStatus = kyc_status === 'VERIFIED' ? 'verified' : kyc_status === 'SUSPENDED' ? 'rejected' : kyc_status === 'REQUIRES_ADDITIONAL_INFO' ? 'additional_info' : 'submitted';
         await sendKYCUpdate({
           email: vendorUser.email,
           name: vendorUser.name,

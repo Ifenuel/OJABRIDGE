@@ -16,6 +16,7 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
   const [collapsed, setCollapsed] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading, logout } = useAuth();
@@ -49,18 +50,48 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
       // Allow vendors/admins to also view customer account
     }
     // Backend-enforced permission check for sub-admins
-    if (requiredPermission && user.role === 'sub_admin') {
+    if (role === 'admin' && user.role === 'sub_admin') {
       const perms = user.permissions || [];
-      if (!perms.includes(requiredPermission)) {
+      // Map pathname to permission key
+      const pathPermissionMap = {
+        '/admin-dashboard': 'overview',
+        '/admin-dashboard/users': 'users',
+        '/admin-dashboard/vendors': 'vendors',
+        '/admin-dashboard/retailers': 'retailers',
+        '/admin-dashboard/products': 'products',
+        '/admin-dashboard/orders': 'orders',
+        '/admin-dashboard/payments': 'payments',
+        '/admin-dashboard/settlements': 'payments',
+        '/admin-dashboard/disputes': 'disputes',
+        '/admin-dashboard/reports': 'reports',
+        '/admin-dashboard/content': 'content',
+        '/admin-dashboard/newsletter': 'newsletter',
+        '/admin-dashboard/chats': 'live-chats',
+        '/admin-dashboard/security': 'security',
+        '/admin-dashboard/audit': 'audit-logs',
+        '/admin-dashboard/settings': 'settings',
+        '/admin-dashboard/sub-admins': 'sub-admins',
+      };
+      const currentPerm = pathPermissionMap[pathname] || requiredPermission;
+      if (currentPerm && !perms.includes(currentPerm)) {
+        // Auto-redirect to first permitted page instead of showing Access Denied
+        const allPages = Object.entries(pathPermissionMap);
+        const permitted = allPages.find(([_, perm]) => perms.includes(perm));
+        if (permitted) {
+          setRedirecting(true);
+          router.replace(permitted[0]);
+          return;
+        }
+        // No permissions at all
         setPermissionDenied(true);
         return;
       }
     }
     setAuthReady(true);
-  }, [user, loading, role, router]);
+  }, [user, loading, role, router, pathname]);
 
-  // Show loading while auth initializes
-  if (loading || !authReady) {
+  // Show loading while auth initializes or redirecting
+  if (loading || !authReady || redirecting) {
     return (
       <div className="min-h-screen bg-ob-light flex items-center justify-center">
         <div className="text-center">

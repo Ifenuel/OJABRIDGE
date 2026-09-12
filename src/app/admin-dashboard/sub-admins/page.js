@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import DashboardLayout from '@/components/DashboardLayout';
 
 export default function SubAdminsPage() {
   const [subAdmins, setSubAdmins] = useState([]);
@@ -127,6 +128,7 @@ export default function SubAdminsPage() {
   const getPermLabel = (key) => permissions.find(p => p.key === key)?.label || key;
 
   return (
+    <DashboardLayout role="admin" requiredPermission="sub-admins">
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -266,5 +268,6 @@ export default function SubAdminsPage() {
         </div>
       )}
     </div>
+    </DashboardLayout>
   );
 }

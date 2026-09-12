@@ -4,6 +4,7 @@ import { getUserFromRequest, hashPassword } from '@/lib/auth';
 
 // Available permissions sub-admins can be assigned
 const AVAILABLE_PERMISSIONS = [
+  { key: 'overview', label: 'Dashboard Overview', description: 'View platform overview and stats' },
   { key: 'live-chats', label: 'Live Chat Support', description: 'Respond to customer live chats' },
   { key: 'orders', label: 'Orders', description: 'View and manage customer orders' },
   { key: 'disputes', label: 'Disputes', description: 'Review and resolve customer disputes' },

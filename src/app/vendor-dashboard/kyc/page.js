@@ -11,7 +11,9 @@ const VERIFICATION_STATES = {
   under_review: { label: 'Under Review', color: 'bg-amber-100 text-amber-700', icon: '⏳', description: 'Your information is being reviewed by our team. This typically takes 1-3 business days.' },
   verified: { label: 'Verified', color: 'bg-green-100 text-green-700', icon: '✅', description: 'Your identity and business have been verified. You can now publish products and receive orders.' },
   rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700', icon: '❌', description: 'Please review the feedback below and resubmit your information.' },
+  requires_additional_info: { label: 'Additional Info Required', color: 'bg-amber-100 text-amber-700', icon: '📄', description: 'Our team needs more information. Please review the requirements below and resubmit.' },
   suspended: { label: 'Suspended', color: 'bg-red-100 text-red-700', icon: '🚫', description: 'Your verification has been suspended. Please contact support for assistance.' },
+  banned: { label: 'Account Banned', color: 'bg-red-200 text-red-800', icon: '🚫', description: 'Your account has been banned from the platform. Please contact support for more information.' },
 };
 
 const ID_TYPES = ['National ID (NIN)', "Driver's License", 'International Passport', "Voter's Card"];
@@ -300,7 +302,7 @@ export default function VendorKycPage() {
       )}
 
       {/* Overall Status Banner */}
-      <div className={`p-6 rounded-2xl mb-8 ${kycData?.status === 'verified' ? 'bg-green-50 border border-green-200' : kycData?.status === 'submitted' || kycData?.status === 'under_review' ? 'bg-amber-50 border border-amber-200' : kycData?.status === 'rejected' || kycData?.status === 'suspended' ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
+      <div className={`p-6 rounded-2xl mb-8 ${kycData?.status === 'verified' ? 'bg-green-50 border border-green-200' : kycData?.status === 'submitted' || kycData?.status === 'under_review' || kycData?.status === 'requires_additional_info' ? 'bg-amber-50 border border-amber-200' : kycData?.status === 'rejected' || kycData?.status === 'suspended' ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
         <div className="flex items-start gap-4">
           <span className="text-3xl">{status.icon}</span>
           <div className="flex-1">
@@ -313,6 +315,12 @@ export default function VendorKycPage() {
               <div className="mt-3 p-3 bg-red-100 border border-red-200 rounded-lg">
                 <p className="text-xs font-semibold text-red-700 mb-1">Rejection Reason:</p>
                 <p className="text-sm text-red-600">{kycData.rejectionReason}</p>
+              </div>
+            )}
+            {kycData?.additionalInfoRequest && (kycData?.status === 'requires_additional_info') && (
+              <div className="mt-3 p-3 bg-amber-100 border border-amber-200 rounded-lg">
+                <p className="text-xs font-semibold text-amber-700 mb-1">📄 Additional Information Required:</p>
+                <p className="text-sm text-amber-600">{kycData.additionalInfoRequest}</p>
               </div>
             )}
             {kycData?.status !== 'verified' && (
@@ -584,7 +592,7 @@ export default function VendorKycPage() {
               <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
               Submitting...
             </span>
-          ) : kycData?.status === 'verified' ? '✓ Already Verified' : kycData?.status === 'submitted' || kycData?.status === 'under_review' ? 'Update Submission' : 'Submit for Verification'}
+          ) : kycData?.status === 'verified' ? '✓ Already Verified' : kycData?.status === 'submitted' || kycData?.status === 'under_review' ? 'Update Submission' : kycData?.status === 'requires_additional_info' ? '📄 Resubmit with Additional Info' : 'Submit for Verification'}
         </button>
       </div>
     </DashboardLayout>

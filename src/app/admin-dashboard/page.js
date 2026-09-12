@@ -119,7 +119,7 @@ export default function AdminDashboardPage() {
   const recentOrders = filteredOrders.slice(0, 5);
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" requiredPermission="overview">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ob-navy">Platform Overview</h1>

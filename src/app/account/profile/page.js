@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout from '@/components/DashboardLayout';
 import AvatarUpload from '@/components/AvatarUpload';
+import { COUNTRIES } from '@/lib/countries';
 
 export default function AccountProfilePage() {
   const { user, isAuthenticated, loading: authLoading, updateProfile } = useAuth();
@@ -112,11 +113,8 @@ export default function AccountProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                 <select value={form.country} onChange={e => setForm({...form, country: e.target.value})}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none">
-                  <option value="NG">Nigeria</option>
-                  <option value="GH">Ghana</option>
-                  <option value="KE">Kenya</option>
-                  <option value="ZA">South Africa</option>
-                  <option value="OTHER">Other</option>
+                  <option value="">Select country</option>
+                  {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
                 </select>
               </div>
             </div>

@@ -25,6 +25,9 @@ export default function AdminVendorsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState(null);
+  const [additionalInfoText, setAdditionalInfoText] = useState('');
+  const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
+  const [additionalInfoTargetId, setAdditionalInfoTargetId] = useState(null);
 
   useEffect(() => { loadVendors(); }, []);
 
@@ -98,6 +101,24 @@ export default function AdminVendorsPage() {
     setRejectTargetId(vendorId);
     setRejectReason('');
     setShowRejectModal(true);
+  };
+
+  const handleRequestAdditionalInfo = (vendorId) => {
+    setAdditionalInfoTargetId(vendorId);
+    setAdditionalInfoText('');
+    setShowAdditionalInfoModal(true);
+  };
+
+  const confirmRequestAdditionalInfo = () => {
+    if (additionalInfoText.trim() && additionalInfoTargetId) {
+      updateVendor(additionalInfoTargetId, {
+        kyc_status: 'REQUIRES_ADDITIONAL_INFO',
+        additional_info_request: additionalInfoText.trim(),
+      });
+      setShowAdditionalInfoModal(false);
+      setAdditionalInfoTargetId(null);
+      setAdditionalInfoText('');
+    }
   };
 
   const confirmReject = () => {
@@ -224,6 +245,7 @@ export default function AdminVendorsPage() {
                           { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(v) },
                           { label: 'Approve', icon: '✅', className: 'text-green-700', hidden: v.kyc_status === 'VERIFIED' || v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'VERIFIED' }) },
                           { label: 'Reject KYC', icon: '❌', className: 'text-red-600', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status), onClick: () => handleReject(v.id) },
+                          { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: v.kyc_status === 'VERIFIED' || v.kyc_status === 'BANNED' || v.kyc_status === 'NOT_STARTED', onClick: () => handleRequestAdditionalInfo(v.id) },
                           { label: 'Suspend', icon: '⚠️', className: 'text-amber-600', hidden: v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false }) },
                           { label: 'Ban', icon: '🚫', className: 'text-red-700', hidden: v.kyc_status === 'BANNED', confirm: 'Are you sure you want to BAN this vendor? This action is severe.', onClick: () => updateVendor(v.id, { kyc_status: 'BANNED', is_active: false }) },
                           { label: 'Reinstate', icon: '♻️', className: 'text-blue-600', hidden: v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true }) },
@@ -375,6 +397,12 @@ export default function AdminVendorsPage() {
                         ✗ Reject
                       </button>
                     )}
+                    {['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(reviewVendor.kyc_status) && (
+                      <button onClick={() => { handleRequestAdditionalInfo(reviewVendor.id); }}
+                        className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors text-sm">
+                        📄 Request More Docs
+                      </button>
+                    )}
                     {reviewVendor.kyc_status !== 'SUSPENDED' && reviewVendor.kyc_status !== 'BANNED' && (
                       <button onClick={() => updateVendor(reviewVendor.id, { kyc_status: 'SUSPENDED', is_active: false })}
                         className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors text-sm">
@@ -429,6 +457,34 @@ export default function AdminVendorsPage() {
                 Reject Vendor
               </button>
               <button onClick={() => setShowRejectModal(false)}
+                className="px-5 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Additional Info Request Modal */}
+      {showAdditionalInfoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAdditionalInfoModal(false)} />
+          <div className="relative bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="font-bold text-ob-navy mb-2">📄 Request More Documents</h3>
+            <p className="text-sm text-gray-500 mb-4">Tell the vendor what additional information or documents are needed. This will be sent to the vendor via email and in-app notification.</p>
+            <textarea
+              value={additionalInfoText}
+              onChange={e => setAdditionalInfoText(e.target.value)}
+              rows={4}
+              placeholder="e.g. Please provide a valid proof of address (utility bill or bank statement dated within the last 3 months)."
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none resize-none mb-4"
+            />
+            <div className="flex gap-3">
+              <button onClick={confirmRequestAdditionalInfo} disabled={!additionalInfoText.trim()}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-5 py-2 rounded-lg text-sm disabled:opacity-50 transition-colors">
+                Send Request
+              </button>
+              <button onClick={() => setShowAdditionalInfoModal(false)}
                 className="px-5 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
                 Cancel
               </button>

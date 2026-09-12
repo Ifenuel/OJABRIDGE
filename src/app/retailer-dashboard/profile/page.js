@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import AvatarUpload from '@/components/AvatarUpload';
 import { useAuth } from '@/context/AuthContext';
+import { COUNTRIES } from '@/lib/countries';
 
 export default function RetailerProfilePage() {
   const { user, updateProfile } = useAuth();
@@ -86,11 +87,8 @@ export default function RetailerProfilePage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
               <select value={country} onChange={e => setCountry(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:border-ob-purple outline-none text-sm">
-                <option value="NG">Nigeria</option>
-                <option value="GH">Ghana</option>
-                <option value="KE">Kenya</option>
-                <option value="ZA">South Africa</option>
-                <option value="OTHER">Other</option>
+                <option value="">Select country</option>
+                {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
               </select>
             </div>
             <div>

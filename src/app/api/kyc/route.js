@@ -45,6 +45,7 @@ export async function GET(request) {
         submittedAt: v.kyc_submitted_at,
         verifiedAt: v.kyc_verified_at,
         rejectionReason: v.kyc_rejection_reason || null,
+        additionalInfoRequest: v.additional_info_request || null,
         bankVerificationStatus: (v.bank_verification_status || 'NOT_STARTED').toLowerCase(),
         fullName: v.full_name || user.name || null,
         // DATE column → JS Date → would serialize as full ISO timestamp; format as YYYY-MM-DD

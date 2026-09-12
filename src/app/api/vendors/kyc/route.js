@@ -52,6 +52,7 @@ export async function GET(request) {
         kycSubmittedAt: v.kyc_submitted_at,
         kycVerifiedAt: v.kyc_verified_at,
         kycRejectionReason: v.kyc_rejection_reason,
+        additionalInfoRequest: v.additional_info_request,
         bankVerificationStatus: v.bank_verification_status,
         idVerificationStatus: v.id_verification_status,
       },

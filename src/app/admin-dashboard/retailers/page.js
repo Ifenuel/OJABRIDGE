@@ -25,6 +25,9 @@ export default function AdminRetailersPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState(null);
+  const [additionalInfoText, setAdditionalInfoText] = useState('');
+  const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
+  const [additionalInfoTargetId, setAdditionalInfoTargetId] = useState(null);
 
   useEffect(() => { loadRetailers(); }, []);
 
@@ -96,6 +99,24 @@ export default function AdminRetailersPage() {
     setRejectTargetId(retailerId);
     setRejectReason('');
     setShowRejectModal(true);
+  };
+
+  const handleRequestAdditionalInfo = (retailerId) => {
+    setAdditionalInfoTargetId(retailerId);
+    setAdditionalInfoText('');
+    setShowAdditionalInfoModal(true);
+  };
+
+  const confirmRequestAdditionalInfo = () => {
+    if (additionalInfoText.trim() && additionalInfoTargetId) {
+      updateRetailer(additionalInfoTargetId, {
+        kyc_status: 'REQUIRES_ADDITIONAL_INFO',
+        additional_info_request: additionalInfoText.trim(),
+      });
+      setShowAdditionalInfoModal(false);
+      setAdditionalInfoTargetId(null);
+      setAdditionalInfoText('');
+    }
   };
 
   const confirmReject = () => {
@@ -213,6 +234,7 @@ export default function AdminRetailersPage() {
                         { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(r) },
                         { label: 'Approve', icon: '✅', hidden: r.kyc_status === 'VERIFIED' || r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-green-700', onClick: () => updateRetailer(r.id, { kyc_status: 'VERIFIED' }) },
                         { label: 'Reject KYC', icon: '❌', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(r.kyc_status), className: 'text-red-600', onClick: () => handleReject(r.id) },
+                        { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: r.kyc_status === 'VERIFIED' || r.kyc_status === 'BANNED' || r.kyc_status === 'NOT_STARTED', onClick: () => handleRequestAdditionalInfo(r.id) },
                         { label: 'Suspend', icon: '⚠️', hidden: r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-amber-600', onClick: () => updateRetailer(r.id, { kyc_status: 'SUSPENDED', is_active: false }) },
                         { label: 'Ban', icon: '🚫', hidden: r.kyc_status === 'BANNED', className: 'text-red-700', confirm: 'Are you sure you want to BAN this retailer? This action is severe.', onClick: () => updateRetailer(r.id, { kyc_status: 'BANNED', is_active: false }) },
                         { label: 'Reinstate', icon: '♻️', hidden: !(r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED'), className: 'text-blue-600', onClick: () => updateRetailer(r.id, { kyc_status: 'NOT_STARTED', is_active: true }) },
@@ -308,6 +330,9 @@ export default function AdminRetailersPage() {
                     {['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(reviewRetailer.kyc_status) && (
                       <button onClick={() => { setRejectTargetId(reviewRetailer.id); setShowRejectModal(true); }} className="bg-red-500 hover:bg-red-600 text-white font-semibold px-6 py-2.5 rounded-lg text-sm">✗ Reject</button>
                     )}
+                    {['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(reviewRetailer.kyc_status) && (
+                      <button onClick={() => handleRequestAdditionalInfo(reviewRetailer.id)} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg text-sm">📄 Request More Docs</button>
+                    )}
                     {reviewRetailer.kyc_status !== 'SUSPENDED' && reviewRetailer.kyc_status !== 'BANNED' && (
                       <button onClick={() => updateRetailer(reviewRetailer.id, { kyc_status: 'SUSPENDED', is_active: false })} className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-2.5 rounded-lg text-sm">⚠ Suspend</button>
                     )}
@@ -339,6 +364,25 @@ export default function AdminRetailersPage() {
             <div className="flex gap-3">
               <button onClick={confirmReject} disabled={!rejectReason.trim()} className="bg-red-500 hover:bg-red-600 text-white font-medium px-5 py-2 rounded-lg text-sm disabled:opacity-50">Reject</button>
               <button onClick={() => setShowRejectModal(false)} className="px-5 py-2 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Additional Info Request Modal */}
+      {showAdditionalInfoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAdditionalInfoModal(false)} />
+          <div className="relative bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="font-bold text-ob-navy mb-2">📄 Request More Documents</h3>
+            <p className="text-sm text-gray-500 mb-4">Tell the retailer what additional information or documents are needed. This will be sent via email and in-app notification.</p>
+            <textarea value={additionalInfoText} onChange={e => setAdditionalInfoText(e.target.value)} rows={4}
+              placeholder="e.g. Please provide a valid proof of address (utility bill or bank statement dated within the last 3 months)."
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:border-ob-purple outline-none resize-none mb-4" />
+            <div className="flex gap-3">
+              <button onClick={confirmRequestAdditionalInfo} disabled={!additionalInfoText.trim()}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium px-5 py-2 rounded-lg text-sm disabled:opacity-50">Send Request</button>
+              <button onClick={() => setShowAdditionalInfoModal(false)} className="px-5 py-2 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
             </div>
           </div>
         </div>

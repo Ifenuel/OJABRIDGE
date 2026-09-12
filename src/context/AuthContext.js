@@ -47,7 +47,10 @@ export function AuthProvider({ children }) {
             const merged = { ...stored, ...data.user, source: 'database' };
             setUser(merged);
             saveSession(merged);
-            // Note: sub-admin permissions are now returned directly from /api/auth/me
+            // If server role differs from stored role, force update (e.g. sub_admin created from admin role)
+            if (stored && stored.role !== data.user.role) {
+              console.warn('[Auth] Role changed from', stored.role, 'to', data.user.role, '— updating session');
+            }
           }
         } else if (res.status === 401 || res.status === 403) {
           // Cookie expired/invalid — clear stale session so the user re-authenticates

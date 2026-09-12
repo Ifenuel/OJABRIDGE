@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 
@@ -25,6 +25,21 @@ export default function VendorProductsPage() {
   });
 
   const [kycStatus, setKycStatus] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [actionMenuOpen, setActionMenuOpen] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const actionMenuRef = useRef(null);
+
+  // Close action menu on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
+        setActionMenuOpen(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   useEffect(() => {
     loadProducts();
@@ -91,6 +106,81 @@ export default function VendorProductsPage() {
     setSubmitting(false);
   };
 
+  const handleEditProduct = (product) => {
+    setEditingProduct(product);
+    setForm({
+      name: product.name || '',
+      description: product.description || '',
+      shortDescription: product.short_description || '',
+      price: String(product.price || ''),
+      compareAtPrice: product.compare_price ? String(product.compare_price) : '',
+      category: product.category || '',
+      stock: String(product.stock_quantity ?? ''),
+      sku: product.sku || '',
+      weight: product.weight ? String(product.weight) : '',
+      tags: Array.isArray(product.tags) ? product.tags.join(', ') : (product.tags || ''),
+      imageUrls: product.images || [],
+    });
+    setShowAddForm(true);
+    setActionMenuOpen(null);
+  };
+
+  const handleUpdateProduct = async (e) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    setSubmitting(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await fetch(`/api/products?id=${editingProduct.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          description: form.description,
+          shortDescription: form.shortDescription,
+          price: parseFloat(form.price),
+          comparePrice: form.compareAtPrice ? parseFloat(form.compareAtPrice) : null,
+          category: form.category,
+          stock: parseInt(form.stock) || 0,
+          sku: form.sku || null,
+          weight: form.weight ? parseFloat(form.weight) : null,
+          tags: form.tags ? form.tags.split(',').map(t => t.trim()) : [],
+          images: form.imageUrls,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Product updated successfully!' });
+        setShowAddForm(false);
+        setEditingProduct(null);
+        setForm({ name: '', description: '', shortDescription: '', price: '', compareAtPrice: '', category: '', stock: '', sku: '', weight: '', tags: '', imageUrls: [] });
+        loadProducts();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to update product' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+    }
+    setSubmitting(false);
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    try {
+      const res = await fetch(`/api/products?id=${productId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Product removed successfully.' });
+        loadProducts();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete product' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error.' });
+    }
+    setDeleteConfirm(null);
+    setActionMenuOpen(null);
+  };
+
   const filteredProducts = products.filter(p => {
     const matchesSearch = !searchQuery || p.name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = filterCategory === 'All' || p.category === filterCategory;
@@ -145,14 +235,14 @@ export default function VendorProductsPage() {
       {showAddForm && (
         <div className="bg-white p-6 rounded-xl border border-gray-100 mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-ob-navy">Add New Product</h3>
+            <h3 className="text-lg font-bold text-ob-navy">{editingProduct ? 'Edit Product' : 'Add New Product'}</h3>
             <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
-          <form onSubmit={handleAddProduct} className="space-y-5">
+          <form onSubmit={editingProduct ? handleUpdateProduct : handleAddProduct} className="space-y-5">
             <div className="grid sm:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
@@ -248,9 +338,9 @@ export default function VendorProductsPage() {
             </div>
             <div className="flex items-center gap-4 pt-2">
               <button type="submit" disabled={submitting} className="btn-primary px-6 py-2.5 disabled:opacity-50">
-                {submitting ? 'Submitting...' : 'Submit for Review'}
+                {submitting ? 'Saving...' : editingProduct ? 'Update Product' : 'Submit for Review'}
               </button>
-              <button type="button" onClick={() => setShowAddForm(false)} className="text-gray-500 text-sm hover:text-gray-700">
+              <button type="button" onClick={() => { setShowAddForm(false); setEditingProduct(null); setForm({ name: '', description: '', shortDescription: '', price: '', compareAtPrice: '', category: '', stock: '', sku: '', weight: '', tags: '', imageUrls: [] }); }} className="text-gray-500 text-sm hover:text-gray-700">
                 Cancel
               </button>
             </div>
@@ -331,9 +421,26 @@ export default function VendorProductsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{product.average_rating || '—'}</td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        <button className="text-gray-400 hover:text-ob-purple text-xs">Edit</button>
-                        <button className="text-gray-400 hover:text-red-500 text-xs">Remove</button>
+                      <div className="relative" ref={actionMenuOpen === product.id ? actionMenuRef : undefined}>
+                        <button
+                          onClick={() => setActionMenuOpen(actionMenuOpen === product.id ? null : product.id)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          Actions
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        {actionMenuOpen === product.id && (
+                          <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-xl border border-gray-200 shadow-xl z-50 overflow-hidden">
+                            <button onClick={() => handleEditProduct(product)} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                              <svg className="w-4 h-4 text-ob-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              Edit
+                            </button>
+                            <button onClick={() => { setDeleteConfirm(product.id); setActionMenuOpen(null); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              Remove
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -343,6 +450,24 @@ export default function VendorProductsPage() {
           </table>
         </div>
       </div>
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <div className="text-center">
+              <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </div>
+              <h3 className="text-lg font-bold text-ob-navy mb-2">Remove Product?</h3>
+              <p className="text-gray-500 text-sm mb-6">This action cannot be undone. The product will be permanently removed from your listings.</p>
+              <div className="flex gap-3 justify-center">
+                <button onClick={() => setDeleteConfirm(null)} className="px-5 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+                <button onClick={() => handleDeleteProduct(deleteConfirm)} className="px-5 py-2.5 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">Remove</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

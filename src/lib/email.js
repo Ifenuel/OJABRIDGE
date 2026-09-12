@@ -669,6 +669,15 @@ async function sendKYCUpdate({ email, name, status }) {
       bg: '#eff6ff',
       border: '#bfdbfe',
     },
+    additional_info: {
+      title: 'Additional Documents Required',
+      message: 'Our team needs more information to complete your verification. Please review the requirements and resubmit the requested documents.',
+      cta: 'Provide Documents',
+      ctaUrl: `${SITE_URL}/vendor-dashboard/kyc`,
+      color: '#d97706',
+      bg: '#fffbeb',
+      border: '#fde68a',
+    },
   };
 
   const info = statusMessages[status] || statusMessages.submitted;

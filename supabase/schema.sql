@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS vendors (
   total_reviews INT DEFAULT 0,
   total_orders INT DEFAULT 0,
   store_views INT DEFAULT 0,
+  kyc_rejection_reason TEXT,
+  additional_info_request TEXT,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

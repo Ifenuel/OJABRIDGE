@@ -209,43 +209,111 @@ export async function POST(request) {
 export async function PATCH(request) {
   try {
     const user = await getUserFromRequest(request);
-    const auth = requireRole(user, 'admin');
-    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
 
     if (!isDatabaseConnected()) {
       return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
     }
 
     const body = await request.json();
-    const { productId, moderation_status, moderation_notes, is_active } = body;
+    const { productId, name, description, shortDescription, price, comparePrice, category, stock, images, tags, sku, weight, moderation_status, moderation_notes, is_active } = body;
 
     if (!productId) return NextResponse.json({ success: false, error: 'Product ID required' }, { status: 400 });
 
-    if (moderation_status && !['pending', 'approved', 'rejected', 'suspended'].includes(moderation_status)) {
-      return NextResponse.json({ success: false, error: 'Invalid moderation_status' }, { status: 400 });
+    // Load product to check ownership
+    const { data: products } = await dbQuery('products', { filter: { id: productId }, limit: 1 });
+    const product = products?.[0];
+    if (!product) return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
+
+    // Admin: can moderate (status, notes, is_active)
+    if (user.role === 'admin') {
+      if (moderation_status && !['pending', 'approved', 'rejected', 'suspended'].includes(moderation_status)) {
+        return NextResponse.json({ success: false, error: 'Invalid moderation_status' }, { status: 400 });
+      }
+      const updates = {};
+      if (moderation_status) updates.moderation_status = moderation_status;
+      if (moderation_notes !== undefined) updates.moderation_notes = moderation_notes;
+      if (is_active !== undefined) updates.is_active = is_active;
+      const { data: updated, error } = await dbUpdate('products', { id: productId }, updates);
+      if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+      await dbInsert('audit_logs', { user_id: user.id, action: 'product.moderation', entity_type: 'product', entity_id: productId, new_data: { moderation_status, moderation_notes, is_active }, created_at: new Date().toISOString() }).catch(() => {});
+      return NextResponse.json({ success: true, product: updated });
     }
 
-    const updates = {};
-    if (moderation_status) updates.moderation_status = moderation_status;
-    if (moderation_notes !== undefined) updates.moderation_notes = moderation_notes;
-    if (is_active !== undefined) updates.is_active = is_active;
+    // Vendor/retailer: can only edit their own products
+    if (user.role === 'vendor' || user.role === 'retailer') {
+      const { data: vendorProfile } = await dbQuery('vendors', { filter: { user_id: user.id }, limit: 1 });
+      if (!vendorProfile?.[0] || product.vendor_id !== vendorProfile[0].id) {
+        return NextResponse.json({ success: false, error: 'You can only edit your own products' }, { status: 403 });
+      }
 
-    const { data: updated, error } = await dbUpdate('products', { id: productId }, updates);
-    if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+      const updates = {};
+      if (name !== undefined) updates.name = sanitizeInput(name);
+      if (description !== undefined) updates.description = description;
+      if (shortDescription !== undefined) updates.short_description = shortDescription;
+      if (price !== undefined) updates.price = parseFloat(price);
+      if (comparePrice !== undefined) updates.compare_price = comparePrice ? parseFloat(comparePrice) : null;
+      if (category !== undefined) updates.category = category;
+      if (stock !== undefined) updates.stock_quantity = parseInt(stock) || 0;
+      if (sku !== undefined) updates.sku = sku;
+      if (weight !== undefined) updates.weight = weight ? parseFloat(weight) : null;
+      if (images !== undefined) {
+        const cleanImages = normalizeImages(images);
+        updates.images = toPgTextArray(cleanImages);
+      }
+      if (tags !== undefined) updates.tags = tags;
 
-    // Audit log
-    await dbInsert('audit_logs', {
-      user_id: user.id,
-      action: 'product.moderation',
-      entity_type: 'product',
-      entity_id: productId,
-      new_data: { moderation_status, moderation_notes, is_active },
-      created_at: new Date().toISOString(),
-    });
+      const { data: updated, error } = await dbUpdate('products', { id: productId }, updates);
+      if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+      return NextResponse.json({ success: true, product: updated });
+    }
 
-    return NextResponse.json({ success: true, product: updated });
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
   } catch (error) {
-    console.error('Product moderation error:', error);
+    console.error('Product PATCH error:', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const user = await getUserFromRequest(request);
+    if (!user) return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+
+    if (!isDatabaseConnected()) {
+      return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const productId = searchParams.get('id');
+    if (!productId) return NextResponse.json({ success: false, error: 'Product ID required' }, { status: 400 });
+
+    // Load product
+    const { data: products } = await dbQuery('products', { filter: { id: productId }, limit: 1 });
+    const product = products?.[0];
+    if (!product) return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
+
+    // Admin can delete any product
+    if (user.role === 'admin') {
+      const { error } = await dbDelete('products', { id: productId });
+      if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+      return NextResponse.json({ success: true, message: 'Product deleted' });
+    }
+
+    // Vendor/retailer: only delete own products
+    if (user.role === 'vendor' || user.role === 'retailer') {
+      const { data: vendorProfile } = await dbQuery('vendors', { filter: { user_id: user.id }, limit: 1 });
+      if (!vendorProfile?.[0] || product.vendor_id !== vendorProfile[0].id) {
+        return NextResponse.json({ success: false, error: 'You can only delete your own products' }, { status: 403 });
+      }
+      const { error } = await dbDelete('products', { id: productId });
+      if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+      return NextResponse.json({ success: true, message: 'Product deleted' });
+    }
+
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+  } catch (error) {
+    console.error('Product DELETE error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
