@@ -275,10 +275,17 @@ function buildNewsletterEmail({ subject, content, preheader }) {
                       <td style="vertical-align: middle; font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.4px; line-height: 1;">
                         <span style="color: #6b21a8;">Oja</span>Bridge
                       </td>                                <td align="right" style="vertical-align: middle; font-size: 11px; color: #94a3b8; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; white-space: nowrap; padding-left: 12px;">
-                          Shop &bull; Connect &bull; Grow
+                        Shop &bull; Connect &bull; Grow
                       </td>
                     </tr>
                   </table>
+                </td>
+              </tr>
+
+              <!-- CONTENT — rendered exactly once. -->
+              <tr>
+                <td style="padding: 28px 40px; background-color: #ffffff;" class="mobile-pad">
+                  ${bodyContent || '<p style="color:#94a3b8; font-size:14px;">Your newsletter content will appear here.</p>'}
                 </td>
               </tr>
 
