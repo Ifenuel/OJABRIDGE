@@ -185,46 +185,55 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
               </button>
             </div>
           </aside>
-          {/* Mobile Sidebar */}
-          {sidebarOpen && (
-            <div className="fixed inset-0 z-50 lg:hidden">
-              <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
-              <aside className="absolute left-0 top-0 bottom-0 w-64 bg-ob-navy text-white overflow-y-auto z-50">
-                <div className="p-5 border-b border-white/10 flex items-center justify-between">
-                  <Link href="/" onClick={() => setSidebarOpen(false)}><Logo size="small" /></Link>
-                  <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                </div>
-                <div className="px-5 py-3 border-b border-white/5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Customer Account</p>
-                  <p className="text-sm font-medium text-white">{user.name}</p>
-                </div>
-                <nav className="p-3 space-y-0.5">
-                  {customerNavItems.map((item) => {
-                    const active = pathname === item.href || (item.href !== '/account' && pathname.startsWith(item.href));
-                    return (
-                      <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all ${active ? 'bg-ob-purple text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} /></svg>
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </nav>
-                <div className="p-4 border-t border-white/10">
-                  <button onClick={handleLogout} className="w-full text-center py-2 text-sm text-red-400 hover:text-red-300">Sign Out</button>
-                </div>
-              </aside>
-            </div>
-          )}
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
+          {/* Mobile navigation is handled by the shared MobileDrawer for all roles. */}
+          <MobileDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)} role="customer" />
+          {/* Main Content */}            <div className="flex-1 min-w-0">
             <MobileHeader onMenuOpen={() => setSidebarOpen(true)} role="customer" />
             <MobileDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)} role="customer" />
             <MobileBottomNav role="customer" />
             <div className="p-4 lg:p-8 pb-20 max-w-6xl">{children}</div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If no role matched above, treat like customer.
+  if (isCustomer && !showSidebar) {
+    return (
+      <div className="min-h-screen bg-ob-light">
+        <div className="flex">
+          {/* Customer Sidebar */}
+          <aside className="hidden lg:flex flex-col w-64 bg-ob-navy text-white min-h-screen sticky top-0">
+            <div className="p-5 border-b border-white/10">
+              <Link href="/"><Logo size="small" /></Link>
+            </div>
+            <div className="px-5 py-3 border-b border-white/5">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider">Customer Account</p>
+              <p className="text-sm font-medium text-white truncate">{user.name}</p>
+            </div>
+            <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+              {customerNavItems.map((item) => {
+                const active = pathname === item.href || (item.href !== '/account' && pathname.startsWith(item.href));
+                return (
+                  <Link key={item.href} href={item.href}
+                    className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all ${active ? 'bg-ob-purple text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
+                    </svg>
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="p-4 border-t border-white/10">
+              <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-2 text-sm text-red-400 hover:text-red-300">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                Sign Out
+              </button>
+            </div>
+          </aside>
+
         </div>
       </div>
     );

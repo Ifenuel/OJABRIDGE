@@ -10,8 +10,29 @@ function AdminLiveChatsPage() {
   const [reply, setReply] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [filter, setFilter] = useState('all');
+  const [tab, setTab] = useState('all');
   const [adminUser, setAdminUser] = useState(null);
+  const [hasAssignedChats, setHasAssignedChats] = useState(false);
+
+  // Role-aware tab model.
+  // Super Admin: All / Open / Active / Closed
+  // Live Support Sub Admin: My Chats / Unassigned / All
+  const tabs = isSuperAdmin
+    ? [{ key: 'all', label: 'All' }, { key: 'open', label: 'Open' }, { key: 'active', label: 'Active' }, { key: 'closed', label: 'Closed' }]
+    : isLiveSupportSubAdmin
+      ? [{ key: 'my', label: 'My Chats' }, { key: 'unassigned', label: 'Unassigned' }, { key: 'all', label: 'All' }]
+      : [{ key: 'all', label: 'All' }];
+
+  // Map the visible tab to the status value the backend already understands.
+  const statusForTab = (tabKey) => {
+    if (isSuperAdmin) return tabKey === 'all' ? 'all' : tabKey;
+    if (isLiveSupportSubAdmin) {
+      if (tabKey === 'all') return 'all';
+      if (tabKey === 'unassigned') return 'open'; // backend filters assigned_to IS NULL on open
+      return 'all'; // 'my' relies on backend assigned_to filter
+    }
+    return 'all';
+  };
   const [availableAgents, setAvailableAgents] = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -25,6 +46,16 @@ function AdminLiveChatsPage() {
       if (userData) setAdminUser(JSON.parse(userData));
     } catch {}
   }, []);
+
+  useEffect(() => {
+    const nu = adminUser;
+    const isLiveSupportSubAdmin = nu?.role === 'sub_admin' && Array.isArray(nu?.permissions || []) && nu.permissions.includes('live-chats');
+    if (isLiveSupportSubAdmin) {
+      setTab(hasAssignedChats ? 'my' : 'unassigned');
+    } else {
+      setTab('all');
+    }
+  }, [adminUser]);
 
   const loadAgents = async () => {
     if (!assignMenuOpen) return;
@@ -41,7 +72,7 @@ function AdminLiveChatsPage() {
 
   const loadConversations = async () => {
     try {
-      const res = await fetch(`/api/admin/live-chat?status=${filter}`, { credentials: 'include' });
+      const res = await fetch(`/api/admin/live-chat?status=${statusForTab(tab)}`, { credentials: 'include' });
       const data = await res.json();
       if (data.success) setConversations(data.conversations || []);
     } catch (e) {
@@ -50,7 +81,13 @@ function AdminLiveChatsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { loadConversations(); }, [filter]);
+  useEffect(() => { loadConversations(); }, [tab]);
+
+  useEffect(() => {
+    if (!isLiveSupportSubAdmin) return;
+    const yes = conversations.some(c => c.assigned_to && (c.assigned_to === adminUser?.id || c.assigned_to_name));
+    setHasAssignedChats(!!yes);
+  }, [conversations, adminUser, isLiveSupportSubAdmin]);
 
   const loadMessages = async (convId) => {
     try {
@@ -134,6 +171,30 @@ function AdminLiveChatsPage() {
     setAssignMenuOpen(false);
   };
 
+  const assignToMe = async (convId) => {
+    if (assigning) return;
+    setAssigning(true);
+    try {
+      // Only active live-chats sub-admins can claim a chat.
+      const me = adminUser;
+      if (!me) throw new Error('Not authenticated');
+      await fetch('/api/admin/live-chat', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          conversationId: convId,
+          assignedTo: me.id,
+        }),
+      });
+      setConversations(prev => prev.map(c => (c.id === convId ? { ...c, assigned_to: me.id } : c)));
+      if (selectedConv?.id === convId) setSelectedConv({ ...selectedConv, assigned_to: me.id });
+    } catch (e) {
+      console.error('Failed to assign conversation to me:', e);
+    }
+    setAssigning(false);
+  };
+
   const unassignConversation = async () => {
     if (!selectedConv || assigning) return;
     setAssigning(true);
@@ -194,13 +255,13 @@ function AdminLiveChatsPage() {
         {/* Conversations List */}
         <div className="w-full lg:w-96 lg:flex-none bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden max-h-[60dvh] lg:max-h-none">
           {/* Filter tabs */}
-          <div className="flex border-b border-gray-100 px-2 pt-2">
-            {['all', 'open', 'active', 'closed'].map(f => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-t-lg capitalize transition-colors ${
-                  filter === f ? 'bg-ob-purple text-white' : 'text-gray-500 hover:text-gray-700'
+              <div className="flex border-b border-gray-100 px-2 pt-2 overflow-x-auto">
+            {tabs.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-t-lg capitalize transition-colors whitespace-nowrap ${
+                  tab === t.key ? 'bg-ob-purple text-white' : 'text-gray-500 hover:text-gray-700'
                 }`}>
-                {f}
+                {t.label}
               </button>
             ))}
           </div>
@@ -235,11 +296,11 @@ function AdminLiveChatsPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] text-gray-400">{conv.user_role}</span>
                       {conv.assigned_to && (
-                        <span className="text-[10px] text-ob-purple bg-ob-purple/10 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
+                        <span className="text-[10px] text-ob-purple bg-ob-purple/10 px-1.5 py-0.5 rounded-full truncate max-w-[120px]" title={conv.assigned_to_name || 'Assigned'}>
                           {conv.assigned_to_name || 'Assigned'}
                         </span>
                       )}
-                      {!conv.assigned_to && conv.status === 'open' && (
+                      {!conv.assigned_to && (
                         <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">Unassigned</span>
                       )}
                     </div>
@@ -343,9 +404,19 @@ function AdminLiveChatsPage() {
                       )}
                     </div>
                   )}
-                  {selectedConv.status === 'open' && (
+                  {selectedConv.status === 'open' && !selectedConv.assigned_to && isLiveSupportSubAdmin && (
+                    <button
+                      onClick={() => assignToMe(selectedConv.id)}
+                      disabled={assigning}
+                      className="text-xs bg-ob-purple text-white px-3 py-1 rounded-lg hover:bg-ob-purple-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Assign to me
+                    </button>
+                  )}
+                  {selectedConv.status === 'open' && isSuperAdmin && (
                     <button onClick={() => updateStatus(selectedConv.id, 'active')}
-                      className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600">
+                      className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
+                    >
                       Take Chat
                     </button>
                   )}

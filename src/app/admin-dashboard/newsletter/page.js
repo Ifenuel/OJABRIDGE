@@ -17,10 +17,28 @@ export default function AdminNewsletterPage() {
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (showPreview) {
+      let cancelled = false;
+      (async () => {
+        try {
+          const { buildNewsletterEmail } = await import('@/lib/email');
+          if (!cancelled) setPreviewHtml(buildNewsletterEmail({ subject, content, preheader: null }));
+        } catch (e) {
+          console.error('Failed to build newsletter preview:', e);
+        }
+      })();
+      return () => { cancelled = true; };
+    } else {
+      setPreviewHtml('');
+    }
+  }, [showPreview, subject, content]);
 
   const loadData = async () => {
     setLoading(true);
@@ -106,7 +124,7 @@ export default function AdminNewsletterPage() {
         {/* Compose */}
         <div className="bg-white p-6 rounded-xl border border-gray-100">
           <h2 className="font-bold text-ob-navy mb-4">Compose Newsletter</h2>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Subject *</label>
@@ -159,27 +177,14 @@ export default function AdminNewsletterPage() {
             </div>
           </div>
 
-          {/* Preview */}
+          {/* Preview — renders the same email wrapper used when sending via Brevo. */}
           {showPreview && (
             <div className="mt-6 border-t border-gray-100 pt-6">
               <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-3">Email Preview</p>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', padding: '20px', textAlign: 'center' }}>
-                  <h1 style={{ color: 'white', fontSize: '18px', margin: 0 }}>OjaBridge</h1>
-                  <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px', margin: '4px 0 0' }}>Shop · Connect · Grow</p>
-                </div>
-                <div style={{ padding: '20px', background: '#f9fafb' }}>
-                  <h2 style={{ color: '#1a1a2e', fontSize: '16px', marginTop: 0 }}>{subject || 'Newsletter Subject'}</h2>
-                  <div style={{ color: '#374151', lineHeight: '1.8', fontSize: '14px', whiteSpace: 'pre-wrap' }}>
-                    {content || 'Your newsletter content will appear here...'}
-                  </div>
-                </div>
-                <div style={{ padding: '12px', textAlign: 'center', background: '#1a1a2e' }}>
-                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', margin: 0 }}>
-                    OjaBridge — Shop · Connect · Grow
-                  </p>
-                </div>
+              <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm" style={{ maxWidth: 600 }}>
+                <iframe title="Newsletter email preview" srcDoc={previewHtml || '<html><body style="margin:0;padding:24px;background:#f4f5f7;color:#1a1a2e;">No preview</body></html>'} style={{ width: '100%', height: 520, border: 'none', display: 'block' }} />
               </div>
+              <p className="text-[10px] text-gray-400 mt-2 text-center">This preview uses the same email template sent to subscribers via Brevo.</p>
             </div>
           )}
         </div>
@@ -221,18 +226,20 @@ export default function AdminNewsletterPage() {
             {campaigns.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-8">No campaigns sent yet.</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
                 {campaigns.map(c => (
                   <div key={c.id} className="p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm font-medium text-ob-navy">{c.subject}</p>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${c.status === 'sent' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {c.status}
+                      <p className="text-sm font-medium text-ob-navy truncate">{c.subject}</p>
+                      <span className="text-[10px] text-gray-400">
+                        {c.sent_at ? new Date(c.sent_at).toLocaleString() : '—'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 text-[10px] text-gray-400">
-                      <span>To: {c.recipient_count} subscribers</span>
-                      <span>{c.sent_at ? new Date(c.sent_at).toLocaleString() : '—'}</span>
+                    <div className="flex items-center justify-between text-[10px] text-gray-400">
+                      <span>Sent to {c.recipient_count || 0} subscribers</span>
+                      <span className={c.status === 'sent' ? 'text-green-600' : 'text-red-500'}>
+                        {c.status === 'sent' ? 'Sent' : c.status}
+                      </span>
                     </div>
                   </div>
                 ))}

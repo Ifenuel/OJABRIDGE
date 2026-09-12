@@ -112,46 +112,28 @@ export async function POST(request) {
     }
 
     // Send via Brevo
-    let sentCount = 0;
-    try {
-      const { sendEmail } = await import('@/lib/email');
+    let sentCount = 0;        try {
+          const { sendEmail, buildNewsletterEmail } = await import('@/lib/email');
 
-      // Brevo supports bulk sending via their API, but for simplicity we send individually
-      // For production with many subscribers, use Brevo's contact list + campaign API
-      for (const email of activeEmails) {
-        try {
-          await sendEmail({
-            to: email,
-            subject: subject,
-            htmlContent: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 30px; text-align: center;">
-                  <h1 style="color: white; font-size: 22px; margin: 0;">OjaBridge</h1>
-                  <p style="color: rgba(255,255,255,0.7); font-size: 12px; margin: 5px 0 0;">Shop · Connect · Grow</p>
-                </div>
-                <div style="padding: 30px; background: #f9fafb;">
-                  <h2 style="color: #1a1a2e; font-size: 20px; margin-top: 0;">${subject}</h2>
-                  <div style="color: #374151; line-height: 1.8; font-size: 15px;">
-                    ${content.replace(/\n/g, '<br>')}
-                  </div>
-                </div>
-                <div style="padding: 20px; text-align: center; background: #1a1a2e;">
-                  <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin: 0;">
-                    OjaBridge — Shop · Connect · Grow<br>
-                    You are receiving this because you subscribed to OjaBridge updates.
-                  </p>
-                </div>
-              </div>
-            `,
-          });
-          sentCount++;
+          // Brevo supports bulk sending via their API, but for simplicity we send individually.
+          // For production with many subscribers, use Brevo's contact list + campaign API.
+          const htmlContent = buildNewsletterEmail({ subject, content, preheader: null });
+
+          for (const email of activeEmails) {
+            try {
+              await sendEmail({
+                to: email,
+                subject,
+                htmlContent,
+              });
+              sentCount++;
+            } catch (emailErr) {
+              console.error(`Failed to send to ${email}:`, emailErr.message);
+            }
+          }
         } catch (emailErr) {
-          console.error(`Failed to send to ${email}:`, emailErr.message);
+          console.error('Newsletter send error:', emailErr.message);
         }
-      }
-    } catch (emailErr) {
-      console.error('Newsletter send error:', emailErr.message);
-    }
 
     // Save campaign record
     try {
