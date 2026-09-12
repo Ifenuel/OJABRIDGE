@@ -102,7 +102,7 @@ export default function AccountPage() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         <StatCard label="Total Orders" value={orders.length} icon="📦" color="text-blue-600" change="All time" />
         <StatCard label="Total Spent" value={`₦${totalSpent.toLocaleString()}`} icon="💰" color="text-ob-purple" change="All time" />
         <StatCard label="Notifications" value={unreadNotifs} icon="🔔" color="text-red-500" change="Unread" />
@@ -110,13 +110,13 @@ export default function AccountPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <DashboardBarChart data={spendingByMonth} title="Monthly Spending" xKey="name" yKey="value" color="#5B21B6" />
         <DashboardPieChart data={orderStatusData} title="Order Status Breakdown" height={260} innerRadius={50} outerRadius={90} />
       </div>
 
       {/* Quick Actions */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         {[
           { label: 'My Orders', href: '/account/orders', icon: '📦', color: 'bg-blue-50 text-blue-600', desc: `${orders.length} total` },
           { label: 'Favorites', href: '/favorites', icon: '❤️', color: 'bg-red-50 text-red-500', desc: 'Saved items' },
@@ -132,7 +132,7 @@ export default function AccountPage() {
       </div>
 
       {/* Two Column: Orders + Activity */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Orders */}
         <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-100">
           <div className="flex items-center justify-between mb-4">

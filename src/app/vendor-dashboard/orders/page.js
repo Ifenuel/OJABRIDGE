@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate, formatCurrency } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
+import ActionMenu from '@/components/ActionMenu';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -123,7 +124,7 @@ export default function VendorOrdersPage() {
           />
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-mobile-responsive">
             <thead>
               <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
                 <th className="px-6 py-4 font-medium">Order ID</th>
@@ -166,15 +167,14 @@ export default function VendorOrdersPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        <button onClick={() => setSelectedOrder(order)} className="text-ob-purple text-xs font-medium hover:underline">View</button>
-                        {order.status === 'confirmed' && (
-                          <button onClick={() => updateOrderStatus(order.id, 'processing')} className="text-blue-600 text-xs font-medium hover:underline">Process</button>
-                        )}
-                        {order.status === 'processing' && (
-                          <button onClick={() => updateOrderStatus(order.id, 'shipped')} className="text-indigo-600 text-xs font-medium hover:underline">Ship</button>
-                        )}
-                      </div>
+                      <ActionMenu
+                        label="Actions ▾"
+                        actions={[
+                          { label: 'View Details', icon: '👁️', className: 'text-ob-purple', onClick: () => setSelectedOrder(order) },
+                          { label: order.status === 'confirmed' ? 'Mark as Processing' : order.status === 'processing' ? 'Mark as Shipped' : null, icon: order.status === 'confirmed' ? '🔄' : '🚚', className: order.status === 'confirmed' ? 'text-blue-600' : 'text-indigo-600', hidden: !(order.status === 'confirmed' || order.status === 'processing'), onClick: () => updateOrderStatus(order.id, order.status === 'confirmed' ? 'processing' : 'shipped') },
+                          { label: 'View in Shop', icon: '🌐', className: 'text-green-600', onClick: () => window.open(`/vendor/${order.vendor_slug || ''}`, '_blank') },
+                        ].filter(Boolean)}
+                      />
                     </td>
                   </tr>
                 ))

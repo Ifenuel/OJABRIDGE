@@ -54,6 +54,31 @@
     background-color: rgba(91, 33, 182, 0.2);
     color: #0F172A;
   }
+
+  /* Mobile-friendly tables: on very small screens, make table cells
+     narrower and allow the overflow container to scroll smoothly. */
+  @media (max-width: 480px) {
+    .table-mobile-responsive {
+      min-width: 0;
+    }
+    .table-mobile-responsive th,
+    .table-mobile-responsive td {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .table-mobile-responsive th {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+  }
+
+  /* Prevent background scroll when modals/drawers are open */
+  body.modal-open {
+    overflow: hidden;
+  }
 }
 
 @layer components {

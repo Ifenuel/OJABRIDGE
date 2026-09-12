@@ -130,22 +130,26 @@ export function DashboardLineChart({ data, title, lines = [{ key: 'value', color
 /**
  * Stat Card — reusable metric card
  */
-export function StatCard({ label, value, change, icon, color = 'text-ob-purple', delay = 0 }) {
-  return (
+export function StatCard({ label, value, change, icon, color = 'text-ob-purple', delay = 0, href }) {
+  const card = (
     <div
-      className="bg-white p-5 rounded-xl border border-gray-100 hover:shadow-md transition-all duration-300"
+      className="bg-white p-4 rounded-xl border border-gray-100 hover:shadow-md transition-all duration-300"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-gray-500">{label}</p>
-          <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-          {change && <p className="text-xs text-gray-400 mt-1">{change}</p>}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-gray-500 font-medium">{label}</p>
+          <p className={`text-xl font-bold mt-0.5 ${color} break-all`}>{value}</p>
+          {change && <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{change}</p>}
         </div>
-        <span className="text-2xl">{icon}</span>
+        {icon && <span className="text-lg flex-shrink-0 mt-0.5">{icon}</span>}
       </div>
     </div>
   );
+  if (href) {
+    return <Link href={href} className="block">{card}</Link>;
+  }
+  return card;
 }
 
 /**

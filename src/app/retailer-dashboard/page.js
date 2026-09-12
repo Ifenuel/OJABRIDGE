@@ -78,7 +78,7 @@ export default function RetailerDashboardPage() {
       )}
 
       {/* Stats — Clickable */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 gap-3 mb-8">
         <Link href="/shop" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
           <p className="text-xs text-gray-500">Verified Vendors</p>
           <p className="text-xl font-bold text-green-600 mt-1">{verifiedVendors.length}</p>
@@ -102,7 +102,7 @@ export default function RetailerDashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 gap-3 mb-8">
         {[
           { label: 'Browse Products', href: '/shop', icon: '🛍️' },
           { label: 'My Orders', href: '/account/orders', icon: '📦' },

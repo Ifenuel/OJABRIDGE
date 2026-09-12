@@ -6,14 +6,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import { StatCard, DashboardBarChart, DashboardPieChart, DashboardLineChart } from '@/components/Charts';
 
-// Clickable stat card wrapper
-function ClickableStatCard({ href, ...props }) {
-  return (
-    <Link href={href} className="block">
-      <StatCard {...props} />
-    </Link>
-  );
-}
+// StatCard now supports href directly — no wrapper needed
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
@@ -160,32 +153,32 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stats Row 1 — Revenue (clickable) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <ClickableStatCard href="/admin-dashboard/payments" label="Total Revenue" value={`₦${totalRevenue.toLocaleString()}`} color="text-green-600" change={totalRevenue === 0 ? 'No paid orders yet' : `From ${stats.completedOrders} completed orders`} />
-        <ClickableStatCard href="/admin-dashboard/payments" label="Platform Commission" value={`₦${commission.toLocaleString()}`} color="text-amber-600" change={commission === 0 ? '10% per transaction' : '10% per transaction'} />
-        <ClickableStatCard href="/admin-dashboard/settlements" label="Net to Vendors" value={`₦${stats.netToVendors.toLocaleString()}`} color="text-blue-600" change={stats.netToVendors === 0 ? 'Paid after commission' : 'Paid after commission deduction'} />
-        <ClickableStatCard href="/admin-dashboard/orders" label="Total Orders" value={stats.totalOrders} color="text-ob-purple" change={stats.totalOrders === 0 ? 'No orders placed yet' : `${stats.activeOrders} active, ${stats.completedOrders} completed`} />
+      <div className="grid grid-cols-1 gap-3 mb-6">
+        <StatCard href="/admin-dashboard/payments" label="Total Revenue" value={`₦${totalRevenue.toLocaleString()}`} color="text-green-600" change={totalRevenue === 0 ? 'No paid orders yet' : `From ${stats.completedOrders} completed orders`} />
+        <StatCard href="/admin-dashboard/payments" label="Platform Commission" value={`₦${commission.toLocaleString()}`} color="text-amber-600" change={commission === 0 ? '10% per transaction' : '10% per transaction'} />
+        <StatCard href="/admin-dashboard/settlements" label="Net to Vendors" value={`₦${stats.netToVendors.toLocaleString()}`} color="text-blue-600" change={stats.netToVendors === 0 ? 'Paid after commission' : 'Paid after commission deduction'} />
+        <StatCard href="/admin-dashboard/orders" label="Total Orders" value={stats.totalOrders} color="text-ob-purple" change={stats.totalOrders === 0 ? 'No orders placed yet' : `${stats.activeOrders} active, ${stats.completedOrders} completed`} />
       </div>
 
       {/* Stats Row 2 (clickable) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <ClickableStatCard href="/admin-dashboard/users" label="Total Users" value={stats.totalUsers} color="text-ob-navy" change={`${stats.totalCustomers} customers, ${stats.totalVendors} vendors`} />
-        <ClickableStatCard href="/admin-dashboard/vendors" label="Total Vendors" value={stats.totalVendors} color="text-blue-600" change={stats.totalVendors === 0 ? 'No vendors registered yet' : `${pendingKyc} pending KYC`} />
-        <ClickableStatCard href="/admin-dashboard/users" label="Total Retailers" value={stats.totalRetailers} color="text-green-600" change={stats.totalRetailers === 0 ? 'No retailers registered yet' : 'Active retailers'} />
-        <ClickableStatCard href="/admin-dashboard/orders" label="Active Orders" value={stats.activeOrders} color="text-indigo-600" change={stats.activeOrders === 0 ? 'No active orders' : 'Currently being processed'} />
-        <ClickableStatCard href="/admin-dashboard/orders" label="Completed Orders" value={stats.completedOrders} color="text-green-600" change={stats.completedOrders === 0 ? 'No completed orders yet' : 'Successfully delivered'} />
+      <div className="grid grid-cols-1 gap-3 mb-6">
+        <StatCard href="/admin-dashboard/users" label="Total Users" value={stats.totalUsers} color="text-ob-navy" change={`${stats.totalCustomers} customers, ${stats.totalVendors} vendors`} />
+        <StatCard href="/admin-dashboard/vendors" label="Total Vendors" value={stats.totalVendors} color="text-blue-600" change={stats.totalVendors === 0 ? 'No vendors registered yet' : `${pendingKyc} pending KYC`} />
+        <StatCard href="/admin-dashboard/users" label="Total Retailers" value={stats.totalRetailers} color="text-green-600" change={stats.totalRetailers === 0 ? 'No retailers registered yet' : 'Active retailers'} />
+        <StatCard href="/admin-dashboard/orders" label="Active Orders" value={stats.activeOrders} color="text-indigo-600" change={stats.activeOrders === 0 ? 'No active orders' : 'Currently being processed'} />
+        <StatCard href="/admin-dashboard/orders" label="Completed Orders" value={stats.completedOrders} color="text-green-600" change={stats.completedOrders === 0 ? 'No completed orders yet' : 'Successfully delivered'} />
       </div>
 
       {/* Stats Row 3 (clickable) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <ClickableStatCard href="/admin-dashboard/vendors" label="Pending KYC" value={pendingKyc} color={pendingKyc > 0 ? 'text-amber-600' : 'text-green-600'} change={pendingKyc === 0 ? 'All vendors verified' : 'Awaiting verification'} />
-        <ClickableStatCard href="/admin-dashboard/products" label="Pending Products" value={pendingProducts} color={pendingProducts > 0 ? 'text-amber-600' : 'text-green-600'} change={pendingProducts === 0 ? 'No products pending review' : 'Awaiting moderation'} />
-        <ClickableStatCard href="/admin-dashboard/disputes" label="Open Disputes" value={openDisputes} color={openDisputes > 0 ? 'text-red-600' : 'text-green-600'} change={openDisputes === 0 ? 'No open disputes' : 'Need attention'} />
-        <ClickableStatCard href="/admin-dashboard/payments" label="Payment Issues" value={paymentIssues} color={paymentIssues > 0 ? 'text-red-600' : 'text-green-600'} change={paymentIssues === 0 ? 'No payment issues' : 'Failed or refunded'} />
+      <div className="grid grid-cols-1 gap-3 mb-6">
+        <StatCard href="/admin-dashboard/vendors" label="Pending KYC" value={pendingKyc} color={pendingKyc > 0 ? 'text-amber-600' : 'text-green-600'} change={pendingKyc === 0 ? 'All vendors verified' : 'Awaiting verification'} />
+        <StatCard href="/admin-dashboard/products" label="Pending Products" value={pendingProducts} color={pendingProducts > 0 ? 'text-amber-600' : 'text-green-600'} change={pendingProducts === 0 ? 'No products pending review' : 'Awaiting moderation'} />
+        <StatCard href="/admin-dashboard/disputes" label="Open Disputes" value={openDisputes} color={openDisputes > 0 ? 'text-red-600' : 'text-green-600'} change={openDisputes === 0 ? 'No open disputes' : 'Need attention'} />
+        <StatCard href="/admin-dashboard/payments" label="Payment Issues" value={paymentIssues} color={paymentIssues > 0 ? 'text-red-600' : 'text-green-600'} change={paymentIssues === 0 ? 'No payment issues' : 'Failed or refunded'} />
       </div>
 
       {/* Charts */}
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 gap-6 mb-8">
         <div className="bg-white rounded-xl border border-gray-100 p-6">
           <h3 className="font-bold text-ob-navy mb-4">Revenue Overview</h3>
           <DashboardBarChart data={revenueByMonth} />
@@ -196,7 +189,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 gap-6 mb-8">
         <div className="bg-white rounded-xl border border-gray-100 p-6">
           <h3 className="font-bold text-ob-navy mb-4">User Distribution</h3>
           <DashboardPieChart data={userDistData} />
@@ -210,7 +203,7 @@ export default function AdminDashboardPage() {
       {/* Requires Attention */}
       <div className="bg-white rounded-xl border border-gray-100 p-6 mb-8">
         <h3 className="font-bold text-ob-navy mb-4">Requires Attention</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-3">
           {[
             { label: 'Pending KYC', value: pendingKyc, href: '/admin-dashboard/vendors', color: 'text-amber-600' },
             { label: 'Pending Products', value: pendingProducts, href: '/admin-dashboard/products', color: 'text-blue-600' },
@@ -226,7 +219,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Recent Activity */}
-      <div className="grid md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 gap-6 mb-8">
         {/* Recent Users */}
         <div className="bg-white rounded-xl border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -280,7 +273,7 @@ export default function AdminDashboardPage() {
       {/* Quick Actions */}
       <div className="bg-white rounded-xl border border-gray-100 p-6">
         <h3 className="font-bold text-ob-navy mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {[
             { label: 'Manage Users', href: '/admin-dashboard/users', icon: '👥' },
             { label: 'Review Vendors', href: '/admin-dashboard/vendors', icon: '🏪' },
