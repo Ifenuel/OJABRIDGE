@@ -61,6 +61,8 @@ export async function GET(request) {
         (SELECT content FROM chat_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
         (SELECT sender_name FROM chat_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_sender,
         (SELECT COUNT(*) FROM chat_messages WHERE conversation_id = c.id) as message_count,
+        (SELECT content FROM chat_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message_direct,
+        (SELECT COUNT(*) FROM chat_messages WHERE conversation_id = c.id) as message_count,
         (SELECT COUNT(*) FROM chat_messages WHERE conversation_id = c.id AND role = 'user' AND created_at > COALESCE(
           (SELECT MAX(created_at) FROM chat_messages WHERE conversation_id = c.id AND role IN ('admin', 'support')), '1970-01-01'
         )) as unread_count
@@ -100,7 +102,7 @@ export async function GET(request) {
     let dbError = null;
     try {
       const raw = await dbRaw(query, params);
-      conversations = raw.data;
+      conversations = raw.data || raw || [];
       dbError = raw.error;
     } catch (e) {
       dbError = e;
@@ -120,7 +122,27 @@ export async function GET(request) {
       return NextResponse.json({ success: false, error: 'Failed to load conversations' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, conversations: conversations || [] });
+    // Normalize the inbox payload so the client never throws on missing fields.
+    const normalized = (Array.isArray(conversations) ? conversations : [])
+      .map(c => ({
+        id: c.id,
+        user_id: c.user_id,
+        user_name: c.user_name || c.user_email || 'User',
+        user_email: c.user_email || '',
+        user_role: c.user_role || 'user',
+        status: c.status || 'open',
+        assigned_to: c.assigned_to || null,
+        assigned_to_name: c.assigned_to_name || null,
+        last_message: c.last_message || c.last_message_direct || null,
+        last_sender: c.last_sender || null,
+        message_count: typeof c.message_count === 'number' ? c.message_count : null,
+        unread_count: typeof c.unread_count === 'number' ? c.unread_count : null,
+        created_at: c.created_at || null,
+        updated_at: c.updated_at || null,
+      }))
+      .filter(c => c.id);
+
+    return NextResponse.json({ success: true, conversations: normalized });
   } catch (error) {
     console.error('Admin live chat GET error:', error);
     return NextResponse.json({ success: false, error: 'Failed to load conversations' }, { status: 500 });

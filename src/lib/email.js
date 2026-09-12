@@ -232,8 +232,9 @@ function wrapEmail({ title, content, preheader }) {
  * The admin preview uses this too, so preview and delivered email are identical.
  */
 function buildNewsletterEmail({ subject, content, preheader }) {
-  const bodyContent = content || '';
+  // Only render the subject exactly once — as the newsletter title — and never echo the send date as the salutation.
   const title = subject || 'OjaBridge Newsletter';
+  const bodyContent = content || '';
   const preview = preheader || (bodyContent ? bodyContent.replace(/<[^>]*>/g, ' ').trim().slice(0, 120) : 'Stay updated with OjaBridge.');
 
   return `
@@ -294,15 +295,13 @@ function buildNewsletterEmail({ subject, content, preheader }) {
                 </td>
               </tr>
 
-              <!-- SUBJECT BANNER -->
+              <!-- SUBJECT BANNER — only the newsletter title and optional preheader; never the send date as salutation -->
               <tr>
                 <td style="padding: 24px 40px 20px; background-color: #fafbfc;">
                   <h1 style="margin: 0 0 6px; font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.3;">
-                    ${subject || 'OjaBridge Newsletter'}
+                    ${title || 'OjaBridge Newsletter'}
                   </h1>
-                  <p style="margin: 0; font-size: 13px; color: #94a3b8;">
-                    ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                  </p>
+                  ${preview ? `<p style="margin: 0; font-size: 13px; color: #94a3b8;">${preview}</p>` : ''}
                 </td>
               </tr>
 
