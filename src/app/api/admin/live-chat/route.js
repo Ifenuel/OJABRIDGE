@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbQuery, dbInsert, dbRaw } from '@/lib/db';
 
-// This route is dynamic because it reads the auth session from cookies.
+// This route must be dynamic because it reads the auth session from cookies.
 export const dynamic = 'force-dynamic';
 
 // Check if user has permission (super admin always has all, sub_admin needs specific permission)
@@ -19,24 +19,30 @@ export async function GET(request) {
     const status = searchParams.get('status') || 'all';
 
     if (conversationId) {
-      // Get messages for a specific conversation
-      const { data: messages } = await dbQuery('chat_messages', {
+      // Get messages for a specific conversation.
+      // Defend against DB hiccups here too so opening a conversation does not 500 the page.
+      try {
+        const { data: messages } = await dbQuery('chat_messages', {
         filter: { conversation_id: conversationId },
         order: { column: 'created_at', ascending: true },
         limit: 1000,
       });
 
-      return NextResponse.json({
-        success: true,
-        messages: (messages || []).map(m => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          senderName: m.sender_name,
-          senderId: m.sender_id,
-          createdAt: m.created_at,
-        })),
-      });
+        return NextResponse.json({
+          success: true,
+          messages: (messages || []).map(m => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            senderName: m.sender_name,
+            senderId: m.sender_id,
+            createdAt: m.created_at,
+          })),
+        });
+      } catch (msgErr) {
+        console.error('Admin live chat messages load error:', msgErr);
+        return NextResponse.json({ success: false, error: 'Failed to load messages' }, { status: 500 });
+      }
     }
 
     // Authorization model (backend-enforced, not UI-only):
@@ -90,15 +96,26 @@ export async function GET(request) {
     const whereSql = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : '';
     const query = baseSql + whereSql + ` ORDER BY c.updated_at DESC`;
 
-    const { data: conversations, error } = await dbRaw(query, params);
-    if (error) {
+    let conversations = null;
+    let dbError = null;
+    try {
+      const raw = await dbRaw(query, params);
+      conversations = raw.data;
+      dbError = raw.error;
+    } catch (e) {
+      dbError = e;
+    }
+
+    if (dbError) {
       // Fallback only for super-admin path so an admin never sees an empty inbox on DB hiccup.
       if (isSuperAdmin) {
-        const { data: convs } = await dbQuery('chat_conversations', {
-          order: { column: 'updated_at', ascending: false },
-          limit: 50,
-        });
-        return NextResponse.json({ success: true, conversations: convs || [] });
+        try {
+          const { data: convs } = await dbQuery('chat_conversations', {
+            order: { column: 'updated_at', ascending: false },
+            limit: 50,
+          });
+          return NextResponse.json({ success: true, conversations: convs || [] });
+        } catch {}
       }
       return NextResponse.json({ success: false, error: 'Failed to load conversations' }, { status: 500 });
     }
@@ -109,6 +126,10 @@ export async function GET(request) {
     return NextResponse.json({ success: false, error: 'Failed to load conversations' }, { status: 500 });
   }
 }
+
+// Small client-safe helper so the page does not crash when the inbox API throws.
+// Kept here to avoid adding another file for a narrow defensive concern.
+
 
 // POST — Admin sends a reply to a conversation
 export const POST = async (request) => {

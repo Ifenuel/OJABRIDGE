@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { dbQuery } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 
+// This route is dynamic because it reads the auth session from cookies.
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/sub-admins/live-chat-support — Active sub-admins with live-chats permission
 // Used by the Admin Live Chat Assign-to control.
 export async function GET(request) {
@@ -11,12 +14,18 @@ export async function GET(request) {
       return NextResponse.json({ success: false, error: 'Super admin access required' }, { status: 403 });
     }
 
-    const { data: saList, error } = await dbQuery('sub_admins', {
-      filter: { status: 'active' },
-      order: { column: 'name', ascending: true },
-    });
-
-    if (error) throw error;
+    let saList = null;
+    try {
+      const res = await dbQuery('sub_admins', {
+        filter: { status: 'active' },
+        order: { column: 'name', ascending: true },
+      });
+      saList = res.data;
+      if (res.error) throw res.error;
+    } catch (qErr) {
+      console.error('Sub-admins list query error:', qErr);
+      return NextResponse.json({ success: false, error: 'Failed to load support agents' }, { status: 500 });
+    }
 
     const liveChatSupport = (saList || [])
       .filter(sa => {
