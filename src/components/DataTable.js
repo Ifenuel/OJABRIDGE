@@ -32,6 +32,11 @@ export default function DataTable({
 }) {
   if (!Array.isArray(columns) || columns.length === 0) return null;
 
+  // Many admin pages pass an `actions` render-prop (ActionMenu) and expect it to
+  // appear on both desktop and mobile. Render it as an extra column on desktop so
+  // it is never buried under sticky headers / overflow-x-auto tables.
+  const desktopActions = actions;
+
   const cellContent = (col, row) => {
     if (col.render) return col.render(row);
     const v = row[col.key];
@@ -54,12 +59,17 @@ export default function DataTable({
                   {col.label}
                 </th>
               ))}
+              {desktopActions && (
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-16 text-center text-gray-400 text-sm">
+                <td colSpan={columns.length + (desktopActions ? 1 : 0)} className="px-6 py-16 text-center text-gray-400 text-sm">
                   {emptyMessage}
                 </td>
               </tr>
@@ -71,6 +81,11 @@ export default function DataTable({
                       {cellContent(col, row)}
                     </td>
                   ))}
+                  {desktopActions && (
+                    <td className="px-6 py-4">
+                      {desktopActions(row)}
+                    </td>
+                  )}
                 </tr>
               ))
             )}

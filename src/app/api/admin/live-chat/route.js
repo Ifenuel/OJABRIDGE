@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { dbQuery, dbInsert, dbRaw } from '@/lib/db';
-import { getUserFromRequest } from '@/lib/auth';
+
+// This route is dynamic because it reads the auth session from cookies.
+export const dynamic = 'force-dynamic';
 
 // Check if user has permission (super admin always has all, sub_admin needs specific permission)
 import { checkPermission } from '@/lib/permissions';
@@ -109,7 +111,7 @@ export async function GET(request) {
 }
 
 // POST — Admin sends a reply to a conversation
-export async function POST(request) {
+export const POST = async (request) => {
   try {
     const { allowed, user, error: permError } = await checkPermission(request, 'live-chats');
     if (!allowed) {
