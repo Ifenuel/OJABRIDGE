@@ -563,19 +563,19 @@ export default function OnboardingDemo() {
             </div>
 
             {/* Right: iPhone 16 Pro Max with REAL registration form */}
-            <div className="relative flex-shrink-0 select-none">
+            <div className="relative flex-shrink-0 select-none mx-auto">
               {/* iPhone Frame */}
-              <div className="relative w-[290px] h-[600px] bg-[#1a1a1a] rounded-[48px] p-[10px] shadow-2xl">
+              <div className="relative w-[260px] sm:w-[290px] h-[540px] sm:h-[600px] bg-[#1a1a1a] rounded-[40px] sm:rounded-[48px] p-[8px] sm:p-[10px] shadow-2xl">
                 {/* Bezel highlight */}
                 <div className="absolute inset-0 rounded-[48px] border border-gray-600/30" />
 
                 {/* Screen */}
                 <div className="relative w-full h-full bg-white rounded-[40px] overflow-hidden">
                   {/* Dynamic Island */}
-                  <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-[100px] h-[28px] bg-black rounded-full z-20" />
+                  <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-[85px] sm:w-[100px] h-[24px] sm:h-[28px] bg-black rounded-full z-20" />
 
                   {/* Status Bar */}
-                  <div className="relative z-10 flex items-center justify-between px-7 pt-3 pb-1">
+                  <div className="relative z-10 flex items-center justify-between px-5 sm:px-7 pt-2.5 sm:pt-3 pb-1">
                     <span className="text-[10px] font-semibold text-black">9:41</span>
                     <div className="flex items-center gap-[3px]">
                       <svg className="w-3 h-3" viewBox="0 0 24 24" fill="black"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" /></svg>
@@ -629,13 +629,13 @@ export default function OnboardingDemo() {
                   </div>
 
                   {/* Home Indicator */}
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[100px] h-[4px] bg-black rounded-full z-20" />
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[85px] sm:w-[100px] h-[3px] sm:h-[4px] bg-black rounded-full z-20" />
                 </div>
 
-                {/* Side Buttons */}
-                <div className="absolute right-[-2px] top-[130px] w-[3px] h-[40px] bg-gray-600 rounded-r" />
-                <div className="absolute right-[-2px] top-[190px] w-[3px] h-[60px] bg-gray-600 rounded-r" />
-                <div className="absolute left-[-2px] top-[170px] w-[3px] h-[30px] bg-gray-600 rounded-l" />
+                {/* Side Buttons — positioned inside the frame to avoid overflow */}
+                <div className="absolute right-[1px] top-[130px] w-[2px] h-[36px] bg-gray-500 rounded-r" />
+                <div className="absolute right-[1px] top-[190px] w-[2px] h-[50px] bg-gray-500 rounded-r" />
+                <div className="absolute left-[1px] top-[170px] w-[2px] h-[26px] bg-gray-500 rounded-l" />
               </div>
 
 

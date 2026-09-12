@@ -31,19 +31,43 @@ export async function GET(request) {
       )`);
     } catch {}
 
-    const { data: favorites, error } = await dbRaw(
-      `SELECT f.id, f.product_id, f.created_at, 
-              p.name, p.price, p.compare_price, p.images, p.slug, p.category, p.stock_quantity,
+    // First, get just the favorite IDs for this user
+    const { data: favRows, error: favErr } = await dbQuery('favorites', {
+      filter: { user_id: user.id },
+      order: { column: 'created_at', ascending: false },
+    });
+
+    if (favErr) return NextResponse.json({ success: false, error: favErr }, { status: 500 });
+
+    if (!favRows || favRows.length === 0) {
+      return NextResponse.json({ success: true, favorites: [] });
+    }
+
+    // Now get product details for each favorite (tolerant of missing products)
+    const productIds = favRows.map(f => f.product_id);
+    const placeholders = productIds.map((_, i) => `$${i + 1}`).join(', ');
+    const { rows: products } = await dbRaw(
+      `SELECT p.id as product_id, p.name, p.price, p.compare_price, p.images, p.slug, p.category, p.stock_quantity,
               v.store_name
-       FROM favorites f
-       JOIN products p ON f.product_id = p.id
-       JOIN vendors v ON p.vendor_id = v.id
-       WHERE f.user_id = $1 AND p.is_active = true
-       ORDER BY f.created_at DESC`,
-      [user.id]
+       FROM products p
+       LEFT JOIN vendors v ON p.vendor_id = v.id
+       WHERE p.id IN (${placeholders})`,
+      productIds
     );
 
-    if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+    // Build product lookup
+    const productMap = {};
+    for (const p of (products || [])) {
+      productMap[p.product_id] = p;
+    }
+
+    // Merge favorites with product data
+    const favorites = favRows.map(f => ({
+      id: f.id,
+      product_id: f.product_id,
+      created_at: f.created_at,
+      ...(productMap[f.product_id] || {}),
+    }));
 
     return NextResponse.json({ success: true, favorites: favorites || [] });
   } catch (error) {
