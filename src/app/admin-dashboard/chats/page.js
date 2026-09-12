@@ -12,7 +12,7 @@ function AdminLiveChatsPage() {
   const [sending, setSending] = useState(false);
   const [tab, setTab] = useState('all');
   const [adminUser, setAdminUser] = useState(null);
-  const [hasAssignedChats, setHasAssignedChats] = useState(false);
+  const [hasAssignedChats, setHasAssignedChats] = useState(false); // kept for migration only; real value is derived in-tab
 
   // Role flags computed from current adminUser so they are stable across renders.
   // Declared once near the top so statusForTab and the JSX can use them safely.
@@ -68,18 +68,29 @@ function AdminLiveChatsPage() {
     } catch {}
   }, []);
 
+  // Keep the default tab stable until the realistic inbox data has arrived.
+  // This avoids switching tabs on stale `hasAssignedChats` and then re-fetching
+  // with a backend filter that could hide conversations the role can see.
   useEffect(() => {
+    if (!isLiveSupportSubAdmin) {
+      setTab('all');
+      return;
+    }
+    if (!conversations.length) {
+      // Wait for the first inbox payload before choosing My Chats vs Unassigned.
+      return;
+    }
     try {
-      if (isLiveSupportSubAdmin) {
-        setTab(hasAssignedChats ? 'my' : 'unassigned');
-      } else {
-        setTab('all');
-      }
+      const hasAssignedChats = conversations.some(
+        c => c.assigned_to && (c.assigned_to === adminUser?.id || c.assigned_to_name)
+      );
+      setHasAssignedChats(!!hasAssignedChats);
+      setTab(hasAssignedChats ? 'my' : 'unassigned');
     } catch (e) {
       console.error('[AdminLiveChats] tab effect error:', e);
-      setTab('all');
+      setTab('unassigned');
     }
-  }, [adminUser, isLiveSupportSubAdmin, hasAssignedChats]);
+  }, [adminUser, isLiveSupportSubAdmin, conversations]);
 
   const loadAgents = async () => {
     if (!assignMenuOpen) return;

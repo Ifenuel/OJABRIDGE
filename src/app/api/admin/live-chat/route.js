@@ -82,13 +82,16 @@ export async function GET(request) {
       // Live Support sub admin sees:
       //   1) conversations assigned to them, and
       //   2) unassigned/open conversations they can pick up.
+      // UI tabs are a presentation concern only. Do not let the 'my'/'unassigned'
+      // frontend tabs exclude conversations that this role is allowed to see.
       whereClauses.push(`(c.assigned_to = $${params.length + 1} OR (c.assigned_to IS NULL AND c.status = 'open'))`);
       params.push(user.id);
 
-      if (status !== 'all') {
-        const statusParamIndex = params.length + 1;
-        whereClauses.push(`c.status = $${statusParamIndex}`);
-        params.push(status);
+      // When the UI asks for the 'unassigned' tab, narrow server-side to unassigned/open
+      // so the inbox list is focused, but never exclude conversations that belong to this
+      // role just because the UI tab key does not match their assignment state.
+      if (status === 'unassigned') {
+        whereClauses.push(`c.assigned_to IS NULL`);
       }
     } else {
       // Any other authorized user with live-chats permission (defensive) — no conversations.

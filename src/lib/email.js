@@ -138,8 +138,7 @@ function wrapEmail({ title, content, preheader }) {
                           </tr>
                         </table>
                       </td>
-                      <td align="right" style="vertical-align: middle; font-size: 10px; color: #94a3b8; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">
-                        Shop &bull; Connect &bull; Grow
+                      <td align="right" style="vertical-align: middle; font-size: 10px; color: #94a3b8; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">                      Shop &bull; Connect &bull; Grow
                       </td>
                     </tr>
                   </table>
@@ -231,24 +230,10 @@ function wrapEmail({ title, content, preheader }) {
  * Build a newsletter email using the same production template used when sending via Brevo.
  * The admin preview uses this too, so preview and delivered email are identical.
  */
-function escapeHtml(value) {
-  if (typeof value !== 'string') return '';
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function buildNewsletterEmail({ subject, content, preheader }) {
   // Only render the subject exactly once — as the newsletter title.
   const title = subject || 'OjaBridge Newsletter';
-
-  // The preview strip should summarize the body without repeating it as a second heading.
-  // If the admin typed a plain-text body, the preview strip stays empty so we do not
-  // show the same line twice (once as preview, once as body).
-  const bodyContent = content || '';
+  const bodyContent = (content || '').trim();
   const preview = preheader || '';
 
   return `
@@ -282,47 +267,18 @@ function buildNewsletterEmail({ subject, content, preheader }) {
           <td style="padding: 32px 16px;" align="center">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="email-container" style="max-width:600px; width:100%;">
 
-              <!-- HEADER -->
+              <!-- HEADER — OjaBridge branded header band. No green icon box; tagline stays on one readable line. -->
               <tr>
-                <td style="padding: 28px 40px 22px; background-color: #ffffff; border-radius: 14px 14px 0 0; border-bottom: 1px solid #e9ecef;">
+                <td style="padding: 24px 40px 20px; background-color: #ffffff; border-radius: 14px 14px 0 0; border-bottom: 1px solid #e9ecef;">
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                     <tr>
-                      <td style="vertical-align: middle; padding-right: 16px;">
-                        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                          <tr>
-                            <td style="padding-right: 8px; vertical-align: middle;">
-                              <span style="display: inline-block; width: 34px; height: 34px; background-color: #7ed321; border-radius: 8px; vertical-align: middle;"></span>
-                            </td>
-                            <td style="vertical-align: middle; padding-left: 8px;">
-                              <span style="font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.4px; line-height: 1;">
-                                <span style="color: #6b21a8;">Oja</span>Bridge
-                              </span>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                      <td align="right" style="vertical-align: middle; font-size: 10px; color: #94a3b8; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">
-                        Shop &bull; Connect &bull; Grow
+                      <td style="vertical-align: middle; font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.4px; line-height: 1;">
+                        <span style="color: #6b21a8;">Oja</span>Bridge
+                      </td>                                <td align="right" style="vertical-align: middle; font-size: 11px; color: #94a3b8; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; white-space: nowrap; padding-left: 12px;">
+                          Shop &bull; Connect &bull; Grow
                       </td>
                     </tr>
                   </table>
-                </td>
-              </tr>
-
-              <!-- SUBJECT BANNER — only the newsletter title and optional preheader; never the send date as salutation -->
-              <tr>
-                <td style="padding: 24px 40px 20px; background-color: #fafbfc;">
-                  <h1 style="margin: 0 0 6px; font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.3;">
-                    ${title || 'OjaBridge Newsletter'}
-                  </h1>
-                  ${preview ? `<p style="margin: 0; font-size: 13px; color: #94a3b8;">${preview}</p>` : ''}
-                </td>
-              </tr>
-
-              <!-- CONTENT — rendered exactly once. -->
-              <tr>
-                <td style="padding: 28px 40px; background-color: #ffffff;" class="mobile-pad">
-                  ${escapeHtml(bodyContent) || '<p style="color:#94a3b8; font-size:14px;">Your newsletter content will appear here.</p>'}
                 </td>
               </tr>
 
