@@ -1,12 +1,9 @@
 'use client';
 
-import { createElement } from 'react';
-
 /**
  * DataTable — responsive data table used across dashboards.
  *
- * Desktop (md+): renders a real <table> with proper column layout — unchanged
- * from the original dashboard design.
+ * Desktop (md+): renders a real <table> with proper column layout.
  *
  * Mobile (<md): each row becomes a stacked card. Every column's data and the
  * row's actions remain fully visible and tappable — nothing clipped, hidden,

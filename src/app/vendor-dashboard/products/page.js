@@ -109,8 +109,8 @@ export default function VendorProductsPage() {
       imageUrls: product.images || [],
     });
     setShowAddForm(true);
-    setActionMenuOpen(null);
   };
+  const _actionMenuOpenDummy = null;
 
   const handleUpdateProduct = async (e) => {
     e.preventDefault();
@@ -122,6 +122,7 @@ export default function VendorProductsPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          productId: editingProduct.id,
           name: form.name,
           description: form.description,
           shortDescription: form.shortDescription,
@@ -165,7 +166,6 @@ export default function VendorProductsPage() {
       setMessage({ type: 'error', text: 'Network error.' });
     }
     setDeleteConfirm(null);
-    setActionMenuOpen(null);
   };
 
   const filteredProducts = products.filter(p => {
@@ -200,7 +200,7 @@ export default function VendorProductsPage() {
       </div>
 
       {/* KYC Warning */}
-      {kycStatus && kycStatus !== 'verified' && kycStatus !== 'VERIFIED' && (
+      {kycStatus && kycStatus !== 'verified' && kycStatus !== 'VERIFIED' && kycStatus !== 'submitted' && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
           <span className="text-2xl">🔒</span>
           <div>
