@@ -1041,4 +1041,5 @@ export {
   sendKYCUpdate,
   sendVendorNewOrder,
   sendOrderCancelled,
+  buildNewsletterEmail,
 };
