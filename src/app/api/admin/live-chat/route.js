@@ -37,9 +37,19 @@ export async function GET(request) {
       });
     }
 
-    // List all conversations with last message
-    let query = `
-      SELECT c.*, 
+    // Authorization model (backend-enforced, not UI-only):
+    //   - Super Admin: sees ALL live-chat conversations.
+    //   - Live Support Sub Admin: sees conversations assigned to them,
+    //     plus unassigned/open incoming conversations they can pick up.
+    const isSuperAdmin = user.role === 'admin';
+    const isLiveSupportSubAdmin = user.role === 'sub_admin'
+      && Array.isArray(user.permissions || [])
+      && user.permissions.includes('live-chats');
+
+    // Base query with message aggregates and assignment display info.
+    const baseSql = `
+      SELECT c.*,
+        (SELECT ag.name FROM sub_admins ag WHERE ag.id = c.assigned_to LIMIT 1) as assigned_to_name,
         (SELECT content FROM chat_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_message,
         (SELECT sender_name FROM chat_messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) as last_sender,
         (SELECT COUNT(*) FROM chat_messages WHERE conversation_id = c.id) as message_count,
@@ -49,22 +59,46 @@ export async function GET(request) {
       FROM chat_conversations c
     `;
 
-    const params = [];
-    if (status !== 'all') {
-      query += ` WHERE c.status = $1`;
-      params.push(status);
+    let whereClauses = [];
+    let params = [];
+
+    if (isSuperAdmin) {
+      // Super admin sees everything; only narrow by explicit status filter.
+      if (status !== 'all') {
+        whereClauses.push(`c.status = $${params.length + 1}`);
+        params.push(status);
+      }
+    } else if (isLiveSupportSubAdmin) {
+      // Live Support sub admin sees:
+      //   1) conversations assigned to them, and
+      //   2) unassigned/open conversations they can pick up.
+      whereClauses.push(`(c.assigned_to = $${params.length + 1} OR (c.assigned_to IS NULL AND c.status = 'open'))`);
+      params.push(user.id);
+
+      if (status !== 'all') {
+        const statusParamIndex = params.length + 1;
+        whereClauses.push(`c.status = $${statusParamIndex}`);
+        params.push(status);
+      }
+    } else {
+      // Any other authorized user with live-chats permission (defensive) — no conversations.
+      whereClauses.push(`FALSE`);
     }
 
-    query += ` ORDER BY c.updated_at DESC`;
+    const whereSql = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : '';
+    const query = baseSql + whereSql + ` ORDER BY c.updated_at DESC`;
 
     const { data: conversations, error } = await dbRaw(query, params);
     if (error) {
-      // Fallback: try without advanced query
-      const { data: convs } = await dbQuery('chat_conversations', {
-        order: { column: 'updated_at', ascending: false },
-        limit: 50,
-      });
-      return NextResponse.json({ success: true, conversations: convs || [] });
+      // Fallback only for super-admin path so an admin never sees an empty inbox on DB hiccup.
+      if (isSuperAdmin) {
+        const { data: convs } = await dbQuery('chat_conversations', {
+          order: { column: 'updated_at', ascending: false },
+          limit: 50,
+        });
+        return NextResponse.json({ success: true, conversations: convs || [] });
+      }
+      return NextResponse.json({ success: false, error: 'Failed to load conversations' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, conversations: conversations || [] });
@@ -90,12 +124,15 @@ export async function POST(request) {
     const adminId = user.id;
     const adminName = user.name || 'Support Team';
 
-    // Save admin message
+    // Support-side replies use a single canonical support message role ('support')
+    // so the polling client and the user widget can treat all staff replies uniformly.
+    // This works for customer, vendor, or retailer conversations — no role-based blocking
+    // on the support side.
     const { data: msg, error } = await dbInsert('chat_messages', {
       conversation_id: conversationId,
       sender_id: adminId,
       sender_name: adminName,
-      role: 'admin',
+      role: 'support',
       content: message.trim(),
       created_at: new Date().toISOString(),
     });
@@ -127,7 +164,19 @@ export async function PATCH(request) {
 
     const updates = { updated_at: new Date().toISOString() };
     if (status) updates.status = status;
-    if (assignedTo !== undefined) updates.assigned_to = assignedTo;
+    if (assignedTo !== undefined) {
+      updates.assigned_to = assignedTo;
+      // Persist the assigned agent name so the inbox and audit trail stay consistent
+      // even if the sub-admin record is later changed or deactivated.
+      if (typeof assignedTo === 'string' && assignedTo) {
+        try {
+          const { data: sa } = await dbQuery('sub_admins', { filter: { id: assignedTo }, limit: 1 });
+          if (sa?.length && sa[0]?.name) {
+            updates.assigned_to_name = sa[0].name;
+          }
+        } catch {}
+      }
+    }
 
     await dbRaw(
       `UPDATE chat_conversations SET ${Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ')} WHERE id = $${Object.keys(updates).length + 1}`,

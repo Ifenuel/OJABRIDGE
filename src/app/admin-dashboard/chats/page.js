@@ -12,6 +12,10 @@ function AdminLiveChatsPage() {
   const [sending, setSending] = useState(false);
   const [filter, setFilter] = useState('all');
   const [adminUser, setAdminUser] = useState(null);
+  const [availableAgents, setAvailableAgents] = useState([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [assignMenuOpen, setAssignMenuOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
 
@@ -21,6 +25,19 @@ function AdminLiveChatsPage() {
       if (userData) setAdminUser(JSON.parse(userData));
     } catch {}
   }, []);
+
+  const loadAgents = async () => {
+    if (!assignMenuOpen) return;
+    setAgentsLoading(true);
+    try {
+      const res = await fetch('/api/admin/sub-admins/live-chat-support', { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) setAvailableAgents(data.subAdmins || []);
+    } catch (e) {
+      console.error('Failed to load live chat support agents:', e);
+    }
+    setAgentsLoading(false);
+  };
 
   const loadConversations = async () => {
     try {
@@ -48,7 +65,6 @@ function AdminLiveChatsPage() {
   useEffect(() => {
     if (selectedConv) {
       loadMessages(selectedConv.id);
-      // Poll for new messages every 3 seconds
       pollRef.current = setInterval(() => loadMessages(selectedConv.id), 3000);
     }
     return () => clearInterval(pollRef.current);
@@ -96,11 +112,61 @@ function AdminLiveChatsPage() {
     }
   };
 
+  const assignToAgent = async (agentId) => {
+    if (!selectedConv || assigning) return;
+    setAssigning(true);
+    try {
+      await fetch('/api/admin/live-chat', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          conversationId: selectedConv.id,
+          assignedTo: agentId,
+        }),
+      });
+      setSelectedConv({ ...selectedConv, assigned_to: agentId });
+      loadConversations();
+    } catch (e) {
+      console.error('Failed to assign conversation:', e);
+    }
+    setAssigning(false);
+    setAssignMenuOpen(false);
+  };
+
+  const unassignConversation = async () => {
+    if (!selectedConv || assigning) return;
+    setAssigning(true);
+    try {
+      await fetch('/api/admin/live-chat', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          conversationId: selectedConv.id,
+          assignedTo: null,
+        }),
+      });
+      setSelectedConv({ ...selectedConv, assigned_to: null });
+      loadConversations();
+    } catch (e) {
+      console.error('Failed to unassign conversation:', e);
+    }
+    setAssigning(false);
+    setAssignMenuOpen(false);
+  };
+
+  const isSuperAdmin = adminUser?.role === 'admin';
+
   const statusColors = {
     open: 'bg-green-100 text-green-700',
     active: 'bg-blue-100 text-blue-700',
     closed: 'bg-gray-100 text-gray-500',
   };
+
+  const assignedAgent = selectedConv?.assigned_to
+    ? availableAgents.find(a => a.id === selectedConv.assigned_to || a.userId === selectedConv.assigned_to)
+    : null;
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
@@ -125,7 +191,7 @@ function AdminLiveChatsPage() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100dvh-220px)] lg:min-h-[400px]">
-        {/* Conversations List — natural height on mobile (stacked above chat panel), fixed rail on desktop */}
+        {/* Conversations List */}
         <div className="w-full lg:w-96 lg:flex-none bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden max-h-[60dvh] lg:max-h-none">
           {/* Filter tabs */}
           <div className="flex border-b border-gray-100 px-2 pt-2">
@@ -166,7 +232,17 @@ function AdminLiveChatsPage() {
                   </div>
                   <p className="text-xs text-gray-500 truncate">{conv.last_message || 'No messages yet'}</p>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-[10px] text-gray-400">{conv.user_role}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-400">{conv.user_role}</span>
+                      {conv.assigned_to && (
+                        <span className="text-[10px] text-ob-purple bg-ob-purple/10 px-1.5 py-0.5 rounded-full truncate max-w-[120px]">
+                          {conv.assigned_to_name || 'Assigned'}
+                        </span>
+                      )}
+                      {!conv.assigned_to && conv.status === 'open' && (
+                        <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">Unassigned</span>
+                      )}
+                    </div>
                     {conv.unread_count > 0 && (
                       <span className="w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
                         {conv.unread_count}
@@ -194,12 +270,79 @@ function AdminLiveChatsPage() {
           ) : (
             <>
               {/* Chat Header */}
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2 flex-wrap">
                 <div>
                   <h3 className="font-semibold text-sm text-gray-900">{selectedConv.user_name || 'Guest User'}</h3>
                   <p className="text-xs text-gray-500">{selectedConv.user_email} · {selectedConv.user_role}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Assign-to control — only shown to Super Admin */}
+                  {isSuperAdmin && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => { setAssignMenuOpen(prev => !prev); if (!prev) loadAgents(); }}
+                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-lg flex items-center gap-1.5 transition-colors"
+                        title="Assign to a support agent"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Assign
+                        {assignedAgent ? ` (${assignedAgent.name})` : ' to...'}
+                      </button>
+                      {assignMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setAssignMenuOpen(false)} />
+                          <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                            <div className="px-3 py-2 border-b border-gray-100">
+                              <p className="text-xs font-medium text-gray-500">Assign to support agent</p>
+                            </div>
+                            {agentsLoading ? (
+                              <div className="p-3 text-center text-xs text-gray-400">Loading agents...</div>
+                            ) : availableAgents.length === 0 ? (
+                              <div className="p-3 text-xs text-gray-500 text-center">No active live chat agents</div>
+                            ) : (
+                              <div className="max-h-52 overflow-y-auto">
+                                {availableAgents.map(agent => {
+                                  const isAssigned = agent.id === selectedConv.assigned_to || agent.userId === selectedConv.assigned_to;
+                                  return (
+                                    <button
+                                      key={agent.id}
+                                      type="button"
+                                      onClick={() => assignToAgent(agent.id)}
+                                      disabled={assigning || isAssigned}
+                                      className={
+                                        `w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center justify-between ` +
+                                        (isAssigned
+                                          ? 'bg-ob-purple/10 text-ob-purple font-medium'
+                                          : 'text-gray-700'
+                                        ) +
+                                        ' disabled:opacity-50 disabled:cursor-not-allowed'
+                                      }
+                                    >
+                                      <span className="truncate">{agent.name}</span>
+                                      {isAssigned
+                                        ? <svg className="w-3.5 h-3.5 text-ob-purple flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                        : null}
+                                    </button>
+                                  );
+                                })}
+                                <button
+                                  type="button"
+                                  onClick={unassignConversation}
+                                  disabled={assigning || !selectedConv.assigned_to}
+                                  className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Remove assignment
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                   {selectedConv.status === 'open' && (
                     <button onClick={() => updateStatus(selectedConv.id, 'active')}
                       className="text-xs bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600">

@@ -151,6 +151,11 @@ export default function VendorKycPage() {
         if (data.kyc.bvn) setBvn(data.kyc.bvn);
         if (data.kyc.nin) setNin(data.kyc.nin);
         if (data.kyc.bankAccountNumber) setAccountNumber(data.kyc.bankAccountNumber);
+        // Bank name + account holder name may have been verified on a previous submission.
+        // Show them so the vendor actually sees what is on file (e.g. account holder name).
+        if (data.kyc.bankName) setBankName(data.kyc.bankName);
+        // Show saved account holder name even for verified vendors — but never clobber a value the user is currently editing.
+        if (data.kyc.bankAccountName && !accountName) setAccountName(data.kyc.bankAccountName);
         if (data.kyc.idDocumentUrl) setIdFileUrl(data.kyc.idDocumentUrl);
         if (data.kyc.fullName) setFullName(data.kyc.fullName);
         if (data.kyc.businessType) setBusinessType(data.kyc.businessType);
@@ -486,14 +491,21 @@ export default function VendorKycPage() {
         {/* Step 3: Bank Account */}
         <div className="bg-white p-6 rounded-xl border border-gray-100">
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-8 h-8 ${step3Done ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
-              {step3Done ? '✓' : '3'}
+            <div className={`w-8 h-8 ${step3Done || !!(kycData?.bankName) ? 'bg-green-500' : 'bg-ob-purple'} text-white rounded-full flex items-center justify-center text-sm font-bold`}>
+              {step3Done || !!(kycData?.bankName) ? '✓' : '3'}
             </div>
             <div>
               <h3 className="font-bold text-ob-navy">Bank Account</h3>
               <p className="text-xs text-gray-400">Connect your bank for receiving payouts</p>
             </div>
           </div>
+          {kycData?.bankName && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs text-blue-700">
+              <span className="font-medium">Bank on file:</span> {kycData.bankName}
+              {kycData.bankAccountName ? ` · Account holder: ${kycData.bankAccountName}` : ''}
+              {kycData.bankAccountNumber ? ` · Account: ••••${kycData.bankAccountNumber.replace(/\*/g, '')}` : ''}
+            </div>
+          )}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="relative bank-dropdown">
               <label className="block text-xs text-gray-500 mb-1">Bank Name *</label>
@@ -585,14 +597,17 @@ export default function VendorKycPage() {
         </div>
 
         {/* Submit Button */}
-        <button onClick={handleSubmitForReview} disabled={!canSubmit || submitting || kycData?.status === 'verified'}
+        {kycData?.status === 'verified' && (
+          <p className="text-xs text-green-600 mb-3">✓ Your business is verified. You can still review or update the information below and resubmit if anything changes.</p>
+        )}
+        <button onClick={handleSubmitForReview} disabled={!canSubmit || submitting}
           className="bg-ob-purple hover:bg-ob-purple-dark text-white font-semibold px-8 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
           {submitting ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
               Submitting...
             </span>
-          ) : kycData?.status === 'verified' ? '✓ Already Verified' : kycData?.status === 'submitted' || kycData?.status === 'under_review' ? 'Update Submission' : kycData?.status === 'requires_additional_info' ? '📄 Resubmit with Additional Info' : 'Submit for Verification'}
+          ) : kycData?.status === 'verified' ? '📝 Review & Resubmit' : kycData?.status === 'submitted' || kycData?.status === 'under_review' ? 'Update Submission' : kycData?.status === 'requires_additional_info' ? '📄 Resubmit with Additional Info' : 'Submit for Verification'}
         </button>
       </div>
     </DashboardLayout>

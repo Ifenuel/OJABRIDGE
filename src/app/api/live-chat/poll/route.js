@@ -20,7 +20,8 @@ export async function GET(request) {
       limit: 100,
     });
 
-    // Filter to only support/admin messages, and if afterId is provided, only newer ones
+    // Return support/staff replies (either 'admin' or 'support' role) so the user widget
+    // receives replies from any staff member, including Super Admins and assigned Sub Admins.
     let supportMessages = (messages || [])
       .filter(m => m.role === 'admin' || m.role === 'support')
       .map(m => ({
@@ -31,9 +32,9 @@ export async function GET(request) {
         createdAt: m.created_at,
       }));
 
-    // If client provided last message ID, only return messages after it
+    // If client provided last message ID, only return newer messages after it
     if (afterId) {
-      const idx = supportMessages.findIndex(m => m.id === afterId);
+      const idx = supportMessages.findIndex(m => String(m.id) === String(afterId));
       if (idx >= 0) supportMessages = supportMessages.slice(idx + 1);
     }
 
