@@ -231,11 +231,25 @@ function wrapEmail({ title, content, preheader }) {
  * Build a newsletter email using the same production template used when sending via Brevo.
  * The admin preview uses this too, so preview and delivered email are identical.
  */
+function escapeHtml(value) {
+  if (typeof value !== 'string') return '';
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildNewsletterEmail({ subject, content, preheader }) {
-  // Only render the subject exactly once — as the newsletter title — and never echo the send date as the salutation.
+  // Only render the subject exactly once — as the newsletter title.
   const title = subject || 'OjaBridge Newsletter';
+
+  // The preview strip should summarize the body without repeating it as a second heading.
+  // If the admin typed a plain-text body, the preview strip stays empty so we do not
+  // show the same line twice (once as preview, once as body).
   const bodyContent = content || '';
-  const preview = preheader || (bodyContent ? bodyContent.replace(/<[^>]*>/g, ' ').trim().slice(0, 120) : 'Stay updated with OjaBridge.');
+  const preview = preheader || '';
 
   return `
     <!DOCTYPE html>
@@ -305,10 +319,10 @@ function buildNewsletterEmail({ subject, content, preheader }) {
                 </td>
               </tr>
 
-              <!-- CONTENT -->
+              <!-- CONTENT — rendered exactly once. -->
               <tr>
                 <td style="padding: 28px 40px; background-color: #ffffff;" class="mobile-pad">
-                  ${bodyContent || '<p style="color:#94a3b8; font-size:14px;">Your newsletter content will appear here.</p>'}
+                  ${escapeHtml(bodyContent) || '<p style="color:#94a3b8; font-size:14px;">Your newsletter content will appear here.</p>'}
                 </td>
               </tr>
 
