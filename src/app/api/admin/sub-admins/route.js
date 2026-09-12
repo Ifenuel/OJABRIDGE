@@ -50,7 +50,7 @@ export async function GET(request) {
 
     const { data: subAdmins, error } = await dbQuery('sub_admins', {
       order: { column: 'created_at', ascending: false },
-      limit: 50,
+      limit: 1000,
     });
 
     if (error) throw error;

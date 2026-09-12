@@ -20,14 +20,15 @@ export default function VendorDashboardPage() {
         const [ordersRes, productsRes, vendorsRes] = await Promise.allSettled([
           fetch('/api/orders?limit=200').then(r => r.json()),
           fetch('/api/products?limit=200').then(r => r.json()),
-          fetch('/api/vendors?limit=10').then(r => r.json()),
+          // Own store resolved server-side from the session — reliable regardless
+          // of how many other vendors exist
+          fetch('/api/vendors/me').then(r => r.json()),
         ]);
 
         if (ordersRes.status === 'fulfilled' && ordersRes.value.success) setOrders(ordersRes.value.orders || []);
         if (productsRes.status === 'fulfilled' && productsRes.value.success) setProducts(productsRes.value.products || []);
         if (vendorsRes.status === 'fulfilled' && vendorsRes.value.success) {
-          const myVendor = vendorsRes.value.vendors?.find(v => v.user_id === user?.id);
-          setVendor(myVendor || null);
+          setVendor(vendorsRes.value.vendor || null);
         }
       } catch (err) { console.error('Vendor dashboard load error:', err); }
       setLoading(false);
@@ -103,7 +104,7 @@ export default function VendorDashboardPage() {
       )}
 
       {/* Stats Row 1 — Financial */}
-      <div className="grid grid-cols-1 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 mb-6">
         <Link href="/vendor-dashboard/payouts" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
           <p className="text-xs text-gray-500">Total Revenue ({period === 'all' ? 'All Time' : period})</p>
           <p className="text-xl font-bold text-green-600 mt-1">₦{totalRevenue.toLocaleString()}</p>
@@ -127,7 +128,7 @@ export default function VendorDashboardPage() {
       </div>
 
       {/* Stats Row 2 — Orders & Products */}
-      <div className="grid grid-cols-1 gap-3 mb-6">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 mb-6">
         <Link href="/vendor-dashboard/products" className="bg-white p-4 rounded-xl border border-gray-100 hover:border-ob-purple/30 hover:shadow-md transition-all block">
           <p className="text-xs text-gray-500">Products</p>
           <p className="text-xl font-bold text-ob-navy mt-1">{products.length}</p>
@@ -151,7 +152,7 @@ export default function VendorDashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 gap-6 mb-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 mb-8">
         <div className="bg-white rounded-xl border border-gray-100 p-6">
           <h3 className="font-bold text-ob-navy mb-4">Revenue Trend ({period === 'all' ? 'All Time' : period})</h3>
           <DashboardBarChart data={revenueByMonth} />
@@ -163,7 +164,7 @@ export default function VendorDashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         {[
           { label: 'Add Product', href: '/vendor-dashboard/products', icon: '➕', color: 'bg-green-50 text-green-600' },
           { label: 'Manage Orders', href: '/vendor-dashboard/orders', icon: '📦', color: 'bg-blue-50 text-blue-600' },

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
+import DataTable from '@/components/DataTable';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -129,61 +130,35 @@ export default function AdminReportsPage() {
             }}
           />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="px-6 py-4 font-medium">Type</th>
-                <th className="px-6 py-4 font-medium">Reason</th>
-                <th className="px-6 py-4 font-medium">Description</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Date</th>
-                <th className="px-6 py-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? [...Array(3)].map((_, i) => (
-                <tr key={i} className="border-b border-gray-50"><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
-              )) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-400 text-sm">No reports found.</td></tr>
-              ) : filtered.map(r => {
-                const isReport = r.reason?.startsWith('Report:');
-                return (
-                <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${isReport ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {isReport ? 'Report' : 'Dispute'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-ob-navy">{r.reason}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-[250px] truncate">{r.description}</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                      r.status === 'open' ? 'bg-red-100 text-red-700' :
-                      r.status === 'under_review' ? 'bg-amber-100 text-amber-700' :
-                      r.status === 'escalated' ? 'bg-red-200 text-red-800' :
-                      'bg-green-100 text-green-700'
-                    }`}>
-                      {r.status?.replace(/_/g, ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">
-                    {['open', 'under_review', 'escalated'].includes(r.status) ? (
-                      <div className="flex gap-2">
-                        <button onClick={() => resolveReport(r.id, 'resolved_favor_buyer')} className="text-green-600 text-xs font-medium hover:underline">Favor Buyer</button>
-                        <button onClick={() => resolveReport(r.id, 'closed')} className="text-gray-500 text-xs font-medium hover:underline">Close</button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">Resolved</span>
-                    )}
-                  </td>
-                </tr>
-              );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'type', label: 'Type', render: r => {
+              const isReport = r.reason?.startsWith('Report:');
+              return <span className={`text-xs font-medium px-2 py-1 rounded-full ${isReport ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{isReport ? 'Report' : 'Dispute'}</span>;
+            } },
+            { key: 'reason', label: 'Reason', render: r => <span className="font-medium text-ob-navy">{r.reason}</span> },
+            { key: 'description', label: 'Description', mobileFull: true, render: r => <span className="text-gray-500 break-words">{r.description || '—'}</span> },
+            { key: 'status', label: 'Status', render: r => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+              r.status === 'open' ? 'bg-red-100 text-red-700' :
+              r.status === 'under_review' ? 'bg-amber-100 text-amber-700' :
+              r.status === 'escalated' ? 'bg-red-200 text-red-800' :
+              'bg-green-100 text-green-700'
+            }`}>{r.status?.replace(/_/g, ' ')}</span> },
+            { key: 'created_at', label: 'Date', render: r => new Date(r.created_at).toLocaleDateString() },
+          ]}
+          rows={loading ? [] : filtered}
+          emptyMessage={loading ? 'Loading reports…' : 'No reports found.'}
+          actions={r => (
+            ['open', 'under_review', 'escalated'].includes(r.status) ? (
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => resolveReport(r.id, 'resolved_favor_buyer')} className="text-green-600 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-green-50">Favor Buyer</button>
+                <button onClick={() => resolveReport(r.id, 'closed')} className="text-gray-500 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50">Close</button>
+              </div>
+            ) : (
+              <span className="text-xs text-gray-400">Resolved</span>
+            )
+          )}
+        />
       </div>
     </DashboardLayout>
   );

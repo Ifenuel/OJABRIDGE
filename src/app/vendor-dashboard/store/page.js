@@ -19,9 +19,9 @@ export default function VendorStorePage() {
   useEffect(() => {
     async function loadVendor() {
       try {
-        const res = await fetch('/api/vendors?limit=100');
+        const res = await fetch('/api/vendors/me');
         const data = await res.json();
-        const myVendor = data.vendors?.find(v => v.user_id === user?.id);
+        const myVendor = data.vendor;
         if (myVendor) {
           setForm({
             storeName: myVendor.store_name || '',

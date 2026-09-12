@@ -21,7 +21,9 @@ export async function GET(request) {
     const featured = searchParams.get('featured');
     const sort = searchParams.get('sort') || 'newest';
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    // High cap (not unlimited) protects the DB at millions of rows;
+    // clients page through everything via the returned pagination metadata.
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 500);
     const offset = (page - 1) * limit;
     const isAdmin = searchParams.get('admin') === 'true';
     const moderationStatus = searchParams.get('moderation_status');

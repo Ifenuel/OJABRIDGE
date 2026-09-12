@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import ActionMenu from '@/components/ActionMenu';
+import DataTable from '@/components/DataTable';
 import KycDocumentViewer from '@/components/KycDocumentViewer';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
@@ -191,61 +192,34 @@ export default function AdminRetailersPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="px-6 py-4 font-medium">Store</th>
-                <th className="px-6 py-4 font-medium">Owner</th>
-                <th className="px-6 py-4 font-medium">Business</th>
-                <th className="px-6 py-4 font-medium">KYC</th>
-                <th className="px-6 py-4 font-medium">Bank</th>
-                <th className="px-6 py-4 font-medium">Orders</th>
-                <th className="px-6 py-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                [...Array(5)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={7} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>)
-              ) : filteredRetailers.length === 0 ? (
-                <tr><td colSpan={7} className="px-6 py-16 text-center text-gray-400 text-sm">
-                  {retailers.length === 0 ? 'No retailers registered yet.' : 'No retailers match your filter.'}
-                </td></tr>
-              ) : (
-                filteredRetailers.map(r => (
-                  <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-sm text-ob-navy">{r.store_name}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div className="text-gray-700">{r.owner_name || '—'}</div>
-                      <div className="text-xs text-gray-400">{r.owner_email || '—'}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div className="text-gray-500">{r.business_name || '—'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${kycBadge(r.kyc_status)}`}>{(r.kyc_status || 'NOT_STARTED').replace(/_/g, ' ')}</span>
-                    </td>
-                    <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${r.bank_verification_status === 'VERIFIED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{(r.bank_verification_status || 'NOT_STARTED').replace(/_/g, ' ')}</span></td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{r.total_orders || 0}</td>
-                    <td className="px-6 py-4">
-                      <ActionMenu actions={[
-                        { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(r) },
-                        { label: 'Approve', icon: '✅', hidden: r.kyc_status === 'VERIFIED' || r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-green-700', onClick: () => updateRetailer(r.id, { kyc_status: 'VERIFIED' }) },
-                        { label: 'Reject KYC', icon: '❌', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(r.kyc_status), className: 'text-red-600', onClick: () => handleReject(r.id) },
-                        { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: r.kyc_status === 'VERIFIED' || r.kyc_status === 'BANNED' || r.kyc_status === 'NOT_STARTED', onClick: () => handleRequestAdditionalInfo(r.id) },
-                        { label: 'Suspend', icon: '⚠️', hidden: r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-amber-600', onClick: () => updateRetailer(r.id, { kyc_status: 'SUSPENDED', is_active: false }) },
-                        { label: 'Ban', icon: '🚫', hidden: r.kyc_status === 'BANNED', className: 'text-red-700', confirm: 'Are you sure you want to BAN this retailer? This action is severe.', onClick: () => updateRetailer(r.id, { kyc_status: 'BANNED', is_active: false }) },
-                        { label: 'Reinstate', icon: '♻️', hidden: !(r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED'), className: 'text-blue-600', onClick: () => updateRetailer(r.id, { kyc_status: 'NOT_STARTED', is_active: true }) },
-                      ]} />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'store_name', label: 'Store', render: r => <span className="font-medium text-sm text-ob-navy">{r.store_name}</span> },
+            { key: 'owner_name', label: 'Owner', render: r => (
+              <div>
+                <div className="text-gray-700">{r.owner_name || '—'}</div>
+                <div className="text-xs text-gray-400">{r.owner_email || '—'}</div>
+              </div>
+            ) },
+            { key: 'business_name', label: 'Business', render: r => <span className="text-gray-500">{r.business_name || '—'}</span> },
+            { key: 'kyc_status', label: 'KYC', render: r => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${kycBadge(r.kyc_status)}`}>{(r.kyc_status || 'NOT_STARTED').replace(/_/g, ' ')}</span> },
+            { key: 'bank_verification_status', label: 'Bank', render: r => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${r.bank_verification_status === 'VERIFIED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{(r.bank_verification_status || 'NOT_STARTED').replace(/_/g, ' ')}</span> },
+            { key: 'total_orders', label: 'Orders', render: r => r.total_orders || 0 },
+          ]}
+          rows={loading ? [] : filteredRetailers}
+          emptyMessage={loading ? 'Loading retailers…' : (retailers.length === 0 ? 'No retailers registered yet.' : 'No retailers match your filter.')}
+          actions={r => (
+            <ActionMenu actions={[
+              { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(r) },
+              { label: 'Approve', icon: '✅', hidden: r.kyc_status === 'VERIFIED' || r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-green-700', onClick: () => updateRetailer(r.id, { kyc_status: 'VERIFIED' }) },
+              { label: 'Reject KYC', icon: '❌', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(r.kyc_status), className: 'text-red-600', onClick: () => handleReject(r.id) },
+              { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: r.kyc_status === 'VERIFIED' || r.kyc_status === 'BANNED' || r.kyc_status === 'NOT_STARTED', onClick: () => handleRequestAdditionalInfo(r.id) },
+              { label: 'Suspend', icon: '⚠️', hidden: r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-amber-600', onClick: () => updateRetailer(r.id, { kyc_status: 'SUSPENDED', is_active: false }) },
+              { label: 'Ban', icon: '🚫', hidden: r.kyc_status === 'BANNED', className: 'text-red-700', confirm: 'Are you sure you want to BAN this retailer? This action is severe.', onClick: () => updateRetailer(r.id, { kyc_status: 'BANNED', is_active: false }) },
+              { label: 'Reinstate', icon: '♻️', hidden: !(r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED'), className: 'text-blue-600', onClick: () => updateRetailer(r.id, { kyc_status: 'NOT_STARTED', is_active: true }) },
+            ]} />
+          )}
+        />
       </div>
 
       {/* KYC Review Modal */}

@@ -153,7 +153,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stats Row 1 — Revenue (clickable) */}
-      <div className="grid grid-cols-1 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 mb-6">
         <StatCard href="/admin-dashboard/payments" label="Total Revenue" value={`₦${totalRevenue.toLocaleString()}`} color="text-green-600" change={totalRevenue === 0 ? 'No paid orders yet' : `From ${stats.completedOrders} completed orders`} />
         <StatCard href="/admin-dashboard/payments" label="Platform Commission" value={`₦${commission.toLocaleString()}`} color="text-amber-600" change={commission === 0 ? '10% per transaction' : '10% per transaction'} />
         <StatCard href="/admin-dashboard/settlements" label="Net to Vendors" value={`₦${stats.netToVendors.toLocaleString()}`} color="text-blue-600" change={stats.netToVendors === 0 ? 'Paid after commission' : 'Paid after commission deduction'} />
@@ -161,7 +161,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stats Row 2 (clickable) */}
-      <div className="grid grid-cols-1 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 mb-6">
         <StatCard href="/admin-dashboard/users" label="Total Users" value={stats.totalUsers} color="text-ob-navy" change={`${stats.totalCustomers} customers, ${stats.totalVendors} vendors`} />
         <StatCard href="/admin-dashboard/vendors" label="Total Vendors" value={stats.totalVendors} color="text-blue-600" change={stats.totalVendors === 0 ? 'No vendors registered yet' : `${pendingKyc} pending KYC`} />
         <StatCard href="/admin-dashboard/users" label="Total Retailers" value={stats.totalRetailers} color="text-green-600" change={stats.totalRetailers === 0 ? 'No retailers registered yet' : 'Active retailers'} />
@@ -170,7 +170,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stats Row 3 (clickable) */}
-      <div className="grid grid-cols-1 gap-3 mb-6">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 mb-6">
         <StatCard href="/admin-dashboard/vendors" label="Pending KYC" value={pendingKyc} color={pendingKyc > 0 ? 'text-amber-600' : 'text-green-600'} change={pendingKyc === 0 ? 'All vendors verified' : 'Awaiting verification'} />
         <StatCard href="/admin-dashboard/products" label="Pending Products" value={pendingProducts} color={pendingProducts > 0 ? 'text-amber-600' : 'text-green-600'} change={pendingProducts === 0 ? 'No products pending review' : 'Awaiting moderation'} />
         <StatCard href="/admin-dashboard/disputes" label="Open Disputes" value={openDisputes} color={openDisputes > 0 ? 'text-red-600' : 'text-green-600'} change={openDisputes === 0 ? 'No open disputes' : 'Need attention'} />
@@ -178,8 +178,8 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 gap-6 mb-8">
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 mb-8">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 md:p-6">
           <h3 className="font-bold text-ob-navy mb-4">Revenue Overview</h3>
           <DashboardBarChart data={revenueByMonth} />
         </div>
@@ -189,8 +189,8 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 mb-8">
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 mb-8">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 md:p-6">
           <h3 className="font-bold text-ob-navy mb-4">User Distribution</h3>
           <DashboardPieChart data={userDistData} />
         </div>
@@ -201,9 +201,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Requires Attention */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6 mb-8">
+      <div className="bg-white rounded-xl border border-gray-100 p-4 md:p-6 mb-8">
         <h3 className="font-bold text-ob-navy mb-4">Requires Attention</h3>
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
           {[
             { label: 'Pending KYC', value: pendingKyc, href: '/admin-dashboard/vendors', color: 'text-amber-600' },
             { label: 'Pending Products', value: pendingProducts, href: '/admin-dashboard/products', color: 'text-blue-600' },
@@ -219,9 +219,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Recent Activity */}
-      <div className="grid grid-cols-1 gap-6 mb-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 mb-8">
         {/* Recent Users */}
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <div className="bg-white rounded-xl border border-gray-100 p-4 md:p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-ob-navy">Recent Users</h3>
             <Link href="/admin-dashboard/users" className="text-ob-purple text-xs font-medium hover:underline">View All →</Link>
@@ -271,9 +271,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-xl border border-gray-100 p-6">
+      <div className="bg-white rounded-xl border border-gray-100 p-4 md:p-6">
         <h3 className="font-bold text-ob-navy mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Manage Users', href: '/admin-dashboard/users', icon: '👥' },
             { label: 'Review Vendors', href: '/admin-dashboard/vendors', icon: '🏪' },

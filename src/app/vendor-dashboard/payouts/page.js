@@ -28,10 +28,12 @@ export default function VendorPayoutsPage() {
     if (!user) return;
     async function loadData() {
       try {
-        const [walletRes, settleRes, vendorRes] = await Promise.allSettled([
+        const [walletRes, settleRes, meRes] = await Promise.allSettled([
           fetch('/api/settlements').then(r => r.json()),
           fetch('/api/settlements').then(r => r.json()),
-          fetch('/api/vendors?limit=10').then(r => r.json()),
+          // Own store record resolved SERVER-SIDE from the session — includes the
+          // bank fields (masked account number) the withdraw UI needs.
+          fetch('/api/vendors/me').then(r => r.json()),
         ]);
 
         if (walletRes.status === 'fulfilled') {
@@ -41,9 +43,8 @@ export default function VendorPayoutsPage() {
         if (settleRes.status === 'fulfilled') {
           setSettlements(settleRes.value.settlements || []);
         }
-        if (vendorRes.status === 'fulfilled') {
-          const myVendor = vendorRes.value.vendors?.find(v => v.user_id === user?.id);
-          setVendor(myVendor || null);
+        if (meRes.status === 'fulfilled' && meRes.value.success) {
+          setVendor(meRes.value.vendor || null);
         }
       } catch (err) { console.error(err); }
       setLoading(false);

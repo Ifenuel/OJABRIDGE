@@ -100,6 +100,8 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
         return;
       }
     }
+    // We reached an allowed page — clear any in-flight redirect so the UI renders
+    setRedirecting(false);
     setAuthReady(true);
   }, [user, loading, role, router, pathname]);
 
@@ -293,6 +295,12 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
 
   return (
     <div className="min-h-screen bg-ob-light">
+      {/* Mobile chrome — fixed/overlaid, must live OUTSIDE the flex row so it
+          never becomes a flex sibling column that pushes content sideways */}
+      <MobileHeader onMenuOpen={() => setSidebarOpen(true)} role={role} />
+      <MobileDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)} role={role} />
+      <MobileBottomNav role={role} />
+
       <div className="flex">
         {/* Desktop Sidebar */}
         <aside className={`hidden lg:flex flex-col ${collapsed ? 'w-20' : 'w-64'} bg-ob-navy text-white min-h-screen sticky top-0 transition-all duration-300`}>
@@ -355,14 +363,9 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
           </div>
         </aside>
 
-        {/* Mobile Header + Drawer + Bottom Nav */}
-        <MobileHeader onMenuOpen={() => setSidebarOpen(true)} role={role} />
-        <MobileDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)} role={role} />
-        <MobileBottomNav role={role} />
-
         {/* Main Content */}
-        <div className="flex-1 min-w-0">
-          <div className="p-4 lg:p-8 pb-20 lg:pb-8">{children}</div>
+        <div className="flex-1 min-w-0 w-full">
+          <div className="px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 pb-24 lg:pb-8 max-w-[1600px]">{children}</div>
         </div>
       </div>
     </div>

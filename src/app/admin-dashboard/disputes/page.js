@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
+import DataTable from '@/components/DataTable';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -143,63 +144,39 @@ export default function AdminDisputesPage() {
             }}
           />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="px-6 py-4 font-medium">Order</th>
-                <th className="px-6 py-4 font-medium">Reason</th>
-                <th className="px-6 py-4 font-medium">Description</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Date</th>
-                <th className="px-6 py-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? [...Array(3)].map((_, i) => (
-                <tr key={i} className="border-b border-gray-50"><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
-              )) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-400 text-sm">No disputes found.</td></tr>
-              ) : filtered.map(d => (
-                <tr key={d.id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-ob-navy">{d.order_id?.slice(0, 8) || '—'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{d.reason}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px] truncate">{d.description}</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColor(d.status)}`}>
-                      {d.status?.replace(/_/g, ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(d.created_at).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">
-                    {['open', 'under_review', 'vendor_response_required', 'escalated'].includes(d.status) ? (
-                      <div className="flex items-center gap-1">
-                        {resolving === d.id ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={resolutionNote}
-                              onChange={e => setResolutionNote(e.target.value)}
-                              placeholder="Resolution note..."
-                              className="text-xs px-2 py-1 border border-gray-200 rounded w-32"
-                            />
-                            <button onClick={() => resolveDispute(d.id, 'resolved_favor_buyer')} className="text-green-600 text-xs font-medium hover:underline">Buyer</button>
-                            <button onClick={() => resolveDispute(d.id, 'resolved_favor_vendor')} className="text-blue-600 text-xs font-medium hover:underline">Vendor</button>
-                            <button onClick={() => { setResolving(null); setResolutionNote(''); }} className="text-gray-400 text-xs hover:underline">Cancel</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setResolving(d.id)} className="text-ob-purple text-xs font-medium hover:underline">Resolve →</button>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">Resolved</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'order_id', label: 'Order', render: d => <span className="font-medium text-ob-navy">{d.order_id?.slice(0, 8) || '—'}</span> },
+            { key: 'reason', label: 'Reason', render: d => <span className="text-gray-600">{d.reason}</span> },
+            { key: 'description', label: 'Description', mobileFull: true, render: d => <span className="text-gray-500">{d.description || '—'}</span> },
+            { key: 'status', label: 'Status', render: d => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColor(d.status)}`}>{d.status?.replace(/_/g, ' ')}</span> },
+            { key: 'created_at', label: 'Date', render: d => new Date(d.created_at).toLocaleDateString() },
+          ]}
+          rows={loading ? [] : filtered}
+          emptyMessage={loading ? 'Loading disputes…' : 'No disputes found.'}
+          actions={d => (
+            ['open', 'under_review', 'vendor_response_required', 'escalated'].includes(d.status) ? (
+              resolving === d.id ? (
+                <div className="flex flex-wrap items-center gap-2 w-full">
+                  <input
+                    type="text"
+                    value={resolutionNote}
+                    onChange={e => setResolutionNote(e.target.value)}
+                    placeholder="Resolution note..."
+                    className="text-xs px-2 py-2 border border-gray-200 rounded flex-1 min-w-[120px]"
+                  />
+                  <button onClick={() => resolveDispute(d.id, 'resolved_favor_buyer')} className="text-green-600 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-green-50">Buyer</button>
+                  <button onClick={() => resolveDispute(d.id, 'resolved_favor_vendor')} className="text-blue-600 text-xs font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-blue-50">Vendor</button>
+                  <button onClick={() => { setResolving(null); setResolutionNote(''); }} className="text-gray-400 text-xs hover:underline">Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setResolving(d.id)} className="text-ob-purple text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-ob-purple/5">Resolve →</button>
+              )
+            ) : (
+              <span className="text-xs text-gray-400">Resolved</span>
+            )
+          )}
+        />
       </div>
     </DashboardLayout>
   );

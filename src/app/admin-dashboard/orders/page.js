@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate, formatCurrency } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
+import DataTable from '@/components/DataTable';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -65,14 +66,18 @@ export default function AdminOrdersPage() {
             }}
           />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead><tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100"><th className="px-6 py-4 font-medium">Order ID</th><th className="px-6 py-4 font-medium">Customer</th><th className="px-6 py-4 font-medium">Amount</th><th className="px-6 py-4 font-medium">Payment</th><th className="px-6 py-4 font-medium">Status</th><th className="px-6 py-4 font-medium">Date</th></tr></thead>
-            <tbody>
-              {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : filtered.length === 0 ? <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-500 text-sm">No orders found.</td></tr> : filtered.map(o => <tr key={o.id} className="border-b border-gray-50 hover:bg-gray-50"><td className="px-6 py-4 text-sm font-medium text-ob-navy">{o.order_number}</td><td className="px-6 py-4 text-sm text-gray-600">{(() => { try { const a = typeof o.shipping_address === 'string' ? JSON.parse(o.shipping_address) : o.shipping_address; return a?.name || '—'; } catch { return '—'; } })()}</td><td className="px-6 py-4 text-sm font-semibold">₦{Number(o.total).toLocaleString()}</td><td className="px-6 py-4"><span className={`text-xs px-2 py-1 rounded-full ${o.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{o.payment_status}</span></td><td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColor[o.status] || 'bg-gray-100 text-gray-600'}`}>{o.status}</span></td><td className="px-6 py-4 text-sm text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td></tr>)}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'order_number', label: 'Order ID', render: o => <span className="font-medium text-ob-navy">{o.order_number}</span> },
+            { key: 'customer', label: 'Customer', render: o => { try { const a = typeof o.shipping_address === 'string' ? JSON.parse(o.shipping_address) : o.shipping_address; return a?.name || '—'; } catch { return '—'; } } },
+            { key: 'total', label: 'Amount', render: o => <span className="font-semibold">₦{Number(o.total).toLocaleString()}</span> },
+            { key: 'payment_status', label: 'Payment', render: o => <span className={`text-xs px-2 py-1 rounded-full ${o.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{o.payment_status}</span> },
+            { key: 'status', label: 'Status', render: o => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColor[o.status] || 'bg-gray-100 text-gray-600'}`}>{o.status}</span> },
+            { key: 'created_at', label: 'Date', render: o => new Date(o.created_at).toLocaleDateString() },
+          ]}
+          rows={loading ? [] : filtered}
+          emptyMessage={loading ? 'Loading orders…' : 'No orders found.'}
+        />
       </div>
     </DashboardLayout>
   );

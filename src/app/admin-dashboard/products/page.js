@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import ActionMenu from '@/components/ActionMenu';
+import DataTable from '@/components/DataTable';
 import { exportData, filterByDateRange, formatDate, formatCurrency } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
 
@@ -163,31 +164,36 @@ export default function AdminProductsPage() {
         />
       </div>
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead><tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100"><th className="px-4 py-4 font-medium"><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll} className="rounded border-gray-300 text-ob-purple focus:ring-ob-purple" /></th><th className="px-6 py-4 font-medium">Product</th><th className="px-6 py-4 font-medium">Price</th><th className="px-6 py-4 font-medium">Stock</th><th className="px-6 py-4 font-medium">Vendor</th><th className="px-6 py-4 font-medium">Status</th><th className="px-6 py-4 font-medium">Actions</th></tr></thead>
-            <tbody>
-              {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : filtered.length === 0 ? <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-500 text-sm">No products found.</td></tr> : filtered.map(p => (
-                <tr key={p.id} className={`border-b border-gray-50 hover:bg-gray-50 ${selected.has(p.id) ? 'bg-ob-purple/5' : ''}`}>
-                  <td className="px-4 py-4"><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded border-gray-300 text-ob-purple focus:ring-ob-purple" /></td>
-                  <td className="px-6 py-4 text-sm font-medium text-ob-navy max-w-[200px] truncate">{p.name}</td>
-                  <td className="px-6 py-4 text-sm">₦{Number(p.price).toLocaleString()}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{p.stock_quantity}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{p.store_name || '—'}</td>
-                  <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusBadge(p.moderation_status)}`}>{p.moderation_status?.replace('_', ' ')}</span></td>
-                  <td className="px-6 py-4">
-                    <ActionMenu actions={[
-                      { label: 'Approve', icon: '✅', hidden: p.moderation_status === 'approved', className: 'text-green-700', onClick: () => moderateProduct(p.id, 'approved') },
-                      { label: 'Reject', icon: '❌', hidden: p.moderation_status === 'rejected', className: 'text-red-600', confirm: `Reject "${p.name}"?`, onClick: () => moderateProduct(p.id, 'rejected') },
-                      { label: 'Suspend', icon: '⚠️', hidden: p.moderation_status === 'suspended', className: 'text-orange-600', confirm: `Suspend "${p.name}"?`, onClick: () => moderateProduct(p.id, 'suspended') },
-                      { label: 'View in Shop', icon: '👁️', onClick: () => window.open(`/shop/product/${p.id}`, '_blank') },
-                    ]} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Bulk-select header (desktop + mobile) */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+          <input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleSelectAll} className="rounded border-gray-300 text-ob-purple focus:ring-ob-purple" />
+          <span className="text-xs text-gray-500">Select all ({filtered.length})</span>
         </div>
+        <DataTable
+          columns={[
+            { key: 'name', label: 'Product', render: p => <span className="font-medium text-ob-navy">{p.name}</span> },
+            { key: 'price', label: 'Price', render: p => `₦${Number(p.price).toLocaleString()}` },
+            { key: 'stock_quantity', label: 'Stock', render: p => p.stock_quantity },
+            { key: 'store_name', label: 'Vendor', render: p => p.store_name || '—' },
+            { key: 'moderation_status', label: 'Status', render: p => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusBadge(p.moderation_status)}`}>{p.moderation_status?.replace('_', ' ')}</span> },
+          ]}
+          rows={loading ? [] : filtered}
+          emptyMessage={loading ? 'Loading products…' : 'No products found.'}
+          actions={p => (
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <label className="flex items-center gap-1.5 text-xs text-gray-500 mr-1">
+                <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded border-gray-300 text-ob-purple focus:ring-ob-purple" />
+                Select
+              </label>
+              <ActionMenu actions={[
+                { label: 'Approve', icon: '✅', hidden: p.moderation_status === 'approved', className: 'text-green-700', onClick: () => moderateProduct(p.id, 'approved') },
+                { label: 'Reject', icon: '❌', hidden: p.moderation_status === 'rejected', className: 'text-red-600', confirm: `Reject "${p.name}"?`, onClick: () => moderateProduct(p.id, 'rejected') },
+                { label: 'Suspend', icon: '⚠️', hidden: p.moderation_status === 'suspended', className: 'text-orange-600', confirm: `Suspend "${p.name}"?`, onClick: () => moderateProduct(p.id, 'suspended') },
+                { label: 'View in Shop', icon: '👁️', onClick: () => window.open(`/shop/product/${p.id}`, '_blank') },
+              ]} />
+            </div>
+          )}
+        />
       </div>
     </DashboardLayout>
   );

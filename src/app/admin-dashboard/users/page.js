@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import ActionMenu from '@/components/ActionMenu';
+import DataTable from '@/components/DataTable';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
@@ -155,49 +156,29 @@ export default function AdminUsersPage() {
             }}
           />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="px-6 py-4 font-medium">User</th>
-                <th className="px-6 py-4 font-medium">Role</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Joined</th>
-                <th className="px-6 py-4 font-medium">Last Login</th>
-                <th className="px-6 py-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                [...Array(5)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>)
-              ) : filteredUsers.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-400 text-sm">No users found.</td></tr>
-              ) : (
-                filteredUsers.map(u => (
-                  <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-ob-purple rounded-full flex items-center justify-center text-white text-xs font-bold">{u.name?.charAt(0) || '?'}</div>
-                        <div><p className="text-sm font-medium text-ob-navy">{u.name}</p><p className="text-xs text-gray-400">{u.email}</p></div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${roleColors[u.role]}`}>{u.role}</span></td>
-                    <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[u.status] || 'bg-gray-100 text-gray-600'}`}>{u.status}</span></td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : '—'}</td>
-                    <td className="px-6 py-4">
-                      <ActionMenu actions={[
-                        { label: 'Suspend', icon: '⚠️', hidden: !(u.status === 'active' && u.role !== 'admin'), className: 'text-amber-600', confirm: `Suspend ${u.name}?`, onClick: () => updateUserStatus(u.id, 'suspended') },
-                        { label: 'Ban', icon: '🚫', hidden: !(u.status === 'active' && u.role !== 'admin'), className: 'text-red-600', confirm: `Ban ${u.name}? They will lose access permanently.`, onClick: () => updateUserStatus(u.id, 'banned') },
-                        { label: 'Reactivate', icon: '♻️', hidden: !['suspended', 'banned'].includes(u.status), className: 'text-green-600', onClick: () => updateUserStatus(u.id, 'active') },
-                      ]} />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'name', label: 'User', render: u => (
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-ob-purple rounded-full flex items-center justify-center text-white text-xs font-bold">{u.name?.charAt(0) || '?'}</div>
+                <div><p className="text-sm font-medium text-ob-navy">{u.name}</p><p className="text-xs text-gray-400">{u.email}</p></div>
+              </div>
+            ) },
+            { key: 'role', label: 'Role', render: u => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${roleColors[u.role]}`}>{u.role}</span> },
+            { key: 'status', label: 'Status', render: u => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[u.status] || 'bg-gray-100 text-gray-600'}`}>{u.status}</span> },
+            { key: 'created_at', label: 'Joined', render: u => u.created_at ? new Date(u.created_at).toLocaleDateString() : '—' },
+            { key: 'last_login_at', label: 'Last Login', render: u => u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : '—' },
+          ]}
+          rows={loading ? [] : filteredUsers}
+          emptyMessage={loading ? 'Loading users…' : 'No users found.'}
+          actions={u => (
+            <ActionMenu actions={[
+              { label: 'Suspend', icon: '⚠️', hidden: !(u.status === 'active' && u.role !== 'admin'), className: 'text-amber-600', confirm: `Suspend ${u.name}?`, onClick: () => updateUserStatus(u.id, 'suspended') },
+              { label: 'Ban', icon: '🚫', hidden: !(u.status === 'active' && u.role !== 'admin'), className: 'text-red-600', confirm: `Ban ${u.name}? They will lose access permanently.`, onClick: () => updateUserStatus(u.id, 'banned') },
+              { label: 'Reactivate', icon: '♻️', hidden: !['suspended', 'banned'].includes(u.status), className: 'text-green-600', onClick: () => updateUserStatus(u.id, 'active') },
+            ]} />
+          )}
+        />
       </div>
     </DashboardLayout>
   );

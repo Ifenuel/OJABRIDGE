@@ -20,6 +20,7 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get('unreadOnly') === 'true';
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50'), 1), 200);
 
     let filter = { user_id: user.id };
     if (unreadOnly) filter.is_read = false;
@@ -27,7 +28,7 @@ export async function GET(request) {
     const { data: notifications, error } = await dbQuery('notifications', {
       filter,
       order: { column: 'created_at', ascending: false },
-      limit: 50,
+      limit,
     });
 
     if (error) return NextResponse.json({ success: false, error }, { status: 500 });

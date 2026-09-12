@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate, formatCurrency } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
+import DataTable from '@/components/DataTable';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -108,38 +109,18 @@ export default function AdminPaymentsPage() {
             }}
           />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="px-6 py-4 font-medium">Order</th>
-                <th className="px-6 py-4 font-medium">Amount</th>
-                <th className="px-6 py-4 font-medium">Commission (10%)</th>
-                <th className="px-6 py-4 font-medium">Vendor Payout</th>
-                <th className="px-6 py-4 font-medium">Payment Status</th>
-                <th className="px-6 py-4 font-medium">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : paidOrders.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-400 text-sm">No transactions yet. Payments will appear here once orders are placed.</td></tr>
-              ) : paidOrders.map(o => {
-                const amount = Number(o.total || 0);
-                const comm = Math.round(amount * 0.10);
-                return (
-                  <tr key={o.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-ob-navy">{o.order_number}</td>
-                    <td className="px-6 py-4 text-sm font-semibold">₦{amount.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-sm text-amber-600">₦{comm.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-sm text-green-600">₦{(amount - comm).toLocaleString()}</td>
-                    <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColor(o.payment_status)}`}>{o.payment_status}</span></td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'order_number', label: 'Order', render: o => <span className="font-medium text-ob-navy">{o.order_number}</span> },
+            { key: 'total', label: 'Amount', render: o => <span className="font-semibold">₦{Number(o.total || 0).toLocaleString()}</span> },
+            { key: 'commission', label: 'Commission (10%)', render: o => <span className="text-amber-600">₦{Math.round(Number(o.total || 0) * 0.10).toLocaleString()}</span> },
+            { key: 'payout', label: 'Vendor Payout', render: o => <span className="text-green-600">₦{Math.round(Number(o.total || 0) * 0.90).toLocaleString()}</span> },
+            { key: 'payment_status', label: 'Payment Status', render: o => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColor(o.payment_status)}`}>{o.payment_status}</span> },
+            { key: 'created_at', label: 'Date', render: o => new Date(o.created_at).toLocaleDateString() },
+          ]}
+          rows={loading ? [] : paidOrders}
+          emptyMessage={loading ? 'Loading transactions…' : 'No transactions yet. Payments will appear here once orders are placed.'}
+        />
       </div>
     </DashboardLayout>
   );

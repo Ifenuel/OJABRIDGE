@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
+import DataTable from '@/components/DataTable';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -105,35 +106,22 @@ export default function AdminSettlementsPage() {
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="font-bold text-ob-navy">Vendor Balances</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="px-6 py-4 font-medium">Vendor</th>
-                <th className="px-6 py-4 font-medium">Total Earnings</th>
-                <th className="px-6 py-4 font-medium">Pending</th>
-                <th className="px-6 py-4 font-medium">Settled</th>
-                <th className="px-6 py-4 font-medium">Commission Paid</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={5} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : vendors.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-sm">No vendors yet.</td></tr>
-              ) : vendors.map(v => (
-                <tr key={v.id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-ob-navy">{v.store_name}</p>
-                    <p className="text-xs text-gray-400">{v.owner_name || '—'}</p>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-ob-navy">₦{Number(v.total_earnings || 0).toLocaleString()}</td>
-                  <td className="px-6 py-4 text-sm text-amber-600">₦{Number(v.pending_earnings || 0).toLocaleString()}</td>
-                  <td className="px-6 py-4 text-sm text-green-600">₦{Number(v.settled_earnings || 0).toLocaleString()}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">₦{Number(v.total_commission_paid || 0).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'store_name', label: 'Vendor', render: v => (
+              <div>
+                <p className="text-sm font-medium text-ob-navy">{v.store_name}</p>
+                <p className="text-xs text-gray-400">{v.owner_name || '—'}</p>
+              </div>
+            ) },
+            { key: 'total_earnings', label: 'Total Earnings', render: v => <span className="font-semibold text-ob-navy">₦{Number(v.total_earnings || 0).toLocaleString()}</span> },
+            { key: 'pending_earnings', label: 'Pending', render: v => <span className="text-amber-600">₦{Number(v.pending_earnings || 0).toLocaleString()}</span> },
+            { key: 'settled_earnings', label: 'Settled', render: v => <span className="text-green-600">₦{Number(v.settled_earnings || 0).toLocaleString()}</span> },
+            { key: 'total_commission_paid', label: 'Commission Paid', render: v => <span className="text-gray-500">₦{Number(v.total_commission_paid || 0).toLocaleString()}</span> },
+          ]}
+          rows={loading ? [] : vendors}
+          emptyMessage={loading ? 'Loading vendors…' : 'No vendors yet.'}
+        />
       </div>
 
       {/* Recent Settlement-Eligible Orders */}
@@ -141,38 +129,18 @@ export default function AdminSettlementsPage() {
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="font-bold text-ob-navy">Recent Paid Orders</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="px-6 py-4 font-medium">Order</th>
-                <th className="px-6 py-4 font-medium">Total</th>
-                <th className="px-6 py-4 font-medium">Commission</th>
-                <th className="px-6 py-4 font-medium">Vendor Payout</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={6} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : paidOrders.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400 text-sm">No paid orders yet.</td></tr>
-              ) : paidOrders.slice(0, 20).map(o => {
-                const total = Number(o.total || 0);
-                const comm = Math.round(total * 0.10);
-                return (
-                  <tr key={o.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-ob-navy">{o.order_number}</td>
-                    <td className="px-6 py-4 text-sm font-semibold">₦{total.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-sm text-amber-600">₦{comm.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-sm text-green-600">₦{(total - comm).toLocaleString()}</td>
-                    <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColor(o.status)}`}>{o.status}</span></td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{new Date(o.created_at).toLocaleDateString()}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'order_number', label: 'Order', render: o => <span className="font-medium text-ob-navy">{o.order_number}</span> },
+            { key: 'total', label: 'Total', render: o => <span className="font-semibold">₦{Number(o.total || 0).toLocaleString()}</span> },
+            { key: 'commission', label: 'Commission', render: o => <span className="text-amber-600">₦{Math.round(Number(o.total || 0) * 0.10).toLocaleString()}</span> },
+            { key: 'payout', label: 'Vendor Payout', render: o => <span className="text-green-600">₦{Math.round(Number(o.total || 0) * 0.90).toLocaleString()}</span> },
+            { key: 'status', label: 'Status', render: o => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColor(o.status)}`}>{o.status}</span> },
+            { key: 'created_at', label: 'Date', render: o => new Date(o.created_at).toLocaleDateString() },
+          ]}
+          rows={loading ? [] : paidOrders.slice(0, 20)}
+          emptyMessage={loading ? 'Loading orders…' : 'No paid orders yet.'}
+        />
       </div>
     </DashboardLayout>
   );

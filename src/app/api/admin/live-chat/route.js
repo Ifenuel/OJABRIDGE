@@ -21,7 +21,7 @@ export async function GET(request) {
       const { data: messages } = await dbQuery('chat_messages', {
         filter: { conversation_id: conversationId },
         order: { column: 'created_at', ascending: true },
-        limit: 100,
+        limit: 1000,
       });
 
       return NextResponse.json({

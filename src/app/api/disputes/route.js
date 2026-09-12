@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { dbQuery, dbInsert, dbUpdate, isDatabaseConnected } from '@/lib/db';
+import { dbQuery, dbInsert, dbUpdate, dbRaw, isDatabaseConnected } from '@/lib/db';
 import { getUserFromRequest, requireAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -41,20 +41,28 @@ export async function GET(request) {
     }
     // Admin sees all disputes (no filter)
 
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20'), 1), 200);
+
     if (status) filter.status = status;
 
     const { data: disputes, error } = await dbQuery('disputes', {
       filter,
       order: { column: 'created_at', ascending: false },
-      limit: 20,
-      offset: (page - 1) * 20,
+      limit,
+      offset: (page - 1) * limit,
     });
 
     if (error) {
       return NextResponse.json({ success: false, error }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, disputes: disputes || [] });
+    // Pagination metadata (count with the same filter)
+    const filterKeys = Object.keys(filter);
+    const whereClause = filterKeys.length > 0 ? `WHERE ${filterKeys.map((k, i) => `${k} = $${i + 1}`).join(' AND ')}` : '';
+    const countResult = await dbRaw(`SELECT COUNT(*) as total FROM disputes ${whereClause}`, filterKeys.map(k => filter[k]));
+    const total = parseInt(countResult.rows?.[0]?.total || 0);
+
+    return NextResponse.json({ success: true, disputes: disputes || [], pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (error) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }

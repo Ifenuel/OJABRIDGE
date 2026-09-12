@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
+import ActionMenu from '@/components/ActionMenu';
 
 const categories = ['Fashion', 'Beauty', 'Electronics', 'Home & Living', 'Health', 'Accessories', 'Groceries'];
 
@@ -26,20 +27,7 @@ export default function VendorProductsPage() {
 
   const [kycStatus, setKycStatus] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [actionMenuOpen, setActionMenuOpen] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const actionMenuRef = useRef(null);
-
-  // Close action menu on outside click
-  useEffect(() => {
-    const handler = (e) => {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-        setActionMenuOpen(null);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   useEffect(() => {
     loadProducts();
@@ -51,12 +39,11 @@ export default function VendorProductsPage() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      // Get vendor profile ID (not user ID) for filtering
-      const vendorRes = await fetch('/api/vendors?limit=100');
+      // Get vendor profile ID (not user ID) for filtering — server-side resolved
+      const vendorRes = await fetch('/api/vendors/me');
       const vendorData = await vendorRes.json();
-      const myVendor = vendorData.vendors?.find(v => v.user_id === user?.id);
-      const vendorId = myVendor?.id || '';
-      const res = await fetch(`/api/products?vendor=${vendorId}&limit=50`);
+      const vendorId = vendorData.vendor?.id || '';
+      const res = await fetch(`/api/products?vendor=${vendorId}&limit=200`);
       const data = await res.json();
       if (data.success) {
         setProducts(data.products || []);
@@ -421,27 +408,13 @@ export default function VendorProductsPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{product.average_rating || '—'}</td>
                     <td className="px-6 py-4">
-                      <div className="relative" ref={actionMenuOpen === product.id ? actionMenuRef : undefined}>
-                        <button
-                          onClick={() => setActionMenuOpen(actionMenuOpen === product.id ? null : product.id)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                          Actions
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                        </button>
-                        {actionMenuOpen === product.id && (
-                          <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-xl border border-gray-200 shadow-xl z-50 overflow-hidden">
-                            <button onClick={() => handleEditProduct(product)} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                              <svg className="w-4 h-4 text-ob-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                              Edit
-                            </button>
-                            <button onClick={() => { setDeleteConfirm(product.id); setActionMenuOpen(null); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              Remove
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      <ActionMenu
+                        label="Actions ▾"
+                        actions={[
+                          { label: 'Edit', icon: '✏️', onClick: () => handleEditProduct(product) },
+                          { label: 'Remove', icon: '🗑️', className: 'text-red-600', confirm: `Remove "${product.name}"? This cannot be undone.`, onClick: () => setDeleteConfirm(product.id) },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))

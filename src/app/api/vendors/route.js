@@ -21,7 +21,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 500);
     const search = searchParams.get('search');
     const kycStatus = searchParams.get('kyc_status');
     const role = searchParams.get('role');
@@ -91,6 +91,7 @@ export async function GET(request) {
         v.id, v.user_id, v.store_name, v.store_slug, v.store_description, v.store_logo_url,
         v.business_name, v.business_type, v.rc_number, v.business_address, v.business_city,
         v.business_country, v.product_categories, v.kyc_status, v.bank_verification_status,
+        v.bank_name, v.bank_account_number, v.bank_account_name, v.bank_code,
         v.total_earnings, v.pending_earnings, v.settled_earnings, v.total_commission_paid,
         v.average_rating, v.total_reviews, v.total_orders, v.store_views, v.is_active,
         v.kyc_rejection_reason, v.kyc_submitted_at, v.kyc_verified_at,

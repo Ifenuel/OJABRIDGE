@@ -23,7 +23,7 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 500);
     const search = searchParams.get('search');
     const role = searchParams.get('role');
     const status = searchParams.get('status');

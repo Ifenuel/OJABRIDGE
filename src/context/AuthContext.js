@@ -40,7 +40,13 @@ export function AuthProvider({ children }) {
 
     (async () => {
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        // Timeout guard: if /api/auth/me hangs (e.g. transient DB timeout),
+        // don't leave the dashboard spinning forever — fall back to the
+        // stored session after 8s so the UI can render.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch('/api/auth/me', { credentials: 'include', signal: controller.signal });
+        clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.user && !cancelled) {
@@ -60,7 +66,12 @@ export function AuthProvider({ children }) {
             clearSession();
           }
         }
-      } catch {}
+        // On network error or timeout: keep the stored session (if any) and proceed.
+        // The user can still browse; individual APIs will surface auth errors if
+        // the cookie really is invalid.
+      } catch {
+        // Network error or abort (timeout): proceed with stored session
+      }
       if (!cancelled) setLoading(false);
     })();
 

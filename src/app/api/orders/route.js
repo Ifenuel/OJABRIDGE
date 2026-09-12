@@ -23,7 +23,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20'), 1), 500);
     const offset = (page - 1) * limit;
 
     let filter = {};
@@ -43,17 +43,23 @@ export async function GET(request) {
           const placeholders = orderIds.map((_, i) => `$${i + 1}`).join(', ');
           let query = `SELECT * FROM orders WHERE id IN (${placeholders})`;
           const params = [...orderIds];
+          let countQuery = `SELECT COUNT(*) as total FROM orders WHERE id IN (${placeholders})`;
+          const countParams = [...orderIds];
           if (status) {
             query += ` AND status = $${params.length + 1}`;
             params.push(status);
+            countQuery += ` AND status = $${countParams.length + 1}`;
+            countParams.push(status);
           }
           query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
           params.push(limit, offset);
 
           const result = await dbRaw(query, params);
-          return NextResponse.json({ success: true, orders: result.rows || [] });
+          const countResult = await dbRaw(countQuery, countParams);
+          const total = parseInt(countResult.rows?.[0]?.total || 0);
+          return NextResponse.json({ success: true, orders: result.rows || [], pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
         }
-        return NextResponse.json({ success: true, orders: [] });
+        return NextResponse.json({ success: true, orders: [], pagination: { page, limit, total: 0, pages: 0 } });
       }
     }
     // Admin sees all (no user filter)
@@ -68,7 +74,14 @@ export async function GET(request) {
     });
 
     if (error) return NextResponse.json({ success: false, error }, { status: 500 });
-    return NextResponse.json({ success: true, orders: orders || [] });
+
+    // Pagination metadata (count with the same filter)
+    const filterKeys = Object.keys(filter);
+    const whereClause = filterKeys.length > 0 ? `WHERE ${filterKeys.map((k, i) => `${k} = $${i + 1}`).join(' AND ')}` : '';
+    const countResult = await dbRaw(`SELECT COUNT(*) as total FROM orders ${whereClause}`, filterKeys.map(k => filter[k]));
+    const total = parseInt(countResult.rows?.[0]?.total || 0);
+
+    return NextResponse.json({ success: true, orders: orders || [], pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (error) {
     console.error('Orders API error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });

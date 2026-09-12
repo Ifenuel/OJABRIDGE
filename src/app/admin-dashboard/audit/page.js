@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
+import DataTable from '@/components/DataTable';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -148,24 +149,18 @@ export default function AdminAuditPage() {
         </select>
       </div>
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead><tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100"><th className="px-6 py-4 font-medium">Timestamp</th><th className="px-6 py-4 font-medium">Action</th><th className="px-6 py-4 font-medium">Entity</th><th className="px-6 py-4 font-medium">Details</th><th className="px-6 py-4 font-medium">Severity</th></tr></thead>
-            <tbody>
-              {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={5} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : filtered.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-16 text-center text-gray-400 text-sm">No audit activity found.</td></tr>
-              ) : filtered.slice(0, 100).map((a, i) => (
-                <tr key={a.id + i} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-6 py-4 text-xs text-gray-500">{new Date(a.timestamp).toLocaleString()}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-ob-navy">{a.action}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{a.entity}: {a.entityId}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{a.details}</td>
-                  <td className="px-6 py-4"><span className={`text-xs font-medium px-2 py-1 rounded-full ${severityColor(a.severity)}`}>{a.severity}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rowKey={(a, i) => a.id || i}
+          columns={[
+            { key: 'action', label: 'Action', render: a => <span className="font-medium text-ob-navy">{a.action}</span> },
+            { key: 'timestamp', label: 'Timestamp', render: a => <span className="text-xs text-gray-500">{new Date(a.timestamp).toLocaleString()}</span> },
+            { key: 'entity', label: 'Entity', render: a => <span className="text-gray-600">{a.entity}: {a.entityId}</span> },
+            { key: 'details', label: 'Details', mobileFull: true, render: a => <span className="text-gray-500 break-words">{a.details}</span> },
+            { key: 'severity', label: 'Severity', render: a => <span className={`text-xs font-medium px-2 py-1 rounded-full ${severityColor(a.severity)}`}>{a.severity}</span> },
+          ]}
+          rows={loading ? [] : filtered.slice(0, 100)}
+          emptyMessage={loading ? 'Loading audit logs…' : 'No audit activity found.'}
+        />
       </div>
     </DashboardLayout>
   );

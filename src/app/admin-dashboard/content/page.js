@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import DataTable from '@/components/DataTable';
 
 const TABS = [
   { key: 'blog', label: 'Blog', icon: '📝', table: 'blog_posts' },
@@ -344,58 +345,43 @@ export default function AdminContentPage() {
         <div className="px-6 py-4 border-b border-gray-100">
           <h3 className="font-bold text-ob-navy">{TABS.find(t => t.key === activeTab)?.label} ({items.length})</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="px-6 py-4 font-medium">Title</th>
-                <th className="px-6 py-4 font-medium">Media</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium">Date</th>
-                <th className="px-6 py-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? [...Array(3)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={5} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>) : items.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-16 text-center text-gray-400 text-sm">No {activeTab} posts yet. Click &quot;Create New&quot; to add one.</td></tr>
-              ) : items.map(item => (
-                <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      {item.featured_image ? <img src={item.featured_image} alt="" className="w-10 h-10 rounded-lg object-cover" /> : <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">📝</div>}
-                      <div>
-                        <span className="text-sm font-medium text-ob-navy block">{item.title}</span>
-                        {item.category && <span className="text-xs text-gray-400">{item.category}</span>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex gap-1 flex-wrap">
-                      {item.featured_image && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">🖼 Featured</span>}
-                      {item.images && item.images.length > 0 && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">🖼 {item.images.length} gallery</span>}
-                      {item.youtube_url && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">▶ YouTube</span>}
-                      {item.video_url && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">🎬 Video</span>}
-                      {!item.featured_image && !item.youtube_url && !item.video_url && !(item.images?.length > 0) && <span className="text-xs text-gray-400">None</span>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${item.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{item.status}</span></td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(item.created_at).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => startEdit(item)} className="text-ob-purple text-xs font-medium hover:underline">Edit</button>
-                      {item.status === 'draft' ? (
-                        <button onClick={() => handlePublish(item.id)} className="text-green-600 text-xs font-medium hover:underline">Publish</button>
-                      ) : (
-                        <button onClick={() => handleUnpublish(item.id)} className="text-amber-600 text-xs font-medium hover:underline">Unpublish</button>
-                      )}
-                      <button onClick={() => handleDelete(item.id)} className="text-red-500 text-xs font-medium hover:underline">Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'title', label: 'Title', render: item => (
+              <div className="flex items-center gap-3">
+                {item.featured_image ? <img src={item.featured_image} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" /> : <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs flex-shrink-0">📝</div>}
+                <div>
+                  <span className="text-sm font-medium text-ob-navy block">{item.title}</span>
+                  {item.category && <span className="text-xs text-gray-400">{item.category}</span>}
+                </div>
+              </div>
+            ) },
+            { key: 'media', label: 'Media', mobileFull: true, render: item => (
+              <div className="flex gap-1 flex-wrap">
+                {item.featured_image && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">🖼 Featured</span>}
+                {item.images && item.images.length > 0 && <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">🖼 {item.images.length} gallery</span>}
+                {item.youtube_url && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">▶ YouTube</span>}
+                {item.video_url && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">🎬 Video</span>}
+                {!item.featured_image && !item.youtube_url && !item.video_url && !(item.images?.length > 0) && <span className="text-xs text-gray-400">None</span>}
+              </div>
+            ) },
+            { key: 'status', label: 'Status', render: item => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${item.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{item.status}</span> },
+            { key: 'created_at', label: 'Date', render: item => new Date(item.created_at).toLocaleDateString() },
+          ]}
+          rows={loading ? [] : items}
+          emptyMessage={loading ? 'Loading…' : `No ${activeTab} posts yet. Click "Create New" to add one.`}
+          actions={item => (
+            <div className="flex items-center gap-3">
+              <button onClick={() => startEdit(item)} className="text-ob-purple text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-ob-purple/5">Edit</button>
+              {item.status === 'draft' ? (
+                <button onClick={() => handlePublish(item.id)} className="text-green-600 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-green-50">Publish</button>
+              ) : (
+                <button onClick={() => handleUnpublish(item.id)} className="text-amber-600 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-amber-50">Unpublish</button>
+              )}
+              <button onClick={() => handleDelete(item.id)} className="text-red-500 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-red-50">Delete</button>
+            </div>
+          )}
+        />
       </div>
     </DashboardLayout>
   );

@@ -14,7 +14,7 @@ export async function GET(request) {
     const productId = searchParams.get('productId');
     const vendorId = searchParams.get('vendorId');
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20'), 1), 200);
     const sort = searchParams.get('sort') || 'newest';
 
     if (!isDatabaseConnected()) {

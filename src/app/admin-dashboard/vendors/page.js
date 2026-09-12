@@ -6,6 +6,7 @@ import KycDocumentViewer from '@/components/KycDocumentViewer';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
 import ActionMenu from '@/components/ActionMenu';
+import DataTable from '@/components/DataTable';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -197,67 +198,43 @@ export default function AdminVendorsPage() {
 
       {/* Vendors Table */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-xs text-gray-400 uppercase border-b border-gray-100">
-                <th className="px-6 py-4 font-medium">Store</th>
-                <th className="px-6 py-4 font-medium">Owner</th>
-                <th className="px-6 py-4 font-medium">Business</th>
-                <th className="px-6 py-4 font-medium">KYC</th>
-                <th className="px-6 py-4 font-medium">Bank</th>
-                <th className="px-6 py-4 font-medium">Rating</th>
-                <th className="px-6 py-4 font-medium">Orders</th>
-                <th className="px-6 py-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                [...Array(5)].map((_, i) => <tr key={i} className="border-b border-gray-50"><td colSpan={8} className="px-6 py-4"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>)
-              ) : filteredVendors.length === 0 ? (
-                <tr><td colSpan={8} className="px-6 py-16 text-center text-gray-400 text-sm">
-                  {vendors.length === 0 ? 'No vendors registered yet.' : 'No vendors match your filter.'}
-                </td></tr>
-              ) : (
-                filteredVendors.map(v => (
-                  <tr key={v.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-sm text-ob-navy">{v.store_name}</div>
-                      <div className="text-xs text-gray-400">/{v.store_slug}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div className="text-gray-700">{v.owner_name || '—'}</div>
-                      <div className="text-xs text-gray-400">{v.owner_email || '—'}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div className="text-gray-500">{v.business_name || '—'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${kycBadge(v.kyc_status)}`}>{(v.kyc_status || 'NOT_STARTED').replace(/_/g, ' ')}</span>
-                    </td>
-                    <td className="px-6 py-4"><span className={`text-xs font-medium px-2.5 py-1 rounded-full ${v.bank_verification_status === 'VERIFIED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{(v.bank_verification_status || 'NOT_STARTED').replace(/_/g, ' ')}</span></td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{v.average_rating ? `⭐ ${Number(v.average_rating).toFixed(1)}` : '—'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{v.total_orders || 0}</td>
-                    <td className="px-6 py-4">
-                      <ActionMenu
-                        label="Actions ▾"
-                        actions={[
-                          { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(v) },
-                          { label: 'Approve', icon: '✅', className: 'text-green-700', hidden: v.kyc_status === 'VERIFIED' || v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'VERIFIED' }) },
-                          { label: 'Reject KYC', icon: '❌', className: 'text-red-600', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status), onClick: () => handleReject(v.id) },
-                          { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: v.kyc_status === 'VERIFIED' || v.kyc_status === 'BANNED' || v.kyc_status === 'NOT_STARTED', onClick: () => handleRequestAdditionalInfo(v.id) },
-                          { label: 'Suspend', icon: '⚠️', className: 'text-amber-600', hidden: v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false }) },
-                          { label: 'Ban', icon: '🚫', className: 'text-red-700', hidden: v.kyc_status === 'BANNED', confirm: 'Are you sure you want to BAN this vendor? This action is severe.', onClick: () => updateVendor(v.id, { kyc_status: 'BANNED', is_active: false }) },
-                          { label: 'Reinstate', icon: '♻️', className: 'text-blue-600', hidden: v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true }) },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            { key: 'store_name', label: 'Store', render: v => (
+              <div>
+                <div className="font-medium text-sm text-ob-navy">{v.store_name}</div>
+                <div className="text-xs text-gray-400">/{v.store_slug}</div>
+              </div>
+            ) },
+            { key: 'owner_name', label: 'Owner', render: v => (
+              <div>
+                <div className="text-gray-700">{v.owner_name || '—'}</div>
+                <div className="text-xs text-gray-400">{v.owner_email || '—'}</div>
+              </div>
+            ) },
+            { key: 'business_name', label: 'Business', render: v => <span className="text-gray-500">{v.business_name || '—'}</span> },
+            { key: 'kyc_status', label: 'KYC', render: v => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${kycBadge(v.kyc_status)}`}>{(v.kyc_status || 'NOT_STARTED').replace(/_/g, ' ')}</span> },
+            { key: 'bank_verification_status', label: 'Bank', render: v => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${v.bank_verification_status === 'VERIFIED' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{(v.bank_verification_status || 'NOT_STARTED').replace(/_/g, ' ')}</span> },
+            { key: 'average_rating', label: 'Rating', render: v => v.average_rating ? `⭐ ${Number(v.average_rating).toFixed(1)}` : '—' },
+            { key: 'total_orders', label: 'Orders', render: v => v.total_orders || 0 },
+          ]}
+          rows={loading ? [] : filteredVendors}
+          emptyMessage={loading ? 'Loading vendors…' : (vendors.length === 0 ? 'No vendors registered yet.' : 'No vendors match your filter.')}
+          actions={v => (
+            <ActionMenu
+              label="Actions ▾"
+              actions={[
+                { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(v) },
+                { label: 'Approve', icon: '✅', className: 'text-green-700', hidden: v.kyc_status === 'VERIFIED' || v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'VERIFIED' }) },
+                { label: 'Reject KYC', icon: '❌', className: 'text-red-600', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status), onClick: () => handleReject(v.id) },
+                { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: v.kyc_status === 'VERIFIED' || v.kyc_status === 'BANNED' || v.kyc_status === 'NOT_STARTED', onClick: () => handleRequestAdditionalInfo(v.id) },
+                { label: 'Suspend', icon: '⚠️', className: 'text-amber-600', hidden: v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false }) },
+                { label: 'Ban', icon: '🚫', className: 'text-red-700', hidden: v.kyc_status === 'BANNED', confirm: 'Are you sure you want to BAN this vendor? This action is severe.', onClick: () => updateVendor(v.id, { kyc_status: 'BANNED', is_active: false }) },
+                { label: 'Reinstate', icon: '♻️', className: 'text-blue-600', hidden: v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true }) },
+              ]}
+            />
+          )}
+        />
       </div>
 
       {/* KYC Review Modal */}

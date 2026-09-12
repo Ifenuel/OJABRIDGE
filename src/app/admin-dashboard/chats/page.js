@@ -124,9 +124,9 @@ function AdminLiveChatsPage() {
         ))}
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4" style={{ height: 'calc(100vh - 260px)', minHeight: '400px' }}>
-        {/* Conversations List */}
-        <div className="w-full lg:w-96 bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden">
+      <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100dvh-220px)] lg:min-h-[400px]">
+        {/* Conversations List — natural height on mobile (stacked above chat panel), fixed rail on desktop */}
+        <div className="w-full lg:w-96 lg:flex-none bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden max-h-[60dvh] lg:max-h-none">
           {/* Filter tabs */}
           <div className="flex border-b border-gray-100 px-2 pt-2">
             {['all', 'open', 'active', 'closed'].map(f => (
@@ -180,7 +180,7 @@ function AdminLiveChatsPage() {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-[50dvh] lg:min-h-0 bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden">
           {!selectedConv ? (
             <div className="flex-1 flex items-center justify-center text-gray-400">
               <div className="text-center">
