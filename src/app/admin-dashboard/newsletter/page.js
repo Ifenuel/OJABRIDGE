@@ -156,6 +156,44 @@ export default function AdminNewsletterPage() {
     setSending(false);
   };
 
+  const [deleting, setDeleting] = useState(null); // campaign id being deleted, or 'all'
+
+  const deleteCampaign = async (campaignId) => {
+    if (!window.confirm('Delete this campaign from history? This cannot be undone.')) return;
+    setDeleting(campaignId);
+    try {
+      const res = await fetch(`/api/newsletter?campaignId=${campaignId}`, { method: 'DELETE', credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setCampaigns(prev => prev.filter(c => c.id !== campaignId));
+        setMessage({ type: 'success', text: 'Campaign deleted from history.' });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete campaign' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+    }
+    setDeleting(null);
+  };
+
+  const clearAllCampaigns = async () => {
+    if (!window.confirm(`Clear ALL ${campaigns.length} campaign records? This cannot be undone.`)) return;
+    setDeleting('all');
+    try {
+      const res = await fetch('/api/newsletter?all=true', { method: 'DELETE', credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setCampaigns([]);
+        setMessage({ type: 'success', text: 'Campaign history cleared.' });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to clear history' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+    }
+    setDeleting(null);
+  };
+
   return (
     <DashboardLayout role="admin" requiredPermission="newsletter">
       <div className="mb-8">
@@ -290,18 +328,39 @@ export default function AdminNewsletterPage() {
 
           {/* Campaign History */}
           <div className="bg-white p-6 rounded-xl border border-gray-100">
-            <h2 className="font-bold text-ob-navy mb-4">Campaign History</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-ob-navy">Campaign History</h2>
+              {campaigns.length > 0 && (
+                <button
+                  onClick={clearAllCampaigns}
+                  disabled={deleting === 'all'}
+                  className="text-xs text-red-500 font-medium hover:text-red-700 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deleting === 'all' ? 'Clearing...' : 'Clear All'}
+                </button>
+              )}
+            </div>
             {campaigns.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-8">No campaigns sent yet.</p>
             ) : (
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
                 {campaigns.map(c => (
-                  <div key={c.id} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm font-medium text-ob-navy truncate">{c.subject}</p>
-                      <span className="text-[10px] text-gray-400">
+                  <div key={c.id} className={`p-3 rounded-lg transition-opacity ${deleting === c.id ? 'opacity-50 bg-gray-100' : 'bg-gray-50'}`}>
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <p className="text-sm font-medium text-ob-navy truncate flex-1">{c.subject}</p>
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">
                         {c.sent_at ? new Date(c.sent_at).toLocaleString() : '—'}
                       </span>
+                      <button
+                        onClick={() => deleteCampaign(c.id)}
+                        disabled={deleting !== null}
+                        title="Delete this campaign from history"
+                        className="p-1 text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-gray-400">
                       <span>Sent to {c.recipient_count || 0} subscribers</span>

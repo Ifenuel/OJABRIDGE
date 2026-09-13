@@ -192,8 +192,8 @@ export async function DELETE(request) {
 
     if (clearAll) {
       const result = await dbRaw(`DELETE FROM newsletter_campaigns`);
-      const deleted = result?.rowCount ?? result?.data?.rowCount ?? 0;
-      return NextResponse.json({ success: true, message: 'Campaign history cleared', deleted });
+      if (result?.error) throw new Error(result.error);
+      return NextResponse.json({ success: true, message: 'Campaign history cleared', deleted: result?.rowCount ?? 0 });
     }
 
     if (!campaignId) {
@@ -201,12 +201,12 @@ export async function DELETE(request) {
     }
 
     const result = await dbRaw(`DELETE FROM newsletter_campaigns WHERE id = $1`, [campaignId]);
-    const deleted = result?.rowCount ?? result?.data?.rowCount ?? 0;
-    if (!deleted) {
+    if (result?.error) throw new Error(result.error);
+    if (!result?.rowCount) {
       return NextResponse.json({ success: false, error: 'Campaign not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, message: 'Campaign deleted', deleted });
+    return NextResponse.json({ success: true, message: 'Campaign deleted', deleted: result.rowCount });
   } catch (error) {
     console.error('Newsletter DELETE error:', error);
     return NextResponse.json({ success: false, error: 'Failed to delete campaign history' }, { status: 500 });
