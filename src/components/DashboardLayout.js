@@ -17,6 +17,7 @@ import { useAuth } from '@/context/AuthContext';
 export default function DashboardLayout({ children, role = 'vendor', showSidebar = true, requiredPermission }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroups, setOpenGroups] = useState({});
   const [authReady, setAuthReady] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -180,15 +181,18 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
               })}
             </nav>
             <div className="p-4 border-t border-white/10">
-              <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-2 text-sm text-red-400 hover:text-red-300">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                Sign Out
-              </button>
+              <div className="flex items-center justify-between gap-2">
+                <NotificationBell />
+                <button onClick={handleLogout} className="flex-1 flex items-center justify-center gap-2 py-2 text-sm text-red-400 hover:text-red-300">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                  Sign Out
+                </button>
+              </div>
             </div>
           </aside>
           {/* Mobile navigation is handled by the shared MobileDrawer for all roles. */}
-          <MobileDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)} role="customer" />
-          {/* Main Content */}            <div className="flex-1 min-w-0">
+          {/* Main Content */}
+          <div className="flex-1 min-w-0">
             <MobileHeader onMenuOpen={() => setSidebarOpen(true)} role="customer" />
             <MobileDrawer open={sidebarOpen} onClose={() => setSidebarOpen(false)} role="customer" />
             <MobileBottomNav role="customer" />
@@ -199,53 +203,10 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
     );
   }
 
-  // If no role matched above, treat like customer.
-  if (isCustomer && !showSidebar) {
-    return (
-      <div className="min-h-screen bg-ob-light">
-        <div className="flex">
-          {/* Customer Sidebar */}
-          <aside className="hidden lg:flex flex-col w-64 bg-ob-navy text-white min-h-screen sticky top-0">
-            <div className="p-5 border-b border-white/10">
-              <Link href="/"><Logo size="small" /></Link>
-            </div>
-            <div className="px-5 py-3 border-b border-white/5">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider">Customer Account</p>
-              <p className="text-sm font-medium text-white truncate">{user.name}</p>
-            </div>
-            <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-              {customerNavItems.map((item) => {
-                const active = pathname === item.href || (item.href !== '/account' && pathname.startsWith(item.href));
-                return (
-                  <Link key={item.href} href={item.href}
-                    className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all ${active ? 'bg-ob-purple text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-                    </svg>
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="p-4 border-t border-white/10">
-              <div className="flex items-center justify-between gap-2">
-                <NotificationBell />
-                <button onClick={handleLogout} className="flex-1 flex items-center justify-center gap-2 py-2 text-sm text-red-400 hover:text-red-300">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </aside>
-
-        </div>
-      </div>
-    );
-  }
-
   const isSubAdmin = user.role === 'sub_admin';
   const isAdmin = (role === 'admin' || user.role === 'admin') && !isSubAdmin;
   const isRetailer = role === 'retailer' || user.role === 'retailer';
+  const adminUser = isAdmin || isSubAdmin;
 
   // Parse sub-admin permissions from user object
   const subAdminPermissions = isSubAdmin ? (user.permissions || []) : [];
@@ -276,8 +237,21 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
   // Sub-admin management is super admin only
   const subAdminItem = { key: 'sub-admins', label: 'Sub-Admins', href: '/admin-dashboard/sub-admins', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z' };
 
-  // Filter nav items based on role
-  const navItems = isAdmin ? [...allAdminNavItems, subAdminItem] : isSubAdmin ? allAdminNavItems.filter(item => hasPermission(item.key)) : isRetailer ? [
+  // Grouped admin sidebar — collapsible sections keep the sidebar short.
+  // Each group auto-expands when the current page is inside it.
+  const adminNavGroups = [
+    { label: 'Main', items: [allAdminNavItems[0]] },
+    { label: 'People', items: [allAdminNavItems[1], allAdminNavItems[2], allAdminNavItems[3], allAdminNavItems[4], subAdminItem] },
+    { label: 'Commerce', items: allAdminNavItems.slice(5, 9) },
+    { label: 'Engagement', items: allAdminNavItems.slice(9, 13) },
+    { label: 'System', items: allAdminNavItems.slice(13) },
+  ];
+
+  // Flat nav for non-admin roles (and fallback)
+  const navItems = isSubAdmin
+    ? allAdminNavItems.filter(item => hasPermission(item.key))
+    : isAdmin ? allAdminNavItems
+    : isRetailer ? [
     { label: 'Overview', href: '/retailer-dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2' },
     { label: 'My Orders', href: '/retailer-dashboard/orders', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
     { label: 'Sourcing', href: '/retailer-dashboard/sourcing', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
@@ -318,9 +292,12 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
       <div className="flex">
         {/* Desktop Sidebar */}
         <aside className={`hidden lg:flex flex-col ${collapsed ? 'w-20' : 'w-64'} bg-ob-navy text-white min-h-screen sticky top-0 transition-all duration-300`}>
-          <div className={`p-5 border-b border-white/10 ${collapsed ? 'flex justify-center' : ''}`}>
+          <div className={`p-5 border-b border-white/10 ${collapsed ? 'flex flex-col items-center gap-3' : ''}`}>
             {collapsed ? (
-              <Link href="/"><span className="text-ob-lime font-bold text-xl">OB</span></Link>
+              <>
+                <Link href="/"><span className="text-ob-lime font-bold text-xl">OB</span></Link>
+                <NotificationBell />
+              </>
             ) : (
               <Link href="/"><Logo size="small" /></Link>
             )}
@@ -328,25 +305,63 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
 
           {!collapsed && (
             <div className="px-5 py-3 border-b border-white/5">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider">{isSubAdmin ? 'Sub-Admin Panel' : isAdmin ? 'Admin Panel' : isRetailer ? 'Retailer Panel' : 'Vendor Panel'}</p>
-              <p className="text-sm font-medium text-white truncate">{user.name}</p>
-
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{isSubAdmin ? 'Sub-Admin Panel' : isAdmin ? 'Admin Panel' : isRetailer ? 'Retailer Panel' : 'Vendor Panel'}</p>
+                  <p className="text-sm font-medium text-white truncate">{user.name}</p>
+                </div>
+                <NotificationBell />
+              </div>
             </div>
           )}
 
           <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-            {navItems.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}
-                  className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'} px-3 py-2.5 rounded-lg text-sm transition-all ${active ? 'bg-ob-purple text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-                  </svg>
-                  {!collapsed && <span>{item.label}</span>}
-                </Link>
-              );
-            })}
+            {adminUser && !collapsed ? (
+              adminNavGroups.map((group) => {
+                const items = isSubAdmin ? group.items.filter(item => hasPermission(item.key)) : group.items;
+                if (items.length === 0) return null;
+                const isOpen = openGroups[group.label] ?? group.items.some(item => isActive(item.href));
+                return (
+                  <div key={group.label} className="mb-1">
+                    <button
+                      type="button"
+                      onClick={() => setOpenGroups((s) => ({ ...s, [group.label]: !isOpen }))}
+                      className="w-full flex items-center justify-between px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-300"
+                    >
+                      <span>{group.label}</span>
+                      <svg className={`w-3.5 h-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {isOpen && items.map((item) => {
+                      const active = isActive(item.href);
+                      return (
+                        <Link key={item.href} href={item.href}
+                          className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all ${active ? 'bg-ob-purple text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
+                          </svg>
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                );
+              })
+            ) : (
+              navItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}
+                    className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'} px-3 py-2.5 rounded-lg text-sm transition-all ${active ? 'bg-ob-purple text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}>
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
+                    </svg>
+                    {!collapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+              })
+            )}
           </nav>
 
           <button onClick={() => setCollapsed(!collapsed)} className="p-3 text-gray-500 hover:text-white border-t border-white/5 hidden lg:block">
@@ -367,7 +382,6 @@ export default function DashboardLayout({ children, role = 'vendor', showSidebar
                   <span className="text-xs text-gray-400 truncate">{user.email}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <NotificationBell />
                   <button onClick={handleLogout} className="text-gray-500 hover:text-red-400 flex-shrink-0" title="Sign Out">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                   </button>

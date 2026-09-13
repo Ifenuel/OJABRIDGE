@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate, formatCurrency } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
@@ -17,15 +18,31 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const searchParams = useSearchParams();
+  const customerId = searchParams?.get('customerId');
+  const customerName = searchParams?.get('customerName');
 
-  useEffect(() => { fetch('/api/orders?limit=100').then(r => r.json()).then(d => { setOrders(d.orders || []); setLoading(false); }).catch(() => setLoading(false)); }, []);
+  useEffect(() => {
+    const url = customerId
+      ? `/api/orders?limit=100&customerId=${encodeURIComponent(customerId)}`
+      : '/api/orders?limit=100';
+    fetch(url).then(r => r.json()).then(d => { setOrders(d.orders || []); setLoading(false); }).catch(() => setLoading(false));
+  }, [customerId]);
 
   const statusColor = { pending: 'bg-amber-100 text-amber-700', confirmed: 'bg-blue-100 text-blue-700', processing: 'bg-indigo-100 text-indigo-700', shipped: 'bg-purple-100 text-purple-700', delivered: 'bg-green-100 text-green-700', cancelled: 'bg-red-100 text-red-700' };
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
   return (
     <DashboardLayout role="admin" requiredPermission="orders">
-      <div className="mb-8"><h1 className="text-2xl font-bold text-ob-navy">Orders</h1><p className="text-gray-500 text-sm mt-1">Monitor and manage all marketplace orders.</p></div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-ob-navy">{customerName ? `${customerName}'s Orders` : 'Orders'}</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          {customerName ? `Showing all orders placed by ${customerName}.` : 'Monitor and manage all marketplace orders.'}
+        </p>
+        {customerId && (
+          <a href="/admin-dashboard/customers" className="inline-block mt-2 text-sm text-ob-purple hover:underline">← Back to Customers</a>
+        )}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[{ l: 'Total', v: orders.length, c: 'text-ob-navy' }, { l: 'Pending', v: orders.filter(o => o.status === 'pending').length, c: 'text-amber-600' }, { l: 'Active', v: orders.filter(o => ['confirmed', 'processing', 'shipped'].includes(o.status)).length, c: 'text-blue-600' }, { l: 'Completed', v: orders.filter(o => o.status === 'delivered').length, c: 'text-green-600' }].map((s, i) => <div key={i} className="bg-white p-4 rounded-xl border border-gray-100"><p className="text-xs text-gray-500">{s.l}</p><p className={`text-xl font-bold mt-1 ${s.c}`}>{s.v}</p></div>)}
       </div>

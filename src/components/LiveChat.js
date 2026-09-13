@@ -12,7 +12,6 @@ export default function LiveChat() {
   const [connected, setConnected] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(null); // px string when measured
-  const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const pollRef = useRef(null);
 
@@ -111,7 +110,13 @@ export default function LiveChat() {
     return () => clearInterval(pollRef.current);
   }, [open, conversationId]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  // Auto-scroll within the chat panel only — never scrollIntoView, which
+  // scrolls the page behind the widget and makes the screen jump while typing.
+  const scrollBoxRef = useRef(null);
+  useEffect(() => {
+    const el = scrollBoxRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 300); }, [open]);
 
   const sendMessage = async () => {
@@ -229,7 +234,7 @@ export default function LiveChat() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 bg-gray-50 min-h-0">
+            <div ref={scrollBoxRef} className="flex-1 overflow-y-auto overscroll-contain px-3 py-2 space-y-2 bg-gray-50 min-h-0">
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
@@ -255,7 +260,7 @@ export default function LiveChat() {
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
+              <div />
             </div>
 
             {/* Input Area */}

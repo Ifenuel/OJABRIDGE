@@ -22,6 +22,7 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const customerId = searchParams.get('customerId'); // admin: view one customer's orders
     const page = parseInt(searchParams.get('page') || '1');
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20'), 1), 500);
     const offset = (page - 1) * limit;
@@ -62,7 +63,9 @@ export async function GET(request) {
         return NextResponse.json({ success: true, orders: [], pagination: { page, limit, total: 0, pages: 0 } });
       }
     }
-    // Admin sees all (no user filter)
+    // Admin sees all — or a single customer's orders when ?customerId= is given
+    // (used by Admin → Customers → View Orders)
+    if (customerId && user.role === 'admin') filter.user_id = customerId;
 
     if (status) filter.status = status;
 
@@ -343,22 +346,104 @@ export async function PATCH(request) {
         const releasedRows = result?.rows || [];
 
         if (releasedRows.length > 0) {
-          // Notify each affected vendor that funds are available
+          // Notify each affected vendor + AUTO-PAY via Paystack transfer
           for (const row of releasedRows) {
+            let vendorProfile = null;
             try {
-              const vendorProfile = await dbQuery('vendors', { filter: { id: row.vendor_id }, limit: 1 });
-              const vendorUserId = vendorProfile.data?.[0]?.user_id;
+              vendorProfile = await dbQuery('vendors', { filter: { id: row.vendor_id }, limit: 1 });
+              const vendor = vendorProfile.data?.[0];
+              const vendorUserId = vendor?.user_id;
+
+              // ---- AUTO SETTLEMENT: pay the vendor's bank automatically ----
+              // Agreement: on delivery confirmation, the vendor's 90% share
+              // moves from escrow to their bank via Paystack transfer, with a
+              // full audit trail (settlements row + audit_logs entry).
+              let transferOutcome = 'skipped_no_bank_details';
+              let transferRef = null;
+              if (vendor?.bank_account_number && vendor?.bank_code) {
+                const { initiateTransfer } = await import('@/lib/paystack');
+                transferRef = `OJBAUTO-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+                try {
+                  const settlementInsert = await dbInsert('settlements', {
+                    vendor_id: row.vendor_id,
+                    order_id: orderId,
+                    amount: row.amount,
+                    currency: row.currency || 'NGN',
+                    status: 'processing',
+                    transfer_reference: transferRef,
+                    created_at: new Date().toISOString(),
+                  });
+                  const settlementId = settlementInsert.data?.[0]?.id || settlementInsert.data?.id;
+
+                  const transfer = await initiateTransfer({
+                    amount: row.amount,
+                    bankCode: vendor.bank_code,
+                    accountNumber: vendor.bank_account_number,
+                    accountName: vendor.bank_account_name || vendor.business_name || 'OjaBridge Vendor',
+                    reference: transferRef,
+                    reason: `OjaBridge settlement — order ${order.order_number}`,
+                  });
+
+                  if (transfer.success) {
+                    transferOutcome = 'transfer_initiated';
+                    await dbUpdate('settlements', { id: settlementId }, {
+                      status: 'processing',
+                      paystack_transfer_id: transfer.transferCode,
+                    });
+                    // Wallet entries are now settled (transfer in flight)
+                    await dbRaw(`UPDATE vendor_wallets SET status = 'settled', settled_at = NOW(), settlement_reference = $1 WHERE id = $2`, [transferRef, row.id]);
+                  } else {
+                    transferOutcome = `transfer_failed: ${transfer.error}`;
+                    await dbUpdate('settlements', { id: settlementId }, {
+                      status: 'failed',
+                      failure_reason: transfer.error || 'Transfer failed',
+                    });
+                    // Wallet stays 'eligible' — vendor can retry withdrawal manually
+                  }
+                } catch (payErr) {
+                  transferOutcome = `transfer_error: ${payErr.message}`;
+                  console.error('[EARNINGS] Auto-transfer error:', payErr.message);
+                  // Wallet stays 'eligible' — money is safe, retry possible
+                }
+              }
+
+              // ---- AUDIT TRAIL (always, even when transfer skipped/failed) ----
+              try {
+                await dbInsert('audit_logs', {
+                  action: 'settlement.auto_transfer',
+                  entity_type: 'order',
+                  entity_id: orderId,
+                  user_id: user.id,
+                  new_data: {
+                    order_number: order.order_number,
+                    vendor_id: row.vendor_id,
+                    amount: row.amount,
+                    reference: transferRef,
+                    outcome: transferOutcome,
+                    triggered_by: 'customer_delivery_confirmation',
+                  },
+                  created_at: new Date().toISOString(),
+                });
+              } catch {}
+
               if (vendorUserId) {
-                await dbInsert('notifications', {
-                  user_id: vendorUserId,
-                  type: 'payment_success',
-                  title: 'Earnings Released 💰',
-                  message: `₦${Number(row.amount || 0).toLocaleString()} from order ${order.order_number} is now available for withdrawal.`,
+                const msg = transferOutcome === 'transfer_initiated'
+                  ? `₦${Number(row.amount || 0).toLocaleString()} from order ${order.order_number} has been sent to your bank account.`
+                  : `₦${Number(row.amount || 0).toLocaleString()} from order ${order.order_number} is available for withdrawal.`;
+                try {
+                  await dbInsert('notifications', {
+                    user_id: vendorUserId,
+                    type: 'payment_success',
+                    title: transferOutcome === 'transfer_initiated' ? 'Payment Sent to Your Bank 🎉' : 'Earnings Released 💰',
+                    message: msg,
                   is_read: false,
                   created_at: new Date().toISOString(),
                 });
+                } catch {}
               }
-            } catch {}
+            } catch (rowErr) {
+              console.error('[EARNINGS] row processing error:', rowErr.message);
+            }
           }
           console.log(`[EARNINGS] Released ${releasedRows.length} wallet entries for order ${order.order_number} (customer confirmed delivery)`);
         }

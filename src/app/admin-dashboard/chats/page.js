@@ -58,7 +58,6 @@ function AdminLiveChatsPage() {
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [assignMenuOpen, setAssignMenuOpen] = useState(false);
-  const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
 
   useEffect(() => {
@@ -152,7 +151,14 @@ function AdminLiveChatsPage() {
     return () => clearInterval(pollRef.current);
   }, [selectedConv]);
 
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  // Auto-scroll NEW messages using the container's scrollTop only.
+  // NEVER use scrollIntoView here — it scrolls every ancestor (including the
+  // page window), which is what made the screen jump while typing.
+  const messagesContainerRef = useRef(null);
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
 
   const sendReply = async () => {
     if (!reply.trim() || sending || !selectedConv) return;
@@ -301,14 +307,18 @@ function AdminLiveChatsPage() {
     };
   }, []);
 
-  // Keep the reply input visible when the keyboard opens on mobile
+  // Keep the reply input visible when the keyboard opens on mobile.
+  // The panel height already tracks visualViewport; we only nudge the chat
+  // panel (not the page) so the input stays in view without page jumping.
   useEffect(() => {
     if (typeof window === 'undefined' || window.innerWidth >= 1024) return;
     const input = replyInputRef.current;
     if (!input) return;
     const onFocus = () => {
-      setTimeout(() => input.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 250);
-      setTimeout(() => input.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 500);
+      const panel = input.closest('.flex.flex-col.overflow-hidden');
+      if (panel) setTimeout(() => { panel.scrollTop = panel.scrollHeight; }, 250);
+      const box = messagesContainerRef.current;
+      if (box) setTimeout(() => { box.scrollTop = box.scrollHeight; }, 300);
     };
     input.addEventListener('focus', onFocus);
     return () => input.removeEventListener('focus', onFocus);
@@ -355,7 +365,7 @@ function AdminLiveChatsPage() {
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overscroll-contain">
             {loading ? (
               <div className="p-4 text-center text-gray-400 text-sm">Loading conversations...</div>
             ) : conversations.length === 0 ? (
@@ -532,7 +542,7 @@ function AdminLiveChatsPage() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-50 min-h-0">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto overscroll-contain px-4 py-3 space-y-3 bg-gray-50 min-h-0">
                 {(() => {
                   try {
                     return messages.map(msg => (
@@ -554,7 +564,7 @@ function AdminLiveChatsPage() {
                     return <div className="text-sm text-red-600">Messages unavailable</div>;
                   }
                 })()}
-                <div ref={messagesEndRef} />
+                <div />
               </div>
 
               {/* Reply Input */}

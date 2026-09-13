@@ -208,8 +208,8 @@ export default function VendorAnalyticsPage() {
                       <p className="text-xs text-gray-400">₦{Number(p.price || 0).toLocaleString()}</p>
                     </div>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${(p.stock || 0) > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {(p.stock || 0) > 0 ? `${p.stock} in stock` : 'Out of stock'}
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${Number(p.stock_quantity || 0) > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {Number(p.stock_quantity || 0) > 0 ? `${p.stock_quantity} in stock` : 'Out of stock'}
                   </span>
                 </div>
               ))}

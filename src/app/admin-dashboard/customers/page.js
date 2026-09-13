@@ -182,7 +182,7 @@ export default function AdminCustomersPage() {
           emptyMessage={loading ? 'Loading customers…' : 'No customers found yet.'}
           actions={u => (
             <ActionMenu actions={[
-              { label: 'View Orders', icon: '📦', onClick: () => window.location.assign('/admin-dashboard/orders') },
+              { label: 'View Orders', icon: '📦', onClick: () => window.location.assign(`/admin-dashboard/orders?customerId=${u.id}&customerName=${encodeURIComponent(u.name || u.email)}`) },
               { label: 'Suspend', icon: '⚠️', hidden: u.status !== 'active', className: 'text-amber-600', confirm: `Suspend ${u.name}? They will not be able to log in.`, onClick: () => updateUserStatus(u.id, 'suspended') },
               { label: 'Ban', icon: '🚫', hidden: u.status !== 'active', className: 'text-red-600', confirm: `Ban ${u.name}? They will lose access permanently.`, onClick: () => updateUserStatus(u.id, 'banned') },
               { label: 'Reactivate', icon: '♻️', hidden: !['suspended', 'banned'].includes(u.status), className: 'text-green-600', onClick: () => updateUserStatus(u.id, 'active') },

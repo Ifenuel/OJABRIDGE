@@ -154,13 +154,13 @@ export async function processSplitPayment({ orderId, totalAmount, vendorId, curr
  * Initiate a transfer to vendor bank account
  * @param {Object} params - { amount, bankCode, accountNumber, reference, reason }
  */
-export async function initiateTransfer({ amount, bankCode, accountNumber, reference, reason }) {
+export async function initiateTransfer({ amount, bankCode, accountNumber, accountName, reference, reason }) {
   const data = await paystackRequest('/transfer', {
     method: 'POST',
     body: {
       source: 'balance',
       amount: Math.round(amount * 100), // Convert to kobo
-      recipient: await createTransferRecipient({ bankCode, accountNumber, name: reason }),
+      recipient: await createTransferRecipient({ bankCode, accountNumber, name: accountName || reason || 'OjaBridge Vendor' }),
       reason: reason || 'OjaBridge vendor settlement',
       reference,
     },
