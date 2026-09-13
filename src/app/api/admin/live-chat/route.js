@@ -82,10 +82,11 @@ export async function GET(request) {
       // Live Support sub admin sees:
       //   1) conversations assigned to them, and
       //   2) unassigned/open conversations they can pick up.
-      // UI tabs are a presentation concern only. Do not let the 'my'/'unassigned'
-      // frontend tabs exclude conversations that this role is allowed to see.
-      whereClauses.push(`(c.assigned_to = $${params.length + 1} OR (c.assigned_to IS NULL AND c.status = 'open'))`);
+      // The assigned_to column may contain either a sub_admins.id or a users.id,
+      // so we resolve the authenticated user's user_id against both.
+      whereClauses.push(`(c.assigned_to = $${params.length + 1} OR c.assigned_to = $${params.length + 2} OR (c.assigned_to IS NULL AND c.status = 'open'))`);
       params.push(user.id);
+      params.push(user.id); // same user_id used for both lookups
 
       // When the UI asks for the 'unassigned' tab, narrow server-side to unassigned/open
       // so the inbox list is focused, but never exclude conversations that belong to this
@@ -126,7 +127,9 @@ export async function GET(request) {
     }
 
     // Normalize the inbox payload so the client never throws on missing fields.
-    const normalized = (Array.isArray(conversations) ? conversations : [])
+    // Resolve assigned_to_name if the SQL subquery did not catch it (e.g. when
+    // assigned_to is stored as a users.id instead of a sub_admins.id).
+    let normalized = (Array.isArray(conversations) ? conversations : [])
       .map(c => ({
         id: c.id,
         user_id: c.user_id,
@@ -142,8 +145,21 @@ export async function GET(request) {
         unread_count: typeof c.unread_count === 'number' ? c.unread_count : null,
         created_at: c.created_at || null,
         updated_at: c.updated_at || null,
-      }))
-      .filter(c => c.id);
+      }));
+
+    // Resolve assigned_to_name for any rows where the SQL subquery missed it
+    for (const c of normalized) {
+      if (!c.assigned_to_name && c.assigned_to) {
+        try {
+          const { data: sa } = await dbQuery('sub_admins', { filter: { id: c.assigned_to }, limit: 1 });
+          if (sa?.length) { c.assigned_to_name = sa[0].name || null; continue; }
+        } catch {}
+        try {
+          const { data: u } = await dbQuery('users', { filter: { id: c.assigned_to }, limit: 1 });
+          if (u?.length) { c.assigned_to_name = u[0].name || null; }
+        } catch {}
+      }
+    }
 
     return NextResponse.json({ success: true, conversations: normalized });
   } catch (error) {
@@ -212,18 +228,39 @@ export async function PATCH(request) {
 
     const updates = { updated_at: new Date().toISOString() };
     if (status) updates.status = status;
-    if (assignedTo !== undefined) {
-      updates.assigned_to = assignedTo;
-      // Persist the assigned agent name so the inbox and audit trail stay consistent
-      // even if the sub-admin record is later changed or deactivated.
-      if (typeof assignedTo === 'string' && assignedTo) {
+    if (assignedTo !== undefined && assignedTo !== null) {
+      // Accept either a sub_admins.id or a users.id for assignment.
+      // Normalize to the users.id so the inbox filter (which uses the
+      // authenticated user's JWT user_id) matches correctly.
+      let resolvedUserId = assignedTo;
+      let assignedToName = null;
+
+      // If it looks like a sub_admins.id, resolve to the user_id.
+      try {
+        const { data: sa } = await dbQuery('sub_admins', { filter: { id: assignedTo }, limit: 1 });
+        if (sa?.length) {
+          resolvedUserId = sa[0].user_id || sa[0].id;
+          assignedToName = sa[0].name || null;
+        }
+      } catch {
+        // Not a sub_admins.id — treat as a user_id directly.
+      }
+
+      // If we still have a name to fetch (user_id path), try the users table.
+      if (!assignedToName && resolvedUserId) {
         try {
-          const { data: sa } = await dbQuery('sub_admins', { filter: { id: assignedTo }, limit: 1 });
-          if (sa?.length && sa[0]?.name) {
-            updates.assigned_to_name = sa[0].name;
+          const { data: u } = await dbQuery('users', { filter: { id: resolvedUserId }, limit: 1 });
+          if (u?.length) {
+            assignedToName = u[0].name || null;
           }
         } catch {}
       }
+
+      updates.assigned_to = resolvedUserId;
+      if (assignedToName) updates.assigned_to_name = assignedToName;
+    } else if (assignedTo === null) {
+      updates.assigned_to = null;
+      updates.assigned_to_name = null;
     }
 
     await dbRaw(

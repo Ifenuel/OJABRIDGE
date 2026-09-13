@@ -116,24 +116,33 @@ export async function POST(request) {
     try {
       const { sendEmail, buildNewsletterEmail } = await import('@/lib/email');
 
-      // Brevo supports bulk sending via their API, but for simplicity we send individually.
-      // For production with many subscribers, use Brevo's contact list + campaign API.
+      // Build the email HTML once and reuse for all subscribers
       const htmlContent = buildNewsletterEmail({ subject, content, preheader: null });
 
+      // Log the content for debugging (first 500 chars)
+      console.log('[NEWSLETTER] Built email HTML, length:', htmlContent.length);
+      console.log('[NEWSLETTER] Content preview:', htmlContent.substring(0, 500));
+      console.log('[NEWSLETTER] Subject:', subject);
+      console.log('[NEWSLETTER] Content from form:', content);
+      console.log('[NEWSLETTER] Active subscribers:', activeEmails.length);
+
+      // Brevo supports bulk sending via their API, but for simplicity we send individually.
+      // For production with many subscribers, use Brevo's contact list + campaign API.
       for (const email of activeEmails) {
         try {
-          await sendEmail({
+          const result = await sendEmail({
             to: email,
             subject,
             htmlContent,
           });
+          console.log(`[NEWSLETTER] Sent to ${email}:`, result);
           sentCount++;
         } catch (emailErr) {
-          console.error(`Failed to send to ${email}:`, emailErr.message);
+          console.error(`[NEWSLETTER] Failed to send to ${email}:`, emailErr.message);
         }
       }
     } catch (emailErr) {
-      console.error('Newsletter send error:', emailErr.message);
+      console.error('[NEWSLETTER] Send error:', emailErr.message);
     }
 
     // Save campaign record
@@ -157,5 +166,49 @@ export async function POST(request) {
   } catch (error) {
     console.error('Newsletter POST error:', error);
     return NextResponse.json({ success: false, error: 'Failed to send newsletter' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/newsletter — Delete campaign history (admin only)
+ * Query params:
+ *   campaignId=<uuid>  — delete a single campaign
+ *   all=true           — delete ALL campaign history
+ */
+export async function DELETE(request) {
+  try {
+    const user = await getUserFromRequest(request);
+    const auth = requireAuth(user);
+    if (!auth.authorized) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+    if (user.role !== 'admin') return NextResponse.json({ success: false, error: 'Admin only' }, { status: 403 });
+
+    if (!isDatabaseConnected()) {
+      return NextResponse.json({ success: false, error: 'Database not connected' }, { status: 503 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const campaignId = searchParams.get('campaignId');
+    const clearAll = searchParams.get('all') === 'true';
+
+    if (clearAll) {
+      const result = await dbRaw(`DELETE FROM newsletter_campaigns`);
+      const deleted = result?.rowCount ?? result?.data?.rowCount ?? 0;
+      return NextResponse.json({ success: true, message: 'Campaign history cleared', deleted });
+    }
+
+    if (!campaignId) {
+      return NextResponse.json({ success: false, error: 'campaignId or all=true is required' }, { status: 400 });
+    }
+
+    const result = await dbRaw(`DELETE FROM newsletter_campaigns WHERE id = $1`, [campaignId]);
+    const deleted = result?.rowCount ?? result?.data?.rowCount ?? 0;
+    if (!deleted) {
+      return NextResponse.json({ success: false, error: 'Campaign not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Campaign deleted', deleted });
+  } catch (error) {
+    console.error('Newsletter DELETE error:', error);
+    return NextResponse.json({ success: false, error: 'Failed to delete campaign history' }, { status: 500 });
   }
 }

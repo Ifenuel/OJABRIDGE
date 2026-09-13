@@ -37,6 +37,11 @@ async function sendEmail({ to, subject, htmlContent, textContent, replyTo }) {
       htmlContent: htmlContent || `<p>${textContent || subject}</p>`,
     };
 
+    // Always include a text/plain fallback so email clients that strip HTML
+    // still show the content instead of an empty body.
+    if (!payload.htmlContent.trim()) {
+      payload.htmlContent = `<p>${textContent || subject}</p>`;
+    }
     if (textContent) payload.textContent = textContent;
     if (replyTo) payload.replyTo = { email: replyTo };
 

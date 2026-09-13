@@ -19,9 +19,21 @@ export async function checkPermission(request, requiredPermission) {
   if (!user) return { allowed: false, error: 'Authentication required' };
   if (user.role === 'admin') return { allowed: true, user };
   if (user.role === 'sub_admin') {
-    // Load permissions from sub_admins table — the client can never grant itself access
-    const { data } = await dbQuery('sub_admins', { filter: { user_id: user.id }, limit: 1 });
-    const perms = data?.[0]?.permissions || [];
+    // Live chat is an admin-support feature. Sub-admins can only use it when
+    // a super admin has explicitly assigned them to live support.
+    if (requiredPermission === 'live-chats') {
+      const { data } = await dbQuery('sub_admins', { filter: { user_id: user.id }, limit: 1 });
+      const perms = data?.[0]?.permissions || [];
+      const permList = typeof perms === 'string' ? JSON.parse(perms) : perms;
+      if (permList.includes('live-chats')) {
+        return { allowed: true, user: { ...user, permissions: permList } };
+      }
+      return { allowed: false, error: 'Live support access not assigned' };
+    }
+
+    // Other admin permissions are still loaded from the sub_admins table.
+    const { data: otherData } = await dbQuery('sub_admins', { filter: { user_id: user.id }, limit: 1 });
+    const perms = otherData?.[0]?.permissions || [];
     const permList = typeof perms === 'string' ? JSON.parse(perms) : perms;
     if (permList.includes(requiredPermission)) return { allowed: true, user };
     return { allowed: false, error: 'Permission denied' };

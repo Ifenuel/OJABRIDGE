@@ -194,10 +194,14 @@ function AdminLiveChatsPage() {
     }
   };
 
-  const assignToAgent = async (agentId) => {
+  const assignToAgent = async (agent) => {
     if (!selectedConv || assigning) return;
     setAssigning(true);
     try {
+      // Use userId (users.id) for assignment so the inbox filter matches.
+      // The backend also accepts sub_admins.id and will resolve it, but
+      // passing userId directly avoids the extra lookup.
+      const agentId = agent.userId || agent.id;
       await fetch('/api/admin/live-chat', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -207,7 +211,7 @@ function AdminLiveChatsPage() {
           assignedTo: agentId,
         }),
       });
-      setSelectedConv({ ...selectedConv, assigned_to: agentId });
+      setSelectedConv({ ...selectedConv, assigned_to: agentId, assigned_to_name: agent.name });
       loadConversations();
     } catch (e) {
       console.error('Failed to assign conversation:', e);
@@ -416,7 +420,7 @@ function AdminLiveChatsPage() {
                                       <button
                                         key={agent.id}
                                         type="button"
-                                        onClick={() => assignToAgent(agent.id)}
+                                        onClick={() => assignToAgent(agent)}
                                         disabled={assigning || isAssigned}
                                         className={
                                           `w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center justify-between ` +
