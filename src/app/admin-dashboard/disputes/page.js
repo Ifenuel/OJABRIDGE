@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
 import DataTable from '@/components/DataTable';
+import ActionMenu from '@/components/ActionMenu';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -51,6 +52,24 @@ export default function AdminDisputesPage() {
       }
     } catch (e) { setMessage({ type: 'error', text: 'Network error' }); }
     setResolving(null);
+    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+  };
+
+  const updateDisputeStatus = async (disputeId, status) => {
+    try {
+      const res = await fetch('/api/disputes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disputeId, status }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: `Dispute marked ${status.replace(/_/g, ' ')}` });
+        loadDisputes();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed' });
+      }
+    } catch (e) { setMessage({ type: 'error', text: 'Network error' }); }
     setTimeout(() => setMessage({ type: '', text: '' }), 4000);
   };
 
@@ -170,7 +189,20 @@ export default function AdminDisputesPage() {
                   <button onClick={() => { setResolving(null); setResolutionNote(''); }} className="text-gray-400 text-xs hover:underline">Cancel</button>
                 </div>
               ) : (
-                <button onClick={() => setResolving(d.id)} className="text-ob-purple text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-ob-purple/5">Resolve →</button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { setResolving(d.id); setResolutionNote(''); }} className="text-ob-purple text-sm font-medium px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-ob-purple/5 whitespace-nowrap">Resolve →</button>
+                  <ActionMenu
+                    label="More ▾"
+                    actions={[
+                      { label: 'Start Review', icon: '🔍', hidden: d.status === 'under_review', className: 'text-amber-600', onClick: () => updateDisputeStatus(d.id, 'under_review') },
+                      { label: 'Escalate', icon: '⬆️', hidden: d.status === 'escalated', className: 'text-red-600', confirm: `Escalate dispute on order ${d.order_id?.slice(0, 8)}?`, onClick: () => updateDisputeStatus(d.id, 'escalated') },
+                      { label: 'Require Vendor Response', icon: '💬', hidden: d.status === 'vendor_response_required', className: 'text-blue-600', onClick: () => updateDisputeStatus(d.id, 'vendor_response_required') },
+                      { label: 'Resolve in Favor of Buyer', icon: '🛒', className: 'text-green-700', confirm: 'Resolve this dispute in favor of the buyer?', onClick: () => resolveDispute(d.id, 'resolved_favor_buyer') },
+                      { label: 'Resolve in Favor of Vendor', icon: '🏪', className: 'text-green-700', confirm: 'Resolve this dispute in favor of the vendor?', onClick: () => resolveDispute(d.id, 'resolved_favor_vendor') },
+                      { label: 'Close Without Action', icon: '🚪', className: 'text-gray-600', confirm: 'Close this dispute without action?', onClick: () => updateDisputeStatus(d.id, 'closed') },
+                    ]}
+                  />
+                </div>
               )
             ) : (
               <span className="text-xs text-gray-400">Resolved</span>

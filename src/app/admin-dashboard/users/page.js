@@ -138,7 +138,7 @@ export default function AdminUsersPage() {
                   { key: 'email_verified', label: 'Email Verified', format: (v) => v ? 'Yes' : 'No' },
                   { key: 'phone', label: 'Phone' },
                   { key: 'country', label: 'Country' },
-                  { key: 'created_at', label: 'Joined', format: (v) => formatDate(v) },
+                  { key: 'created_at', label: 'Joined', format: (v) => v ? new Date(v).toLocaleString() : '—' },
                   { key: 'last_login_at', label: 'Last Login', format: (v) => v ? formatDate(v) : 'Never' },
                 ],
                 rows: exportRows.map(u => ({
@@ -166,8 +166,8 @@ export default function AdminUsersPage() {
             ) },
             { key: 'role', label: 'Role', render: u => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${roleColors[u.role]}`}>{u.role}</span> },
             { key: 'status', label: 'Status', render: u => <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[u.status] || 'bg-gray-100 text-gray-600'}`}>{u.status}</span> },
-            { key: 'created_at', label: 'Joined', render: u => u.created_at ? new Date(u.created_at).toLocaleDateString() : '—' },
-            { key: 'last_login_at', label: 'Last Login', render: u => u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : '—' },
+            { key: 'created_at', label: 'Joined', render: u => u.created_at ? new Date(u.created_at).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' },
+            { key: 'last_login_at', label: 'Last Login', render: u => u.last_login_at ? new Date(u.last_login_at).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—' },
           ]}
           rows={loading ? [] : filteredUsers}
           emptyMessage={loading ? 'Loading users…' : 'No users found.'}

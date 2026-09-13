@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -10,9 +11,12 @@ export default function CheckoutPage() {
   const { user, isAuthenticated } = useAuth();
   const { items: cartItems, clearCart, updateQuantity, removeItem } = useCart();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [currency, setCurrency] = useState('NGN');
   const [paymentMethod, setPaymentMethod] = useState('paystack');
+  const [verifying, setVerifying] = useState(false);
+  const verifyAttemptedRef = useRef(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderResult, setOrderResult] = useState(null);
   const [error, setError] = useState('');
@@ -51,6 +55,57 @@ export default function CheckoutPage() {
     setError('');
     setStep(2);
   };
+
+  // ============================================
+  // PAYSTACK CALLBACK HANDLER
+  // When Paystack redirects back to /checkout?reference=XXX,
+  // verify the payment server-side and show the confirmation.
+  // ============================================
+  useEffect(() => {
+    const reference = searchParams?.get('reference');
+    if (!reference || verifyAttemptedRef.current) return;
+    verifyAttemptedRef.current = true;
+
+    const verifyPayment = async () => {
+      setVerifying(true);
+      setError('');
+      try {
+        const res = await fetch('/api/payments/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ reference }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          // Payment verified — clear the cart and show confirmation
+          clearCart();
+          setOrderResult({
+            orderId: data.order?.id || '—',
+            totalAmount: null,
+            currency: 'NGN',
+            items: [],
+            status: 'paid',
+            date: new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }),
+          });
+          setStep(3);
+        } else if (data.duplicatePayment) {
+          setError(data.error || 'This order was already paid.');
+        } else {
+          setError(data.error || 'Payment verification failed. If you were debited, please contact support with your reference: ' + reference);
+        }
+      } catch (err) {
+        console.error('Payment verification error:', err);
+        setError('Could not verify payment. If you were debited, please contact support with your reference: ' + reference);
+      }
+      setVerifying(false);
+      // Clean the reference from the URL so a refresh does not re-verify
+      window.history.replaceState({}, '', '/checkout');
+    };
+
+    verifyPayment();
+  }, [searchParams, clearCart]);
 
   const handlePayment = async () => {
     setIsProcessing(true);
@@ -123,6 +178,19 @@ export default function CheckoutPage() {
 
     setIsProcessing(false);
   };
+
+  // Verifying payment (Paystack callback in-flight)
+  if (verifying) {
+    return (
+      <section className="min-h-screen bg-ob-light">
+        <div className="max-w-2xl mx-auto px-4 py-24 text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-ob-purple border-t-transparent rounded-full mx-auto mb-6" />
+          <h1 className="text-xl font-bold text-ob-navy mb-2">Verifying your payment…</h1>
+          <p className="text-gray-500 text-sm">Please don't close this page. This only takes a moment.</p>
+        </div>
+      </section>
+    );
+  }
 
   // Empty cart
   if (cartItems.length === 0 && !orderResult) {

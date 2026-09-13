@@ -227,7 +227,7 @@ export default function AdminVendorsPage() {
                 { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(v) },
                 { label: 'Approve', icon: '✅', className: 'text-green-700', hidden: v.kyc_status === 'VERIFIED' || v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'VERIFIED' }) },
                 { label: 'Reject KYC', icon: '❌', className: 'text-red-600', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(v.kyc_status), onClick: () => handleReject(v.id) },
-                { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: v.kyc_status === 'VERIFIED' || v.kyc_status === 'BANNED' || v.kyc_status === 'NOT_STARTED', onClick: () => handleRequestAdditionalInfo(v.id) },
+                { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: v.kyc_status === 'BANNED', onClick: () => handleRequestAdditionalInfo(v.id) },
                 { label: 'Suspend', icon: '⚠️', className: 'text-amber-600', hidden: v.kyc_status === 'SUSPENDED' || v.kyc_status === 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'SUSPENDED', is_active: false }) },
                 { label: 'Ban', icon: '🚫', className: 'text-red-700', hidden: v.kyc_status === 'BANNED', confirm: 'Are you sure you want to BAN this vendor? This action is severe.', onClick: () => updateVendor(v.id, { kyc_status: 'BANNED', is_active: false }) },
                 { label: 'Reinstate', icon: '♻️', className: 'text-blue-600', hidden: v.kyc_status !== 'SUSPENDED' && v.kyc_status !== 'BANNED', onClick: () => updateVendor(v.id, { kyc_status: 'NOT_STARTED', is_active: true }) },

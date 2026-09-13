@@ -18,6 +18,7 @@ export default function AdminAuditPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -88,6 +89,7 @@ export default function AdminAuditPage() {
 
   const filtered = activities.filter(a => {
     if (actionFilter !== 'all' && !a.action.includes(actionFilter)) return false;
+    if (severityFilter !== 'all' && a.severity !== severityFilter) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       return (a.details || '').toLowerCase().includes(q) || (a.action || '').toLowerCase().includes(q) || (a.entityId || '').toLowerCase().includes(q);
@@ -146,6 +148,12 @@ export default function AdminAuditPage() {
           <option value="payment">Payments</option>
           <option value="user">Users</option>
           <option value="security">Security</option>
+        </select>
+        <select value={severityFilter} onChange={e => setSeverityFilter(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm" aria-label="Filter by severity">
+          <option value="all">All Severities</option>
+          <option value="info">Info</option>
+          <option value="warning">Warning</option>
+          <option value="critical">Critical</option>
         </select>
       </div>
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">

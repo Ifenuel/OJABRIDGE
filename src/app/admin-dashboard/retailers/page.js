@@ -213,7 +213,7 @@ export default function AdminRetailersPage() {
               { label: 'Review KYC', icon: '📋', onClick: () => openKycReview(r) },
               { label: 'Approve', icon: '✅', hidden: r.kyc_status === 'VERIFIED' || r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-green-700', onClick: () => updateRetailer(r.id, { kyc_status: 'VERIFIED' }) },
               { label: 'Reject KYC', icon: '❌', hidden: !['SUBMITTED', 'VERIFYING', 'MANUAL_REVIEW'].includes(r.kyc_status), className: 'text-red-600', onClick: () => handleReject(r.id) },
-              { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: r.kyc_status === 'VERIFIED' || r.kyc_status === 'BANNED' || r.kyc_status === 'NOT_STARTED', onClick: () => handleRequestAdditionalInfo(r.id) },
+              { label: 'Request More Docs', icon: '📄', className: 'text-blue-600', hidden: r.kyc_status === 'BANNED', onClick: () => handleRequestAdditionalInfo(r.id) },
               { label: 'Suspend', icon: '⚠️', hidden: r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED', className: 'text-amber-600', onClick: () => updateRetailer(r.id, { kyc_status: 'SUSPENDED', is_active: false }) },
               { label: 'Ban', icon: '🚫', hidden: r.kyc_status === 'BANNED', className: 'text-red-700', confirm: 'Are you sure you want to BAN this retailer? This action is severe.', onClick: () => updateRetailer(r.id, { kyc_status: 'BANNED', is_active: false }) },
               { label: 'Reinstate', icon: '♻️', hidden: !(r.kyc_status === 'SUSPENDED' || r.kyc_status === 'BANNED'), className: 'text-blue-600', onClick: () => updateRetailer(r.id, { kyc_status: 'NOT_STARTED', is_active: true }) },

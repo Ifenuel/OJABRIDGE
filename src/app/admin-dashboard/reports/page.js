@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { exportData, filterByDateRange, formatDate } from '@/lib/csvExport';
 import ExportButton from '@/components/ExportButton';
 import DataTable from '@/components/DataTable';
+import ActionMenu from '@/components/ActionMenu';
 
 const dateRangeOptions = [
   { key: '7d', label: 'Last 7 Days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) },
@@ -150,10 +151,15 @@ export default function AdminReportsPage() {
           emptyMessage={loading ? 'Loading reports…' : 'No reports found.'}
           actions={r => (
             ['open', 'under_review', 'escalated'].includes(r.status) ? (
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => resolveReport(r.id, 'resolved_favor_buyer')} className="text-green-600 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-green-50">Favor Buyer</button>
-                <button onClick={() => resolveReport(r.id, 'closed')} className="text-gray-500 text-sm font-medium px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50">Close</button>
-              </div>
+              <ActionMenu
+                actions={[
+                  { label: 'Start Review', icon: '🔍', hidden: r.status === 'under_review', className: 'text-amber-600', onClick: () => resolveReport(r.id, 'under_review') },
+                  { label: 'Escalate', icon: '⬆️', hidden: r.status === 'escalated', className: 'text-red-600', confirm: 'Escalate this report?', onClick: () => resolveReport(r.id, 'escalated') },
+                  { label: 'Resolve in Favor of Buyer', icon: '🛒', className: 'text-green-700', confirm: 'Resolve this report in favor of the buyer?', onClick: () => resolveReport(r.id, 'resolved_favor_buyer') },
+                  { label: 'Resolve in Favor of Vendor', icon: '🏪', className: 'text-blue-700', confirm: 'Resolve this report in favor of the vendor?', onClick: () => resolveReport(r.id, 'resolved_favor_vendor') },
+                  { label: 'Close Without Action', icon: '🚪', className: 'text-gray-600', confirm: 'Close this report without action?', onClick: () => resolveReport(r.id, 'closed') },
+                ]}
+              />
             ) : (
               <span className="text-xs text-gray-400">Resolved</span>
             )
