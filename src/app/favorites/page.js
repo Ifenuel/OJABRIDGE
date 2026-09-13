@@ -12,6 +12,11 @@ export default function FavoritesPage() {
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
+  // Keep a local loading state that also covers the context's own loading
+  useEffect(() => {
+    setLoadingProducts(loading);
+  }, [loading]);
+
   useEffect(() => {
     if (favorites.length === 0) { setProducts([]); setLoadingProducts(false); return; }
     // The favorites array from the API already contains product data (name, price, images, etc.)
@@ -56,7 +61,7 @@ export default function FavoritesPage() {
       <div className="bg-ob-navy text-white py-10 px-4">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold">My Favorites</h1>
-          <p className="text-gray-300 text-sm mt-1">{favoritesCount} saved product{favoritesCount !== 1 ? 's' : ''}</p>
+          <p className="text-gray-300 text-sm mt-1">{favoriteCount} saved product{favoriteCount !== 1 ? 's' : ''}</p>
         </div>
       </div>
 

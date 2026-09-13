@@ -272,6 +272,48 @@ function AdminLiveChatsPage() {
     closed: 'bg-gray-100 text-gray-500',
   };
 
+  // ============================================
+  // MOBILE KEYBOARD FIX (iOS Safari + Android)
+  // When the on-screen keyboard opens, visualViewport shrinks.
+  // We cap the chat panel height to the VISIBLE viewport so the
+  // reply input stays on screen and the page stops jumping.
+  // ============================================
+  const [mobileChatHeight, setMobileChatHeight] = useState(null);
+  const replyInputRef = useRef(null);
+
+  useEffect(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+    if (!isMobile) { setMobileChatHeight(null); return; }
+
+    const update = () => {
+      const vv = window.visualViewport;
+      if (!vv) { setMobileChatHeight(null); return; }
+      // Chat area takes at most 70% of the visible viewport, min 260px
+      const h = Math.min(Math.max(Math.floor(vv.height * 0.7), 260), 520);
+      setMobileChatHeight(`${h}px`);
+    };
+    update();
+    window.visualViewport?.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('scroll', update);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('scroll', update);
+    };
+  }, []);
+
+  // Keep the reply input visible when the keyboard opens on mobile
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 1024) return;
+    const input = replyInputRef.current;
+    if (!input) return;
+    const onFocus = () => {
+      setTimeout(() => input.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 250);
+      setTimeout(() => input.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 500);
+    };
+    input.addEventListener('focus', onFocus);
+    return () => input.removeEventListener('focus', onFocus);
+  }, [selectedConv]);
+
   const assignedAgent = selectedConv?.assigned_to
     ? availableAgents.find(a => a.id === selectedConv.assigned_to || a.userId === selectedConv.assigned_to)
     : null;
@@ -298,9 +340,9 @@ function AdminLiveChatsPage() {
         ))}
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100dvh-220px)] lg:min-h-[400px]">
+      <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100dvh-220px)] lg:min-h-[400px]" style={mobileChatHeight ? { height: mobileChatHeight } : undefined}>
         {/* Conversations List */}
-        <div className="w-full lg:w-96 lg:flex-none bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden max-h-[60dvh] lg:max-h-none">
+        <div className="w-full lg:w-96 lg:flex-none bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden max-h-[60dvh] lg:max-h-none" style={mobileChatHeight ? { maxHeight: mobileChatHeight } : undefined}>
           {/* Filter tabs */}
               <div className="flex border-b border-gray-100 px-2 pt-2 overflow-x-auto">
             {tabs.map(t => (
@@ -364,7 +406,7 @@ function AdminLiveChatsPage() {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 min-h-[50dvh] lg:min-h-0 bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden">
           {!selectedConv ? (
             <div className="flex-1 flex items-center justify-center text-gray-400">
               <div className="text-center">
@@ -519,7 +561,7 @@ function AdminLiveChatsPage() {
               {selectedConv.status !== 'closed' && (
                 <div className="px-4 py-3 border-t border-gray-100 bg-white">
                   <div className="flex items-end gap-2">
-                    <textarea value={reply} onChange={e => setReply(e.target.value)}
+                    <textarea ref={replyInputRef} value={reply} onChange={e => setReply(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
                       placeholder="Type your reply..."
                       rows={1}

@@ -79,12 +79,12 @@ export default function CheckoutPage() {
         const data = await res.json();
 
         if (data.success) {
-          // Payment verified — clear the cart and show confirmation
+          // Payment verified — clear the cart and show confirmation with REAL order details
           clearCart();
           setOrderResult({
-            orderId: data.order?.id || '—',
-            totalAmount: null,
-            currency: 'NGN',
+            orderId: data.order?.orderNumber || data.order?.id || '—',
+            totalAmount: data.order?.total ?? null,
+            currency: data.order?.currency || 'NGN',
             items: [],
             status: 'paid',
             date: new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }),
@@ -223,7 +223,7 @@ export default function CheckoutPage() {
               <p className="text-sm text-gray-500">Order Number</p>
               <p className="font-bold text-ob-navy">{orderResult.orderId}</p>
               <p className="text-sm text-gray-500 mt-2">Total</p>
-              <p className="font-bold text-ob-navy">{cur.symbol}{orderResult.totalAmount?.toLocaleString()}</p>
+              <p className="font-bold text-ob-navy">{orderResult.totalAmount != null ? `₦${Number(orderResult.totalAmount).toLocaleString()}` : 'Payment received'}</p>
               <p className="text-sm text-gray-500 mt-2">Date</p>
               <p className="text-sm text-gray-700">{orderResult.date}</p>
             </div>

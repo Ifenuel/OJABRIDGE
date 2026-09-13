@@ -47,11 +47,13 @@ async function paystackRequest(endpoint, options = {}) {
 
 /**
  * Initialize a Paystack transaction
- * @param {Object} params - { email, amount (in Naira), currency, orderId, metadata }
+ * @param {Object} params - { email, amount (in Naira), currency, orderId, reference?, metadata }
  * @returns {Object} - { authorizationUrl, accessCode, reference }
  */
-export async function initializePayment({ email, amount, currency = 'NGN', orderId, metadata = {} }) {
-  const reference = `OJB-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+export async function initializePayment({ email, amount, currency = 'NGN', orderId, reference, metadata = {} }) {
+  // A caller-supplied reference (payment retry) is reused so verification still
+  // maps 1:1 to this order's single charge — part of the double-payment guard.
+  const finalReference = reference || `OJB-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
   const data = await paystackRequest('/transaction/initialize', {
     method: 'POST',
@@ -59,8 +61,8 @@ export async function initializePayment({ email, amount, currency = 'NGN', order
       amount: Math.round(amount * 100), // Convert to kobo/cents
       email,
       currency,
-      reference,
-      callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout?reference=${reference}`,
+      reference: finalReference,
+      callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout?reference=${finalReference}`,
       metadata: {
         orderId,
         custom_fields: [
@@ -256,7 +258,7 @@ export async function verifyIdentity({ bvn, nin, firstName, lastName, dateOfBirt
   try {
     if (provider === 'dojah') {
       // Dojah KYC API — /api/v1/kyc/bvn-full (BVN) or /api/v1/kyc/nin (NIN)
-      // API-Full docs: https://docs.dojah.io
+      // API-Full docs: https://docs.dojah.io
       const base = 'https://api.dojah.io';
       const endpoint = bvn ? '/api/v1/kyc/bvn' : '/api/v1/kyc/nin';
       const number = (bvn || nin).replace(/\s/g, '');
@@ -274,7 +276,7 @@ export async function verifyIdentity({ bvn, nin, firstName, lastName, dateOfBirt
         response: data,
       };
     }
-
+
     if (provider === 'youverify') {
       // Youverify — POST /api/v2/identity/ng/bvn (or /nin)
       const base = 'https://api.youverify.co';

@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import Logo from './Logo';
-import NotificationBell from './NotificationBell';
 import { useAuth } from '@/context/AuthContext';
 
 export default function MobileHeader({ onMenuOpen, role }) {
@@ -35,9 +34,8 @@ export default function MobileHeader({ onMenuOpen, role }) {
         <Logo size="small" />
       </Link>
 
-      {/* Right side: notifications + profile */}
+      {/* Profile only — notifications live inside the dashboard (NotificationBell), not in the mobile chrome. */}
       <div className="flex items-center gap-1">
-        <NotificationBell />
         <button
           onClick={() => { /* profile click could open dropdown if needed */ }}
           className="flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-full hover:bg-gray-100 transition-colors"

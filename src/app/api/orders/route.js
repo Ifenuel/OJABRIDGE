@@ -249,6 +249,18 @@ export async function POST(request) {
             buyerName: `${shipping.firstName || ''} ${shipping.lastName || ''}`.trim(),
           }).catch(e => console.error('[EMAIL] Vendor notification failed:', e.message));
         }
+        // In-app notification so the vendor sees the new order in their dashboard bell
+        if (vendor?.user_id) {
+          const vendorTotal = orderItems.filter(i => i.vendor_id === item.vendor_id).reduce((sum, i) => sum + parseFloat(i.total_price || 0), 0);
+          await dbInsert('notifications', {
+            user_id: vendor.user_id,
+            type: 'order_confirmed',
+            title: 'New Order Received 🛒',
+            message: `Order ${orderNumber} — ₦${Number(vendorTotal).toLocaleString()}. Please process and ship it promptly.`,
+            is_read: false,
+            created_at: new Date().toISOString(),
+          }).catch(() => {});
+        }
       } catch (e) { /* non-critical */ }
     }
 
@@ -310,6 +322,56 @@ export async function PATCH(request) {
 
     const { data: updated, error } = await dbUpdate('orders', { id: orderId }, updates);
     if (error) return NextResponse.json({ success: false, error }, { status: 500 });
+
+    // ============================================
+    // EARNINGS RELEASE — when the CUSTOMER (order owner)
+    // confirms delivery, the vendor's pending wallet entries
+    // for this order become available for withdrawal.
+    // This is the "money leaves admin escrow → vendor" moment.
+    // ============================================
+    if (status === 'delivered' && user.id === order.user_id) {
+      try {
+        // Safe migration — released_at may not exist on older databases
+        await dbRaw(`ALTER TABLE vendor_wallets ADD COLUMN IF NOT EXISTS released_at TIMESTAMPTZ`).catch(() => {});
+        // Flip this order's vendor wallet entries from pending → available
+        const result = await dbRaw(
+          `UPDATE vendor_wallets SET status = 'eligible', released_at = NOW()
+           WHERE order_id = $1 AND status = 'pending' RETURNING id, vendor_id, amount`,
+          [orderId]
+        );
+        if (result?.error) console.error('[EARNINGS] UPDATE error:', result.error);
+        const releasedRows = result?.rows || [];
+
+        if (releasedRows.length > 0) {
+          // Notify each affected vendor that funds are available
+          for (const row of releasedRows) {
+            try {
+              const vendorProfile = await dbQuery('vendors', { filter: { id: row.vendor_id }, limit: 1 });
+              const vendorUserId = vendorProfile.data?.[0]?.user_id;
+              if (vendorUserId) {
+                await dbInsert('notifications', {
+                  user_id: vendorUserId,
+                  type: 'payment_success',
+                  title: 'Earnings Released 💰',
+                  message: `₦${Number(row.amount || 0).toLocaleString()} from order ${order.order_number} is now available for withdrawal.`,
+                  is_read: false,
+                  created_at: new Date().toISOString(),
+                });
+              }
+            } catch {}
+          }
+          console.log(`[EARNINGS] Released ${releasedRows.length} wallet entries for order ${order.order_number} (customer confirmed delivery)`);
+        }
+      } catch (releaseErr) {
+        console.error('Earnings release error:', releaseErr);
+        // Non-fatal: the order status update already succeeded
+      }
+    }
+
+    // Notify vendors when their order status changes (shipped, delivered, etc.)
+    if (status && status !== 'pending' && user.id === order.user_id) {
+      // (customer-driven status — covered above for delivered; no-op otherwise)
+    }
 
     return NextResponse.json({ success: true, order: updated });
   } catch (error) {

@@ -53,15 +53,23 @@ export default function VendorPayoutsPage() {
   }, [user]);
 
   // Compute real wallet data
+  // 'pending'   = order paid, awaiting delivery confirmation (escrow)
+  // 'eligible'  = customer confirmed delivery — withdrawable NOW
+  // 'settled'   = already paid out
   const pendingBalance = wallet
     .filter(w => w.status === 'pending')
+    .reduce((sum, w) => sum + Number(w.amount || 0), 0);
+
+  const availableBalance = wallet
+    .filter(w => w.status === 'eligible')
     .reduce((sum, w) => sum + Number(w.amount || 0), 0);
 
   const settledBalance = wallet
     .filter(w => w.status === 'settled' || w.status === 'completed')
     .reduce((sum, w) => sum + Number(w.amount || 0), 0);
 
-  const totalEarnings = pendingBalance + settledBalance;
+  const withdrawable = availableBalance + pendingBalance;
+  const totalEarnings = withdrawable + settledBalance;
   const totalCommission = wallet.reduce((sum, w) => sum + Number(w.commission_amount || 0), 0);
 
   const handleWithdraw = async () => {
@@ -70,8 +78,8 @@ export default function VendorPayoutsPage() {
       setMessage({ type: 'error', text: 'Please enter a valid amount' });
       return;
     }
-    if (amount > pendingBalance) {
-      setMessage({ type: 'error', text: `Insufficient balance. Available: ₦${pendingBalance.toLocaleString()}` });
+    if (amount > withdrawable) {
+      setMessage({ type: 'error', text: `Insufficient balance. Available: ₦${withdrawable.toLocaleString()}` });
       return;
     }
     if (!vendor?.bank_account_number) {
@@ -116,7 +124,7 @@ export default function VendorPayoutsPage() {
       <div className="grid sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-gradient-to-br from-ob-purple to-ob-purple-dark p-6 rounded-2xl text-white">
           <p className="text-purple-200 text-sm">Available for Withdrawal</p>
-          <p className="text-3xl font-bold mt-1">₦{Math.round(pendingBalance).toLocaleString()}</p>
+          <p className="text-3xl font-bold mt-1">₦{Math.round(withdrawable).toLocaleString()}</p>
           <p className="text-purple-300 text-xs mt-2">From delivered/completed orders</p>
         </div>
         <div className="bg-white p-6 rounded-2xl border border-gray-100">
@@ -135,7 +143,7 @@ export default function VendorPayoutsPage() {
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <button
           onClick={() => setShowWithdraw(true)}
-          disabled={pendingBalance <= 0}
+          disabled={withdrawable <= 0}
           className="bg-ob-lime hover:bg-ob-lime-dark text-ob-navy font-bold px-8 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
@@ -154,7 +162,7 @@ export default function VendorPayoutsPage() {
           <div className="absolute inset-0 bg-black/50" onClick={() => !withdrawing && setShowWithdraw(false)} />
           <div className="bg-white rounded-2xl p-6 w-full max-w-md relative z-10">
             <h3 className="text-lg font-bold text-ob-navy mb-2">Withdraw Funds</h3>
-            <p className="text-gray-500 text-sm mb-4">Available: ₦{Math.round(pendingBalance).toLocaleString()}</p>
+            <p className="text-gray-500 text-sm mb-4">Available: ₦{Math.round(withdrawable).toLocaleString()}</p>
 
             {vendor?.bank_account_number ? (
               <div className="bg-gray-50 rounded-lg p-3 mb-4">
@@ -179,13 +187,13 @@ export default function VendorPayoutsPage() {
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg font-bold focus:border-ob-purple outline-none"
               />
               <div className="flex gap-2 mt-2">
-                {[1000, 5000, 10000].filter(amt => amt <= pendingBalance).map(amt => (
+                {[1000, 5000, 10000].filter(amt => amt <= withdrawable).map(amt => (
                   <button key={amt} onClick={() => setWithdrawAmount(String(amt))}
                     className="px-3 py-1 bg-gray-100 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-200">
                     ₦{amt.toLocaleString()}
                   </button>
                 ))}
-                <button onClick={() => setWithdrawAmount(String(Math.round(pendingBalance)))}
+                <button onClick={() => setWithdrawAmount(String(Math.round(withdrawable)))}
                   className="px-3 py-1 bg-ob-purple/10 rounded-lg text-xs font-medium text-ob-purple hover:bg-ob-purple/20">
                   Max
                 </button>

@@ -146,9 +146,10 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Check available balance from vendor_wallets
+    // SECURITY: withdrawals draw ONLY from 'eligible' earnings (customer confirmed
+    // delivery). 'pending' entries are still in escrow and must never be withdrawable.
     const walletResult = await dbQuery('vendor_wallets', {
-      filter: { vendor_id: targetVendorId, status: 'pending' },
+      filter: { vendor_id: targetVendorId, status: 'eligible' },
     });
     const pendingWallets = walletResult.data || [];
     const availableBalance = pendingWallets.reduce((sum, w) => sum + Number(w.amount || 0), 0);
@@ -202,17 +203,38 @@ export async function POST(request) {
               paystack_transfer_id: transferResult.data?.transfer_code,
             });
 
-            // Mark wallet entries as settled
+            // Mark wallet entries as settled.
+            // NOTE: the DB CHECK constraint only allows pending/eligible/settled/
+            // failed/refunded — 'partial' would violate it, so a partly-settled
+            // entry keeps its remainder by having its amount reduced instead.
             let remaining = amount;
             for (const wallet of pendingWallets) {
               if (remaining <= 0) break;
               const walletAmount = Number(wallet.amount || 0);
               const settleAmount = Math.min(walletAmount, remaining);
-              await dbUpdate('vendor_wallets', { id: wallet.id }, {
-                status: settleAmount >= walletAmount ? 'settled' : 'partial',
-                settled_at: new Date().toISOString(),
-                settlement_reference: reference,
-              });
+              if (settleAmount >= walletAmount) {
+                await dbUpdate('vendor_wallets', { id: wallet.id }, {
+                  status: 'settled',
+                  settled_at: new Date().toISOString(),
+                  settlement_reference: reference,
+                });
+              } else {
+                // Split: settle part, keep the remainder eligible
+                await dbUpdate('vendor_wallets', { id: wallet.id }, {
+                  amount: walletAmount - settleAmount,
+                });
+                await dbInsert('vendor_wallets', {
+                  vendor_id: wallet.vendor_id,
+                  order_id: wallet.order_id,
+                  amount: settleAmount,
+                  currency: wallet.currency,
+                  status: 'settled',
+                  commission_rate: wallet.commission_rate,
+                  commission_amount: wallet.commission_amount,
+                  settled_at: new Date().toISOString(),
+                  settlement_reference: reference,
+                });
+              }
               remaining -= settleAmount;
             }
 

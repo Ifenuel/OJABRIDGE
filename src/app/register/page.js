@@ -32,6 +32,7 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [gender, setGender] = useState('');
   const [agreed, setAgreed] = useState(false);
 
   // Business fields (vendor AND retailer)
@@ -226,6 +227,7 @@ export default function RegisterPage() {
         else if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) errors.password = 'Password must include a special character';
         if (!confirmPassword) errors.confirmPassword = 'Please confirm your password';
         else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match';
+        if (!gender) errors.gender = 'Please select your gender';
         if (!agreed) errors.agreed = 'You must agree to the Terms of Service and Privacy Policy';
         break;
       case 5:
@@ -248,7 +250,7 @@ export default function RegisterPage() {
       case 1: return role === 'customer' || role === 'vendor' || role === 'retailer';
       case 2: return country !== '' && currency !== '';
       case 3: return emailVerified && phone && phone.trim().length >= 7;
-      case 4: return firstName.trim().length >= 2 && lastName.trim().length >= 2 && password.length >= 8 && password === confirmPassword && agreed;
+      case 4: return firstName.trim().length >= 2 && lastName.trim().length >= 2 && gender !== '' && password.length >= 8 && password === confirmPassword && agreed;
       case 5: return businessName.trim().length >= 2 && businessType && businessAddress.trim().length >= 5;
       case 6: return true;
       default: return false;
@@ -301,6 +303,7 @@ export default function RegisterPage() {
         password,
         phone: phone.trim(),
         role,
+        gender,
         country,
         currency,
         storeName: businessName || undefined,
@@ -591,6 +594,27 @@ export default function RegisterPage() {
                   {confirmPassword && password !== confirmPassword && !fieldErrors.confirmPassword && (
                     <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
                   )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {['male', 'female'].map(g => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setGender(g)}
+                        className={`py-2.5 px-4 rounded-lg border text-sm font-medium transition-colors ${
+                          gender === g
+                            ? 'border-ob-purple bg-ob-purple/5 text-ob-purple'
+                            : 'border-gray-200 text-gray-600 hover:border-ob-purple/40'
+                        }`}
+                      >
+                        {g === 'male' ? 'Male' : 'Female'}
+                        {gender === g && <span className="ml-2">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                  {fieldErrors.gender && <p className="text-xs text-red-500 mt-1">{fieldErrors.gender}</p>}
                 </div>
                 <div className="flex items-start space-x-2">
                   <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}

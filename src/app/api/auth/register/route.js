@@ -11,7 +11,7 @@ import { cacheGet } from '@/lib/redis';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, password, role, phone, storeName, country, currency, businessType, rcNumber, businessAddress, businessCity, businessPhone, businessEmail, productCategories } = body;
+    const { name, email, password, role, phone, gender, storeName, country, currency, businessType, rcNumber, businessAddress, businessCity, businessPhone, businessEmail, productCategories } = body;
 
     // --- Input Validation ---
     const errors = [];
@@ -23,6 +23,7 @@ export async function POST(request) {
     if (!password) errors.push('Password is required');
     if (!phone || phone.trim().length < 7) errors.push('Phone number is required (e.g. +234...)');
     if (!['customer', 'vendor', 'retailer'].includes(role)) errors.push('Role must be customer, vendor, or retailer');
+    if (!['male', 'female'].includes(gender)) errors.push('Please select your gender');
 
     if (password) {
       const passwordErrors = validatePasswordStrength(password);
@@ -52,12 +53,19 @@ export async function POST(request) {
       } catch {}
 
       // Create user — status depends on whether email was verified during registration
+      // Ensure the gender column exists (safe no-op when the schema is current)
+      try {
+        const { dbRaw } = await import('@/lib/db');
+        await dbRaw(`ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(10)`);
+      } catch {}
+
       const { data: user, error: userError } = await dbInsert('users', {
         email: cleanEmail.toLowerCase(),
         password_hash: passwordHash,
         name: cleanName,
         role,
         phone: phone || null,
+        gender: gender || null,
         status: emailVerified ? 'active' : 'pending_verification',
         email_verified: emailVerified,
         country: country || 'NG',

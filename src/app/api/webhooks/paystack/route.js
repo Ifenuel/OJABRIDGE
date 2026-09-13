@@ -38,7 +38,10 @@ export async function POST(request) {
       .update(body)
       .digest('hex');
 
-    if (signature !== expectedSignature) {
+    // Timing-safe comparison prevents signature-oracle attacks
+    const sigBuf = Buffer.from(signature, 'utf8');
+    const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
       console.error('Paystack webhook: Invalid signature');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }

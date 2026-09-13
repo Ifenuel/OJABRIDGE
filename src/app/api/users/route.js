@@ -57,7 +57,7 @@ export async function GET(request) {
 
     // Fetch users (never expose password_hash)
     const { rows: users, error } = await dbRaw(
-      `SELECT id, email, name, role, phone, avatar_url, status, country, currency,
+      `SELECT id, email, name, role, phone, gender, avatar_url, status, country, currency,
               email_verified, phone_verified, mfa_enabled, last_login_at, created_at, updated_at
        FROM users
        ${whereClause}

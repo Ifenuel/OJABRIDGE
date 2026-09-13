@@ -58,6 +58,26 @@ export default function AccountOrdersPage() {
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
   };
 
+  // Confirm Delivery — marks the order delivered and releases vendor earnings from escrow
+  const confirmDelivery = async (orderId) => {
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ orderId, status: 'delivered' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Delivery confirmed. Thank you! The vendor has been paid.' });
+        loadOrders();
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to confirm delivery' });
+      }
+    } catch (e) { setMessage({ type: 'error', text: 'Network error' }); }
+    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
+  };
+
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
   const statusColor = (s) => ({
@@ -114,12 +134,28 @@ export default function AccountOrdersPage() {
                     <span className={`text-xs font-medium px-2 py-1 rounded-full ${order.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{order.payment_status}</span>
                   </div>
                 </div>
-                <div className="px-6 pb-4 flex gap-2">
+                <div className="px-6 pb-4 flex flex-wrap gap-2">
                   <button onClick={() => loadOrderItems(order.id)} className="text-ob-purple text-xs font-medium hover:underline">
                     {expandedOrder === order.id ? 'Hide Details' : 'View Details'}
                   </button>
                   {(order.status === 'pending' || order.status === 'confirmed') && (
                     <button onClick={() => cancelOrder(order.id)} className="text-red-500 text-xs font-medium hover:underline">Cancel Order</button>
+                  )}
+                  {/* Confirm Delivery — releases the vendor's earnings from escrow */}
+                  {order.status === 'shipped' && order.payment_status === 'paid' && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Confirm you received order ${order.order_number}? This releases payment to the vendor.`)) {
+                          confirmDelivery(order.id);
+                        }
+                      }}
+                      className="text-green-700 bg-green-50 border border-green-200 text-xs font-semibold px-3 py-1 rounded-lg hover:bg-green-100"
+                    >
+                      ✓ Confirm Delivery
+                    </button>
+                  )}
+                  {['delivered', 'completed'].includes(order.status) && (
+                    <span className="text-green-600 text-xs font-medium">✓ Delivered — vendor paid</span>
                   )}
                   {['delivered', 'completed', 'shipped'].includes(order.status) && (
                     <button onClick={() => setShowDispute(showDispute === order.id ? null : order.id)} className="text-amber-600 text-xs font-medium hover:underline">Open Dispute</button>

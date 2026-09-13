@@ -155,6 +155,11 @@ export async function POST(request) {
         paystack_reference: reference,
       });
 
+      // 8b. Load the order so the response can show real order details
+      // (order number, total, currency) on the confirmation screen.
+      const { data: paidOrder } = await dbQuery('orders', { filter: { id: orderId }, limit: 1 });
+      const orderDetails = paidOrder?.[0] || null;
+
       // 9. Record commission
       await dbInsert('commissions', {
         order_id: orderId,
@@ -203,6 +208,9 @@ export async function POST(request) {
         message: 'Payment verified successfully',
         order: {
           id: orderId,
+          orderNumber: orderDetails?.order_number || null,
+          total: orderDetails?.total || totalAmount,
+          currency: orderDetails?.currency || transaction.currency || 'NGN',
           status: 'confirmed',
           paymentStatus: 'paid',
         },

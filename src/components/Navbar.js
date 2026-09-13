@@ -15,12 +15,9 @@ export default function Navbar() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
-  const notifRef = useRef(null);
   const menuRef = useRef(null);
   const { user, isAuthenticated, logout, isAdmin, isVendor } = useAuth();
   const { itemCount } = useCart();
@@ -35,26 +32,11 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Load notifications
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      fetch('/api/notifications', { credentials: 'include' })
-        .then(r => r.json())
-        .then(data => { if (data.success) setNotifications(data.notifications || []); })
-        .catch(() => {});
-    } else {
-      setNotifications([]);
-    }
-  }, [isAuthenticated, user]);
-
   // Close dropdowns on outside click
   useEffect(() => {
     function handleClick(e) {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setShowSearchResults(false);
-      }
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
-        setShowNotifications(false);
       }
       if (menuRef.current && !menuRef.current.contains(e.target) && isMenuOpen) {
         setIsMenuOpen(false);
@@ -111,41 +93,7 @@ export default function Navbar() {
     }
   };
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const markNotifRead = async (notifId) => {
-    try {
-      await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ notificationIds: [notifId] }),
-      });
-      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
-    } catch {}
-  };
-
-  const markAllRead = async () => {
-    try {
-      await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ markAllRead: true }),
-      });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    } catch {}
-  };
-
-  const notifIcon = (type) => {
-    const icons = {
-      order_confirmed: '✅', order_shipped: '🚚', order_delivered: '📦',
-      order_processing: '⏳', payment_success: '💳', payment_failed: '❌',
-      vendor_approved: '🎉', kyc_update: '📋', security_alert: '🔒',
-      review: '⭐', settlement: '💰', refund: '🔄', announcement: '📢',
-    };
-    return icons[type] || '🔔';
-  };
+  // Notifications live in each dashboard via NotificationBell, not here.
 
   // Navigation menu items for the hamburger drawer
   const menuLinks = [
@@ -178,64 +126,7 @@ export default function Navbar() {
                 </svg>
               </Link>
 
-              {/* Notifications */}
-              {isAuthenticated && (
-                <div className="relative" ref={notifRef}>
-                  <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative p-2.5 text-gray-500 hover:text-ob-purple transition-colors rounded-full hover:bg-gray-50"
-                    aria-label="Notifications"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    {unreadCount > 0 && (
-                      <span className="absolute top-1 right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </button>
-
-                  {showNotifications && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-                      <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-96 overflow-hidden">
-                        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                          <h3 className="font-semibold text-ob-navy text-sm">Notifications</h3>
-                          {unreadCount > 0 && (
-                            <button onClick={markAllRead} className="text-xs text-ob-purple font-medium hover:underline">Mark all read</button>
-                          )}
-                        </div>
-                        <div className="overflow-y-auto max-h-80">
-                          {notifications.length === 0 ? (
-                            <div className="p-8 text-center">
-                              <p className="text-gray-400 text-sm">No notifications yet</p>
-                            </div>
-                          ) : (
-                            notifications.slice(0, 10).map((notif) => (
-                              <button
-                                key={notif.id}
-                                onClick={() => markNotifRead(notif.id)}
-                                className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${!notif.is_read ? 'bg-ob-purple/5' : ''}`}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <span className="text-lg mt-0.5">{notifIcon(notif.type)}</span>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-ob-navy">{notif.title}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5 truncate">{notif.message}</p>
-                                    <p className="text-[10px] text-gray-400 mt-1">{new Date(notif.created_at).toLocaleString()}</p>
-                                  </div>
-                                  {!notif.is_read && <div className="w-2 h-2 bg-ob-purple rounded-full mt-2 flex-shrink-0" />}
-                                </div>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* Notifications live in each dashboard (NotificationBell), not in the top site header. */}
 
               {/* Cart */}
               <Link href="/cart" className="relative p-2.5 text-gray-500 hover:text-ob-purple transition-colors rounded-full hover:bg-gray-50" aria-label="Cart">
