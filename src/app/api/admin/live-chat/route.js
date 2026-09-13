@@ -106,7 +106,8 @@ export async function GET(request) {
     let dbError = null;
     try {
       const raw = await dbRaw(query, params);
-      conversations = raw.data || raw || [];
+      // dbRaw returns { rows, error, rowCount } — the rows live on .rows
+      conversations = raw.rows || [];
       dbError = raw.error;
     } catch (e) {
       dbError = e;
@@ -141,8 +142,8 @@ export async function GET(request) {
         assigned_to_name: c.assigned_to_name || null,
         last_message: c.last_message || c.last_message_direct || null,
         last_sender: c.last_sender || null,
-        message_count: typeof c.message_count === 'number' ? c.message_count : null,
-        unread_count: typeof c.unread_count === 'number' ? c.unread_count : null,
+        message_count: c.message_count != null ? parseInt(c.message_count, 10) || 0 : 0,
+        unread_count: c.unread_count != null ? parseInt(c.unread_count, 10) || 0 : 0,
         created_at: c.created_at || null,
         updated_at: c.updated_at || null,
       }));

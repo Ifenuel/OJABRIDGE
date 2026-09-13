@@ -99,6 +99,7 @@ test-*.txt
 .test-tmp/
 .test-tmp*
 .ngrok/
+tmp/
 
 # ============================================
 # INTERNAL DOCUMENTATION (SENSITIVE)
