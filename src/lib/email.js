@@ -780,13 +780,13 @@ async function sendPasswordReset({ email, name, resetUrl }) {
 /**
  * KYC Status Update Email
  */
-async function sendKYCUpdate({ email, name, status }) {
+async function sendKYCUpdate({ email, name, status, customMessage, dashboardBase = 'vendor-dashboard' }) {
   const statusMessages = {
     verified: {
       title: 'Verification Approved!',
       message: 'Your identity has been verified. You can now start listing products and receiving orders on OjaBridge.',
       cta: 'Go to Dashboard',
-      ctaUrl: `${SITE_URL}/vendor-dashboard`,
+      ctaUrl: `${SITE_URL}/${dashboardBase}`,
       color: '#16a34a',
       bg: '#f0fdf4',
       border: '#bbf7d0',
@@ -795,7 +795,7 @@ async function sendKYCUpdate({ email, name, status }) {
       title: 'Verification Needs Attention',
       message: 'Your verification documents were not approved. Please review the feedback and resubmit with the required corrections.',
       cta: 'Review & Resubmit',
-      ctaUrl: `${SITE_URL}/vendor-dashboard/kyc`,
+      ctaUrl: `${SITE_URL}/${dashboardBase}/kyc`,
       color: '#dc2626',
       bg: '#fef2f2',
       border: '#fecaca',
@@ -804,16 +804,18 @@ async function sendKYCUpdate({ email, name, status }) {
       title: 'Verification Under Review',
       message: 'Your documents have been received and are being reviewed by our team. We\'ll notify you once the review is complete (usually within 24-48 hours).',
       cta: 'View Status',
-      ctaUrl: `${SITE_URL}/vendor-dashboard/kyc`,
+      ctaUrl: `${SITE_URL}/${dashboardBase}/kyc`,
       color: '#2563eb',
       bg: '#eff6ff',
       border: '#bfdbfe',
     },
     additional_info: {
       title: 'Additional Documents Required',
-      message: 'Our team needs more information to complete your verification. Please review the requirements and resubmit the requested documents.',
+      message: customMessage
+        ? `Our team needs more information from you: "${customMessage}". Please review the requirements and resubmit the requested documents.`
+        : 'Our team needs more information to complete your verification. Please review the requirements and resubmit the requested documents.',
       cta: 'Provide Documents',
-      ctaUrl: `${SITE_URL}/vendor-dashboard/kyc`,
+      ctaUrl: `${SITE_URL}/${dashboardBase}/kyc`,
       color: '#d97706',
       bg: '#fffbeb',
       border: '#fde68a',
@@ -822,10 +824,24 @@ async function sendKYCUpdate({ email, name, status }) {
 
   const info = statusMessages[status] || statusMessages.submitted;
 
+  // Admin's custom note (e.g. rejection reason or doc request) is shown as a
+  // highlighted box so the recipient sees the EXACT message the admin wrote.
+  const customNoteHtml = customMessage ? `
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0 0 24px;">
+        <tr>
+          <td style="background: #f8fafc; border-left: 4px solid #7c3aed; border-radius: 8px; padding: 16px 20px;">
+            <p style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px;">Message from our team</p>
+            <p style="margin: 0; font-size: 15px; color: #334155; line-height: 1.6;">${String(customMessage).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          </td>
+        </tr>
+      </table>
+    ` : '';
+
   const html = wrapEmail({
     title: info.title,
     preheader: info.message,
     content: `
+      ${customNoteHtml}
       <!-- Status Badge -->
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
         <tr>

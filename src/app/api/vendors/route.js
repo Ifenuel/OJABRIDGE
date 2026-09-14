@@ -179,9 +179,11 @@ export async function PATCH(request) {
 
     // Get vendor user info for notifications
     let vendorUser = null;
+    let vendorRole = 'vendor';
     try {
       const { data: vendorData } = await dbQuery('vendors', { filter: { id: vendorId } });
       if (vendorData?.[0]?.user_id) {
+        vendorRole = vendorData[0].role || 'vendor';
         const { data: userData } = await dbQuery('users', { filter: { id: vendorData[0].user_id } });
         vendorUser = userData?.[0];
       }
@@ -221,6 +223,8 @@ export async function PATCH(request) {
           email: vendorUser.email,
           name: vendorUser.name,
           status: emailStatus,
+          customMessage: kyc_status === 'REQUIRES_ADDITIONAL_INFO' ? additional_info_request : (kyc_status === 'VERIFICATION_FAILED' ? kyc_rejection_reason : undefined),
+          dashboardBase: vendorRole === 'retailer' ? 'retailer-dashboard' : 'vendor-dashboard',
         });
       } catch (e) { console.error('KYC email failed:', e.message); }
     }
