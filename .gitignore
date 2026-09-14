@@ -100,6 +100,7 @@ test-*.txt
 .test-tmp*
 .ngrok/
 tmp/
+.freebuff/
 
 # ============================================
 # INTERNAL DOCUMENTATION (SENSITIVE)
