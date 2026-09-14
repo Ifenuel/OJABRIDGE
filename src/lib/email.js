@@ -78,7 +78,8 @@ async function sendEmail({ to, subject, htmlContent, textContent, replyTo }) {
  * Shared email wrapper — clean white design with OjaBridge branding
  * Every email gets: header with logo, content area, professional footer
  */
-function wrapEmail({ title, content, preheader }) {
+function wrapEmail({ title, content, preheader, footerExtraHtml }) {
+  const year = new Date().getFullYear();
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -94,56 +95,74 @@ function wrapEmail({ title, content, preheader }) {
         body, table, td, p, a, li { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
         body { margin: 0; padding: 0; width: 100% !important; }
         img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
-        
+        a { text-decoration: none; }
+
         /* Base */
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f5f7; color: #1a1a2e; }
-        
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #eef0f4; color: #1a1a2e; }
+
         /* Responsive */
         @media only screen and (max-width: 600px) {
           .email-container { width: 100% !important; }
           .fluid { max-width: 100% !important; height: auto !important; }
           .stack-column { display: block !important; width: 100% !important; }
-          .mobile-pad { padding-left: 20px !important; padding-right: 20px !important; }
+          .mobile-pad { padding-left: 22px !important; padding-right: 22px !important; }
           .mobile-center { text-align: center !important; }
-          .otp-code { font-size: 36px !important; letter-spacing: 8px !important; }
+          .otp-code { font-size: 34px !important; letter-spacing: 7px !important; }
+          .brand-tagline { display: none !important; }
+          .header-pad { padding: 22px 22px 16px !important; }
+          .content-pad { padding: 28px 22px !important; }
+          .footer-pad { padding: 26px 22px !important; }
         }
       </style>
     </head>
-    <body style="margin:0; padding:0; background-color:#f4f5f7;">
-      
+    <body style="margin:0; padding:0; background-color:#eef0f4;">
+
       <!-- Preheader (hidden preview text) -->
       ${preheader ? `<div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">${preheader}&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>` : ''}
-      
+
       <!-- Email Wrapper -->
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f4f5f7;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#eef0f4;">
         <tr>
-          <td style="padding: 40px 16px;" align="center">
-            
+          <td style="padding: 36px 16px;" align="center">
+
             <!-- Main Container -->
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="email-container" style="max-width:600px; width:100%;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="email-container" style="max-width:600px; width:100%; border-radius:16px; overflow:hidden;">
               
-              <!-- HEADER — Official OjaBridge brand header, high contrast on a white background band. -->
+              <!-- BRAND BAR — purple→lime split accent. Solid table cells: renders everywhere, no CSS gradients. -->
               <tr>
-                <td style="padding: 28px 40px 22px; background-color: #ffffff; border-radius: 14px 14px 0 0; border-bottom: 1px solid #e9ecef;">
+                <td style="padding: 0; font-size: 0; line-height: 0;">
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                     <tr>
-                      <td style="vertical-align: middle; padding-right: 16px;">
-                        <!-- OjaBridge logo mark: lime-green shield/wordmark block, drawn inline so it renders
-                             even when images are blocked, and stays visible in light mode and Gmail dark mode. -->
+                      <td style="width: 55%; height: 5px; background-color: #6b21a8; font-size: 0; line-height: 0;">&nbsp;</td>
+                      <td style="width: 45%; height: 5px; background-color: #a3e635; font-size: 0; line-height: 0;">&nbsp;</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- HEADER — deep navy brand band; logo mark is pure table/CSS so it renders even with images blocked. -->
+              <tr>
+                <td class="header-pad" style="padding: 26px 40px 22px; background-color: #0f172a;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td style="vertical-align: middle;">
                         <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                           <tr>
-                            <td style="padding-right: 8px; vertical-align: middle;">
-                              <span style="display: inline-block; width: 34px; height: 34px; background-color: #7ed321; border-radius: 8px; vertical-align: middle;"></span>
+                            <td style="vertical-align: middle; padding-right: 11px;">
+                              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse: separate;">
+                                <tr>
+                                  <td style="width: 40px; height: 40px; background-color: #a3e635; border-radius: 10px; text-align: center; vertical-align: middle; font-size: 22px; font-weight: 800; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">O</td>
+                                </tr>
+                              </table>
                             </td>
-                            <td style="vertical-align: middle; padding-left: 8px;">
-                              <span style="font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.4px; line-height: 1;">
-                                <span style="color: #6b21a8;">Oja</span>Bridge
-                              </span>
+                            <td style="vertical-align: middle; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.4px; line-height: 1.1;">
+                              <span style="color: #d8b4fe;">Oja</span><span style="color: #ffffff;">Bridge</span>
                             </td>
                           </tr>
                         </table>
                       </td>
-                      <td align="right" style="vertical-align: middle; font-size: 10px; color: #94a3b8; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;">                      Shop &bull; Connect &bull; Grow
+                      <td class="brand-tagline" align="right" style="vertical-align: middle; font-size: 10px; color: #94a3b8; letter-spacing: 2.2px; text-transform: uppercase; font-weight: 700; white-space: nowrap;">
+                        Shop&nbsp;&bull;&nbsp;Connect&nbsp;&bull;&nbsp;Grow
                       </td>
                     </tr>
                   </table>
@@ -152,33 +171,25 @@ function wrapEmail({ title, content, preheader }) {
 
               <!-- CONTENT -->
               <tr>
-                <td style="padding: 40px; background-color: #ffffff;" class="mobile-pad">
+                <td class="content-pad" style="padding: 36px 40px; background-color: #ffffff;">
                   ${content}
                 </td>
               </tr>
 
-              <!-- FOOTER — Professional & Clean -->
+              <!-- FOOTER — navy brand footer with lime accent -->
               <tr>
-                <td style="padding: 32px 40px; background-color: #fafbfc; border-top: 1px solid #f0f0f0; border-radius: 0 0 16px 16px;" class="mobile-pad">
-                  
+                <td class="footer-pad" style="padding: 30px 40px 28px; background-color: #0f172a;">
+
                   <!-- Social Links -->
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                     <tr>
-                      <td align="center" style="padding-bottom: 20px;">
+                      <td align="center" style="padding-bottom: 18px;">
                         <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                           <tr>
-                            <td style="padding: 0 8px;">
-                              <a href="https://facebook.com/ojabridge" style="display:inline-block; width:36px; height:36px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:36px; color:#64748b; text-decoration:none; font-size:14px; font-weight:600;">f</a>
-                            </td>
-                            <td style="padding: 0 8px;">
-                              <a href="https://x.com/ojabridge" style="display:inline-block; width:36px; height:36px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:36px; color:#64748b; text-decoration:none; font-size:14px; font-weight:600;">X</a>
-                            </td>
-                            <td style="padding: 0 8px;">
-                              <a href="https://linkedin.com/company/ojabridge" style="display:inline-block; width:36px; height:36px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:36px; color:#64748b; text-decoration:none; font-size:14px; font-weight:600;">in</a>
-                            </td>
-                            <td style="padding: 0 8px;">
-                              <a href="https://instagram.com/ojabridge" style="display:inline-block; width:36px; height:36px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:36px; color:#64748b; text-decoration:none; font-size:14px; font-weight:600;">ig</a>
-                            </td>
+                            <td style="padding: 0 6px;"><a href="https://facebook.com/ojabridge" style="display:inline-block; width:34px; height:34px; background-color:#1e293b; border-radius:50%; text-align:center; line-height:34px; color:#d8b4fe; text-decoration:none; font-size:13px; font-weight:700;">f</a></td>
+                            <td style="padding: 0 6px;"><a href="https://x.com/ojabridge" style="display:inline-block; width:34px; height:34px; background-color:#1e293b; border-radius:50%; text-align:center; line-height:34px; color:#d8b4fe; text-decoration:none; font-size:12px; font-weight:700;">X</a></td>
+                            <td style="padding: 0 6px;"><a href="https://linkedin.com/company/ojabridge" style="display:inline-block; width:34px; height:34px; background-color:#1e293b; border-radius:50%; text-align:center; line-height:34px; color:#d8b4fe; text-decoration:none; font-size:12px; font-weight:700;">in</a></td>
+                            <td style="padding: 0 6px;"><a href="https://instagram.com/ojabridge" style="display:inline-block; width:34px; height:34px; background-color:#1e293b; border-radius:50%; text-align:center; line-height:34px; color:#d8b4fe; text-decoration:none; font-size:12px; font-weight:700;">ig</a></td>
                           </tr>
                         </table>
                       </td>
@@ -188,12 +199,12 @@ function wrapEmail({ title, content, preheader }) {
                   <!-- Links -->
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                     <tr>
-                      <td align="center" style="padding-bottom: 16px; font-size: 13px;">
-                        <a href="${SITE_URL}/support" style="color: #6b21a8; text-decoration: none; margin: 0 12px;">Help Center</a>
-                        <span style="color: #d1d5db;">|</span>
-                        <a href="${SITE_URL}/privacy" style="color: #6b21a8; text-decoration: none; margin: 0 12px;">Privacy</a>
-                        <span style="color: #d1d5db;">|</span>
-                        <a href="${SITE_URL}/terms" style="color: #6b21a8; text-decoration: none; margin: 0 12px;">Terms</a>
+                      <td align="center" style="padding-bottom: 14px; font-size: 13px;">
+                        <a href="${SITE_URL}/support" style="color: #d8b4fe; text-decoration: none; margin: 0 10px;">Help Center</a>
+                        <span style="color: #334155;">|</span>
+                        <a href="${SITE_URL}/privacy" style="color: #d8b4fe; text-decoration: none; margin: 0 10px;">Privacy</a>
+                        <span style="color: #334155;">|</span>
+                        <a href="${SITE_URL}/terms" style="color: #d8b4fe; text-decoration: none; margin: 0 10px;">Terms</a>
                       </td>
                     </tr>
                   </table>
@@ -202,14 +213,14 @@ function wrapEmail({ title, content, preheader }) {
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                     <tr>
                       <td align="center" style="font-size: 12px; color: #94a3b8; line-height: 1.8;">
-                        <p style="margin: 0 0 4px; font-weight: 500; color: #64748b;">OjaBridge Marketplace</p>
+                        <p style="margin: 0 0 4px; font-weight: 700; color: #e2e8f0;">OjaBridge Marketplace</p>
                         <p style="margin: 0 0 4px;">Connecting verified vendors with customers across Africa</p>
                         <p style="margin: 0 0 4px;">Lagos, Nigeria</p>
-                        <p style="margin: 12px 0 0;">
-                          <a href="${SITE_URL}" style="color: #6b21a8; text-decoration: none; font-weight: 500;">ojabridge.com</a>
+                        <p style="margin: 10px 0 0;">
+                          <a href="${SITE_URL}" style="color: #a3e635; text-decoration: none; font-weight: 600;">ojabridge.com</a>
                         </p>
-                        <p style="margin: 12px 0 0; font-size: 11px; color: #cbd5e1;">
-                          &copy; ${new Date().getFullYear()} OjaBridge. All rights reserved.
+                        <p style="margin: 10px 0 0; font-size: 11px; color: #64748b;">
+                          &copy; ${year} OjaBridge. All rights reserved.${footerExtraHtml ? `<br>${footerExtraHtml}` : ''}
                         </p>
                       </td>
                     </tr>
@@ -255,84 +266,116 @@ function buildNewsletterEmail({ subject, content, preheader }) {
         body, table, td, p, a, li { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
         body { margin: 0; padding: 0; width: 100% !important; }
         img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f5f7; color: #1a1a2e; }
+        a { text-decoration: none; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #eef0f4; color: #1a1a2e; }
         @media only screen and (max-width: 600px) {
           .email-container { width: 100% !important; }
           .fluid { max-width: 100% !important; height: auto !important; }
-          .mobile-pad { padding-left: 20px !important; padding-right: 20px !important; }
+          .mobile-pad { padding-left: 22px !important; padding-right: 22px !important; }
           .mobile-center { text-align: center !important; }
+          .brand-tagline { display: none !important; }
+          .header-pad { padding: 22px 22px 16px !important; }
+          .content-pad { padding: 26px 22px !important; }
+          .footer-pad { padding: 24px 22px !important; }
         }
       </style>
     </head>
-    <body style="margin:0; padding:0; background-color:#f4f5f7;">
+    <body style="margin:0; padding:0; background-color:#eef0f4;">
       ${preview ? `<div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">${preview}&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>` : ''}
 
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f4f5f7;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#eef0f4;">
         <tr>
-          <td style="padding: 32px 16px;" align="center">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="email-container" style="max-width:600px; width:100%;">
+          <td style="padding: 36px 16px;" align="center">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="email-container" style="max-width:600px; width:100%; border-radius:16px; overflow:hidden;">
 
-              <!-- HEADER — OjaBridge branded header band. No green icon box; tagline stays on one readable line. -->
+              <!-- BRAND BAR — purple→lime split accent (same as all OjaBridge emails) -->
               <tr>
-                <td style="padding: 24px 40px 20px; background-color: #ffffff; border-radius: 14px 14px 0 0; border-bottom: 1px solid #e9ecef;">
+                <td style="padding: 0; font-size: 0; line-height: 0;">
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                     <tr>
-                      <td style="vertical-align: middle; font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.4px; line-height: 1;">
-                        <span style="color: #6b21a8;">Oja</span>Bridge
-                      </td>                                <td align="right" style="vertical-align: middle; font-size: 11px; color: #94a3b8; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; white-space: nowrap; padding-left: 12px;">
-                        Shop &bull; Connect &bull; Grow
+                      <td style="width: 55%; height: 5px; background-color: #6b21a8; font-size: 0; line-height: 0;">&nbsp;</td>
+                      <td style="width: 45%; height: 5px; background-color: #a3e635; font-size: 0; line-height: 0;">&nbsp;</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- HEADER — navy brand band with inline logo mark -->
+              <tr>
+                <td class="header-pad" style="padding: 26px 40px 22px; background-color: #0f172a;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                    <tr>
+                      <td style="vertical-align: middle;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                          <tr>
+                            <td style="vertical-align: middle; padding-right: 11px;">
+                              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse: separate;">
+                                <tr>
+                                  <td style="width: 40px; height: 40px; background-color: #a3e635; border-radius: 10px; text-align: center; vertical-align: middle; font-size: 22px; font-weight: 800; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;">O</td>
+                                </tr>
+                              </table>
+                            </td>
+                            <td style="vertical-align: middle; font-size: 24px; font-weight: 800; color: #ffffff; letter-spacing: -0.4px; line-height: 1.1;">
+                              <span style="color: #d8b4fe;">Oja</span><span style="color: #ffffff;">Bridge</span>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                      <td class="brand-tagline" align="right" style="vertical-align: middle; font-size: 10px; color: #94a3b8; letter-spacing: 2.2px; text-transform: uppercase; font-weight: 700; white-space: nowrap;">
+                        Shop&nbsp;&bull;&nbsp;Connect&nbsp;&bull;&nbsp;Grow
                       </td>
                     </tr>
                   </table>
                 </td>
               </tr>
 
-              <!-- CONTENT — rendered exactly once. -->
+              <!-- NEWSLETTER TITLE + CONTENT — rendered exactly once. -->
               <tr>
-                <td style="padding: 28px 40px; background-color: #ffffff;" class="mobile-pad">
+                <td class="content-pad" style="padding: 32px 40px 28px; background-color: #ffffff;">
+                  <h1 style="margin: 0 0 22px; font-size: 24px; font-weight: 800; color: #0f172a; line-height: 1.3; letter-spacing: -0.3px; border-bottom: 3px solid #a3e635; display: inline-block; padding-bottom: 8px;">${title}</h1>
                   ${bodyContent || '<p style="color:#94a3b8; font-size:14px;">Your newsletter content will appear here.</p>'}
                 </td>
               </tr>
 
-              <!-- FOOTER -->
+              <!-- FOOTER — navy brand footer with lime accent -->
               <tr>
-                <td style="padding: 28px 40px; background-color: #f4f5f7; border-radius: 0 0 14px 14px;">
+                <td class="footer-pad" style="padding: 30px 40px 28px; background-color: #0f172a;">
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                     <tr>
                       <td align="center" style="padding-bottom: 16px;">
                         <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                           <tr>
-                            <td style="padding: 0 6px;"><a href="https://facebook.com/ojabridge" style="display:inline-block; width:32px; height:32px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:32px; color:#64748b; text-decoration:none; font-size:13px; font-weight:600;">f</a></td>
-                            <td style="padding: 0 6px;"><a href="https://x.com/ojabridge" style="display:inline-block; width:32px; height:32px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:32px; color:#64748b; text-decoration:none; font-size:13px; font-weight:600;">X</a></td>
-                            <td style="padding: 0 6px;"><a href="https://linkedin.com/company/ojabridge" style="display:inline-block; width:32px; height:32px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:32px; color:#64748b; text-decoration:none; font-size:13px; font-weight:600;">in</a></td>
-                            <td style="padding: 0 6px;"><a href="https://instagram.com/ojabridge" style="display:inline-block; width:32px; height:32px; background-color:#e2e8f0; border-radius:50%; text-align:center; line-height:32px; color:#64748b; text-decoration:none; font-size:13px; font-weight:600;">ig</a></td>
+                            <td style="padding: 0 6px;"><a href="https://facebook.com/ojabridge" style="display:inline-block; width:34px; height:34px; background-color:#1e293b; border-radius:50%; text-align:center; line-height:34px; color:#d8b4fe; text-decoration:none; font-size:13px; font-weight:700;">f</a></td>
+                            <td style="padding: 0 6px;"><a href="https://x.com/ojabridge" style="display:inline-block; width:34px; height:34px; background-color:#1e293b; border-radius:50%; text-align:center; line-height:34px; color:#d8b4fe; text-decoration:none; font-size:12px; font-weight:700;">X</a></td>
+                            <td style="padding: 0 6px;"><a href="https://linkedin.com/company/ojabridge" style="display:inline-block; width:34px; height:34px; background-color:#1e293b; border-radius:50%; text-align:center; line-height:34px; color:#d8b4fe; text-decoration:none; font-size:12px; font-weight:700;">in</a></td>
+                            <td style="padding: 0 6px;"><a href="https://instagram.com/ojabridge" style="display:inline-block; width:34px; height:34px; background-color:#1e293b; border-radius:50%; text-align:center; line-height:34px; color:#d8b4fe; text-decoration:none; font-size:12px; font-weight:700;">ig</a></td>
                           </tr>
                         </table>
                       </td>
                     </tr>
                     <tr>
-                      <td align="center" style="padding-bottom: 12px; font-size: 12px; color:#6b21a8;">
-                        <a href="${SITE_URL}/support" style="color:#6b21a8; text-decoration:none; margin:0 8px;">Help Center</a>
-                        <span style="color:#94a3b8;">|</span>
-                        <a href="${SITE_URL}/privacy" style="color:#6b21a8; text-decoration:none; margin:0 8px;">Privacy</a>
-                        <span style="color:#94a3b8;">|</span>
-                        <a href="${SITE_URL}/terms" style="color:#6b21a8; text-decoration:none; margin:0 8px;">Terms</a>
+                      <td align="center" style="padding-bottom: 12px; font-size: 13px;">
+                        <a href="${SITE_URL}/support" style="color:#d8b4fe; text-decoration:none; margin:0 10px;">Help Center</a>
+                        <span style="color:#334155;">|</span>
+                        <a href="${SITE_URL}/privacy" style="color:#d8b4fe; text-decoration:none; margin:0 10px;">Privacy</a>
+                        <span style="color:#334155;">|</span>
+                        <a href="${SITE_URL}/terms" style="color:#d8b4fe; text-decoration:none; margin:0 10px;">Terms</a>
                       </td>
                     </tr>
                     <tr>
                       <td align="center" style="font-size: 11px; color:#94a3b8; line-height: 1.6;">
-                        <p style="margin:0 0 2px; font-weight:600; color:#64748b;">OjaBridge Marketplace</p>
+                        <p style="margin:0 0 2px; font-weight:700; color:#e2e8f0;">OjaBridge Marketplace</p>
                         <p style="margin:0 0 2px;">Connecting verified vendors with customers across Africa</p>
                         <p style="margin:0 0 2px;">Lagos, Nigeria</p>
                         <p style="margin:8px 0 0;">
-                          <a href="${SITE_URL}" style="color:#6b21a8; text-decoration:none; font-weight:500;">ojabridge.com</a>
+                          <a href="${SITE_URL}" style="color:#a3e635; text-decoration:none; font-weight:600;">ojabridge.com</a>
                         </p>
                         <p style="margin:6px 0 0;">
                           &copy; ${new Date().getFullYear()} OjaBridge. All rights reserved.
                         </p>
-                        <p style="margin:10px 0 0; color:#cbd5e1; font-size:10px;">
+                        <p style="margin:10px 0 0; color:#64748b; font-size:10px;">
                           You received this because you subscribed to OjaBridge updates.
-                          <a href="${SITE_URL}/newsletter/unsubscribe" style="color:#6b21a8; text-decoration:none;">Unsubscribe</a>
+                          <a href="${SITE_URL}/newsletter/unsubscribe" style="color:#d8b4fe; text-decoration:none;">Unsubscribe</a>
                         </p>
                       </td>
                     </tr>
