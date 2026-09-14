@@ -14,6 +14,7 @@
 node_modules/
 .pnp
 .pnp.js
+.local/
 
 # ============================================
 # NEXT.JS BUILD
