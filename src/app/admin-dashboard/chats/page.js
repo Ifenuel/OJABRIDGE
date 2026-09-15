@@ -12,7 +12,6 @@ function AdminLiveChatsPage() {
   const [sending, setSending] = useState(false);
   const [tab, setTab] = useState('all');
   const [adminUser, setAdminUser] = useState(null);
-  const [hasAssignedChats, setHasAssignedChats] = useState(false); // kept for migration only; real value is derived in-tab
 
   // Role flags computed from current adminUser so they are stable across renders.
   // Declared once near the top so statusForTab and the JSX can use them safely.
@@ -39,14 +38,16 @@ function AdminLiveChatsPage() {
     }
   })();
 
-  // Map the visible tab to the status value the backend already understands.
+  // Map the visible tab to backend query params. The backend understands
+  // 'all' | 'open' | 'active' | 'closed' | 'unassigned', plus mine=true for
+  // "only conversations assigned to me".
   const statusForTab = (tabKey) => {
     try {
       if (isSuperAdmin) return tabKey === 'all' ? 'all' : tabKey;
       if (isLiveSupportSubAdmin) {
-        if (tabKey === 'all') return 'all';
-        if (tabKey === 'unassigned') return 'open'; // backend filters assigned_to IS NULL on open
-        return 'all'; // 'my' relies on backend assigned_to filter
+        if (tabKey === 'unassigned') return 'unassigned';
+        if (tabKey === 'my') return 'mine';
+        return 'all';
       }
       return 'all';
     } catch (e) {
@@ -54,6 +55,21 @@ function AdminLiveChatsPage() {
       return 'all';
     }
   };
+  // Mobile master-detail: on phones, tapping a conversation shows the chat pane
+  // (the list is hidden) and a back button returns to the list. On lg+ both
+  // panes show side-by-side as before.
+  const [mobileView, setMobileView] = useState('list'); // 'list' | 'chat'
+  const openConversation = (conv) => {
+    setSelectedConv(conv);
+    setMobileView('chat');
+  };
+  const backToList = () => {
+    setSelectedConv(null);
+    setMessages([]);
+    setMobileView('list');
+  };
+
+  // Role-aware tab model is defined above; the flags are stable across renders.
   const [availableAgents, setAvailableAgents] = useState([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -67,29 +83,25 @@ function AdminLiveChatsPage() {
     } catch {}
   }, []);
 
-  // Keep the default tab stable until the realistic inbox data has arrived.
-  // This avoids switching tabs on stale `hasAssignedChats` and then re-fetching
-  // with a backend filter that could hide conversations the role can see.
+  // One-time default tab for Live Support sub-admins, chosen from the FIRST
+  // inbox payload. Deliberately runs once (ref guard): re-running it on every
+  // fetch is what used to force the visible tab back to All/Open/Active
+  // whenever the conversation list refreshed — the reported filter bug.
+  const initialTabChosenRef = useRef(false);
   useEffect(() => {
-    if (!isLiveSupportSubAdmin) {
-      setTab('all');
-      return;
-    }
-    if (!conversations.length) {
-      // Wait for the first inbox payload before choosing My Chats vs Unassigned.
-      return;
-    }
+    if (!isLiveSupportSubAdmin || initialTabChosenRef.current) return;
+    if (!conversations.length || !adminUser?.id) return;
+    initialTabChosenRef.current = true;
     try {
-      const hasAssignedChats = conversations.some(
-        c => c.assigned_to && (c.assigned_to === adminUser?.id || c.assigned_to_name)
+      const hasMine = conversations.some(
+        c => c.assigned_to && (c.assigned_to === adminUser.id || c.assigned_to_name)
       );
-      setHasAssignedChats(!!hasAssignedChats);
-      setTab(hasAssignedChats ? 'my' : 'unassigned');
+      setTab(hasMine ? 'my' : 'unassigned');
     } catch (e) {
-      console.error('[AdminLiveChats] tab effect error:', e);
+      console.error('[AdminLiveChats] initial tab error:', e);
       setTab('unassigned');
     }
-  }, [adminUser, isLiveSupportSubAdmin, conversations]);
+  }, [conversations, adminUser, isLiveSupportSubAdmin]);
 
   const loadAgents = async () => {
     if (!assignMenuOpen) return;
@@ -104,10 +116,17 @@ function AdminLiveChatsPage() {
     setAgentsLoading(false);
   };
 
-  let loadConversationsPrev = loadConversations;
+  // NOTE: the previous `let loadConversationsPrev = loadConversations;` line
+  // above this declaration was a temporal-dead-zone ReferenceError — it read
+  // the const one line before initialization, crashing the whole page on
+  // every render. Removed; it served no purpose.
   const loadConversations = async () => {
     try {
-      const res = await fetch(`/api/admin/live-chat?status=${statusForTab(tab)}`, { credentials: 'include' });
+      const status = statusForTab(tab);
+      const mine = status === 'mine';
+      const qs = new URLSearchParams({ status: mine ? 'all' : status });
+      if (mine) qs.set('mine', '1');
+      const res = await fetch(`/api/admin/live-chat?${qs.toString()}`, { credentials: 'include' });
       const data = await res.json();
       if (data.success) setConversations(data.conversations || []);
     } catch (e) {
@@ -115,23 +134,8 @@ function AdminLiveChatsPage() {
     }
     setLoading(false);
   };
-  loadConversationsPrev = loadConversations;
 
   useEffect(() => { loadConversations(); }, [tab]);
-
-  useEffect(() => {
-    try {
-      if (!isLiveSupportSubAdmin) {
-        setHasAssignedChats(false);
-        return;
-      }
-      const yes = conversations.some(c => c.assigned_to && (c.assigned_to === adminUser?.id || c.assigned_to_name));
-      setHasAssignedChats(!!yes);
-    } catch (e) {
-      console.error('[AdminLiveChats] hasAssignedChats error:', e);
-      setHasAssignedChats(false);
-    }
-  }, [conversations, adminUser, isLiveSupportSubAdmin]);
 
   const loadMessages = async (convId) => {
     try {
@@ -352,7 +356,7 @@ function AdminLiveChatsPage() {
 
       <div className="flex flex-col lg:flex-row gap-4 lg:h-[calc(100dvh-220px)] lg:min-h-[400px]" style={mobileChatHeight ? { height: mobileChatHeight } : undefined}>
         {/* Conversations List */}
-        <div className="w-full lg:w-96 lg:flex-none bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden max-h-[60dvh] lg:max-h-none" style={mobileChatHeight ? { maxHeight: mobileChatHeight } : undefined}>
+        <div className={`${mobileView === 'chat' ? 'hidden lg:flex' : 'flex'} w-full lg:w-96 lg:flex-none bg-white rounded-xl border border-gray-100 flex-col overflow-hidden max-h-[60dvh] lg:max-h-none`} style={mobileChatHeight ? { maxHeight: mobileChatHeight } : undefined}>
           {/* Filter tabs */}
               <div className="flex border-b border-gray-100 px-2 pt-2 overflow-x-auto">
             {tabs.map(t => (
@@ -378,7 +382,7 @@ function AdminLiveChatsPage() {
               </div>
             ) : (
               conversations.map(conv => (
-                <button key={conv.id} onClick={() => setSelectedConv(conv)}
+                <button key={conv.id} onClick={() => openConversation(conv)}
                   className={`w-full text-left px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${
                     selectedConv?.id === conv.id ? 'bg-ob-purple/5 border-l-2 border-l-ob-purple' : ''
                   }`}>
@@ -416,7 +420,7 @@ function AdminLiveChatsPage() {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 min-h-0 bg-white rounded-xl border border-gray-100 flex flex-col overflow-hidden">
+        <div className={`${mobileView === 'chat' ? 'flex' : 'hidden lg:flex'} flex-1 min-h-0 bg-white rounded-xl border border-gray-100 flex-col overflow-hidden`} style={mobileView === 'chat' && mobileChatHeight ? { height: mobileChatHeight } : undefined}>
           {!selectedConv ? (
             <div className="flex-1 flex items-center justify-center text-gray-400">
               <div className="text-center">
@@ -431,9 +435,22 @@ function AdminLiveChatsPage() {
             <>
               {/* Chat Header */}
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2 flex-wrap">
-                <div>
-                  <h3 className="font-semibold text-sm text-gray-900">{selectedConv.user_name || 'Guest User'}</h3>
-                  <p className="text-xs text-gray-500">{selectedConv.user_email} · {selectedConv.user_role}</p>
+                <div className="flex items-center gap-2 min-w-0">
+                  {/* Back to list — mobile only (iPhone/Android master-detail) */}
+                  <button
+                    type="button"
+                    onClick={backToList}
+                    className="lg:hidden flex items-center justify-center w-8 h-8 flex-shrink-0 rounded-lg text-gray-500 hover:bg-gray-100 active:bg-gray-200 transition-colors"
+                    aria-label="Back to conversations"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <div className="min-w-0">
+                  <h3 className="font-semibold text-sm text-gray-900 truncate">{selectedConv.user_name || 'Guest User'}</h3>
+                  <p className="text-xs text-gray-500 truncate">{selectedConv.user_email} · {selectedConv.user_role}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Assign-to control — only shown to Super Admin */}

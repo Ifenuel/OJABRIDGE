@@ -4,23 +4,31 @@ async function addChatTables() {
   console.log('Creating chat tables...\n');
 
   try {
-    // chat_conversations
+    // chat_conversations (full columns — inbox + assignment flow depend on them)
     await dbRaw(`
       CREATE TABLE IF NOT EXISTS chat_conversations (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        user_name VARCHAR(255),
+        user_email VARCHAR(255),
+        user_role VARCHAR(50) DEFAULT 'customer',
+        assigned_to UUID,
+        assigned_to_name VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'open',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       )
     `);
     console.log('✅ chat_conversations table created');
 
-    // chat_messages
+    // chat_messages (staff replies use role='support' or 'admin')
     await dbRaw(`
       CREATE TABLE IF NOT EXISTS chat_messages (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         conversation_id UUID REFERENCES chat_conversations(id) ON DELETE CASCADE,
-        role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+        sender_id UUID,
+        sender_name VARCHAR(255),
+        role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'support', 'admin', 'assistant', 'system')),
         content TEXT NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW()
       )

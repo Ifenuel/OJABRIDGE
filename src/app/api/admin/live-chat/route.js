@@ -17,6 +17,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get('conversationId');
     const status = searchParams.get('status') || 'all';
+    const mine = searchParams.get('mine') === '1';
 
     if (conversationId) {
       // Get messages for a specific conversation.
@@ -88,11 +89,15 @@ export async function GET(request) {
       params.push(user.id);
       params.push(user.id); // same user_id used for both lookups
 
-      // When the UI asks for the 'unassigned' tab, narrow server-side to unassigned/open
-      // so the inbox list is focused, but never exclude conversations that belong to this
-      // role just because the UI tab key does not match their assignment state.
+      // Explicit inbox filters, server-side. The UI sends status='unassigned'
+      // or status='mine' (previously 'unassigned' was sent as 'open' — which
+      // the backend ignored — and 'mine' had no backend filter at all).
       if (status === 'unassigned') {
         whereClauses.push(`c.assigned_to IS NULL`);
+      } else if (status === 'mine') {
+        whereClauses.push(`(c.assigned_to = $${params.length + 1} OR c.assigned_to = $${params.length + 2})`);
+        params.push(user.id);
+        params.push(user.id);
       }
     } else {
       // Any other authorized user with live-chats permission (defensive) — no conversations.
